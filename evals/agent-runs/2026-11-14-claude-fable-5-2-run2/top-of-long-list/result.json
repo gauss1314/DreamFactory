@@ -1,0 +1,54 @@
+{
+  "case": "top-of-long-list",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 34.533
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "60adbf48422d"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "f41dc87246d8"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "success",
+    "turns": 12,
+    "toolUses": 11,
+    "wallSec": 97,
+    "costUsd": 0.67,
+    "tokens": {
+      "input": 14,
+      "output": 4841,
+      "cacheRead": 317121,
+      "cacheWrite": 25983
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"cat > task/film.json <<'EOF'\\n{\\n  \\\"vertical\\\": \\\"data-story\\\",\\n  \\\"lang\\\": \\\"zh\\\",\\n  \\\"title\\\": \\\"24 个品类",
+      "Bash: {\"command\":\"node -e '\\nconst fs=require(\\\"fs\\\");const p=\\\"task/film.json\\\";const f=JSON.parse(fs.readFileSync(p));\\nf.sc"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检已通过，片长 34.5 秒；唯一没有结果的一项是“听写核对”，因为管线还没有接入语音识别而被跳过。\n\n管线共跑了 2 次，返工 1 轮：\n\n1. **第 1 次（`--no-video`）**：写出 `task/film.json` 初稿，共 4 个场景：开场、前 6 名条形图、第一名大数字、收尾。文字层检查全部通过，但片长 42.7 秒，比简报要的 35 秒左右偏长。\n2. **第 2 次（`--draft`）**：删掉与条形图重复的“第一名大数字”场景和开场的一句旁白，把给创作者的建议并入收尾。画面和声音检查全部通过。\n\n前 6 名是我从乱序数据里挑出来的：科普动画 521、教程 455、知识讲解 412、产品演示 388、游戏实况 367、编程教学 344。片中数字全部用数据引用，开头的角标和结尾的旁白都说明了这是虚构示例数据。\n\n只改了 `task/film.json`，没有写 `scenes.js`。第 2 轮的抽帧图我没有再看，只看了第 1 轮的；成片（去掉 `--draft`）也还没有出。"
+}
