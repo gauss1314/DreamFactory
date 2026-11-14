@@ -1,0 +1,25 @@
+{
+  "source": {
+    "name": "示例数据（虚构，仅用于评测）",
+    "asOf": "2026-12-31"
+  },
+  "facts": {
+    "year": "2026"
+  },
+  "series": {
+    "monthly": [
+      { "label": "1月", "value": 42 },
+      { "label": "2月", "value": 51 },
+      { "label": "3月", "value": 48 },
+      { "label": "4月", "value": 67 },
+      { "label": "5月", "value": 73 },
+      { "label": "6月", "value": 88 },
+      { "label": "7月", "value": 132 },
+      { "label": "8月", "value": 156 },
+      { "label": "9月", "value": 149 },
+      { "label": "10月", "value": 418 },
+      { "label": "11月", "value": 531 },
+      { "label": "12月", "value": 502 }
+    ]
+  }
+}

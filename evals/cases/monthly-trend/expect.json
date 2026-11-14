@@ -1,0 +1,11 @@
+{
+  "duration": [20, 60],
+  "requireCustomScene": true,
+  "mustShow": [
+    "series.monthly[1月]",
+    "series.monthly[9月]",
+    "series.monthly[10月]",
+    "series.monthly[11月]"
+  ],
+  "mustSay": ["series.monthly[10月]", "series.monthly[11月]"]
+}

@@ -1,0 +1,55 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "这家工作室一年里变了多少",
+  "source": "数据来源：{{source.name}}",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "数据故事",
+      "headline": "一年里，这家工作室变了多少？",
+      "sub": "一家小型工作室的讲解视频，示例数据",
+      "narration": [
+        "一家小型工作室，一年里变了多少？"
+      ]
+    },
+    {
+      "id": "films",
+      "type": "bars",
+      "title": "一年做出多少支片子",
+      "sub": "单位：{{units.films}}",
+      "series": {
+        "$": "series.films"
+      },
+      "highlight": "2026 年",
+      "narration": [
+        "2025年做了{{series.films[2025 年]}}支。",
+        "2026年做了{{series.films[2026 年]}}支。"
+      ]
+    },
+    {
+      "id": "cost",
+      "type": "bars",
+      "title": "每支片子花多少钱",
+      "sub": "单位：{{units.costPerFilm}}",
+      "series": {
+        "$": "series.costPerFilm"
+      },
+      "highlight": "2026 年",
+      "narration": [
+        "单片成本从{{series.costPerFilm[2025 年]}}元，",
+        "降到了{{series.costPerFilm[2026 年]}}元。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "产量上去了，成本下来了",
+      "sub": "示例数据，仅用于演示",
+      "narration": [
+        "产量上去了，成本下来了。"
+      ]
+    }
+  ]
+}

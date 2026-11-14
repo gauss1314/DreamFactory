@@ -24,6 +24,14 @@ function rise(el, p, dy = 28) {
   el.style.transform = dy ? `translateY(${(1 - p) * dy}px)` : '';
 }
 
+/** Create an SVG element with attributes. */
+function svg(tag, attrs, parent) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
 function chartHead(scene, root) {
   h('h2', 'chart-title', scene.title, root);
   if (scene.sub) h('div', 'chart-sub', scene.sub, root);
@@ -82,6 +90,7 @@ const builders = {
       label.dataset.dfBox = '';
       const track = h('div', 'row-track', null, row);
       const fill = h('div', 'bar-fill', null, track);
+      fill.dataset.dfValue = String(it.value);
       const value = h('div', 'bar-value', fmt(it.value) + (scene.unit || ''), track);
       if (scene.showShare) h('span', 'bar-share', `${Math.round((100 * it.value) / total)}%`, value);
       return { label, fill, value, frac: it.value / max };
@@ -143,6 +152,16 @@ const builders = {
   },
 };
 
+// What scene code may use. A film can bring its own scenes in scenes.js (see DIRECTOR.md).
+const kit = { h, svg, rise, ease, clamp, fmt, chartHead };
+if (film.customScenes) {
+  const custom = (await import('/film/scenes.js')).default || {};
+  for (const [name, build] of Object.entries(custom)) {
+    if (builders[name]) throw new Error(`custom scene "${name}" has the name of a built-in scene`);
+    builders[name] = build;
+  }
+}
+
 const scenesEl = document.getElementById('scenes');
 const scenes = film.scenes.map((scene, i) => {
   const span = timeline.scenes[i];
@@ -151,7 +170,8 @@ const scenes = film.scenes.map((scene, i) => {
   root.dataset.dfBox = '';
   const build = builders[scene.type];
   if (!build) throw new Error(`unknown scene type "${scene.type}" in scene "${scene.id}"`);
-  const update = build(scene, root);
+  const update = build(scene, root, kit);
+  if (typeof update !== 'function') throw new Error(`scene type "${scene.type}" must return an update function`);
   const lines = span.lines.map((l) => ({ ...l, start: l.start - span.start, end: l.end - span.start }));
   return { root, update, lines, start: span.start, end: span.end };
 });

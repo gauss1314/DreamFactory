@@ -17,7 +17,8 @@ const VERTICALS = {
 /**
  * @param {string} filmDir  holds film.json, data.json and optionally expect.json
  * @param {object} opts     draft, video (false = text-level checks only), tts, only, outDir,
- *                          film/data/expect (in-memory overrides, used by the evals), log (false = no run log)
+ *                          film/data/expect (in-memory overrides, used by the evals), log (false = no run log),
+ *                          scenes (source of custom scene code; null = none; default: scenes.js in filmDir)
  */
 export async function runFilm(filmDir, opts = {}) {
   const started = Date.now();
@@ -34,10 +35,17 @@ export async function runFilm(filmDir, opts = {}) {
 
   // Script -> timeline. Narration is synthesized here; its length sets the pace.
   const resolved = resolveFilm(film, data);
+  // A film may bring its own scene code: scenes.js next to film.json.
+  const scenesFile = path.join(filmDir, 'scenes.js');
+  const scenesSource = opts.scenes !== undefined ? opts.scenes : fs.existsSync(scenesFile) ? fs.readFileSync(scenesFile, 'utf8') : null;
+  resolved.customScenes = Boolean(scenesSource);
   const backend = pickBackend(opts.tts ?? film.voice?.backend);
   const timeline = await buildTimeline({ resolved, outDir, backend, vertical });
   resolved.timeline = timeline;
   writeJson(path.join(outDir, 'build', 'film.resolved.json'), resolved);
+  const builtScenes = path.join(outDir, 'build', 'scenes.js');
+  if (scenesSource) fs.writeFileSync(builtScenes, scenesSource);
+  else fs.rmSync(builtScenes, { force: true });
   const audio = await mixNarration({ timeline, outDir });
 
   // Picture: read the text back from the live page, then render if asked.
@@ -53,7 +61,7 @@ export async function runFilm(filmDir, opts = {}) {
   }
 
   const ctx = {
-    film, resolved, data, expect, timeline, sampling, audio, video,
+    film, resolved, data, expect, timeline, sampling, audio, video, vertical,
     render: video && { width: video.width, height: video.height, fps: video.fps },
     media: video ? await probe(video.file) : null,
   };
@@ -78,7 +86,7 @@ export async function runFilm(filmDir, opts = {}) {
     const entry = {
       at: new Date().toISOString(),
       round: prior.length + 1,
-      filmVersion: hash(JSON.stringify(film)),
+      filmVersion: hash(JSON.stringify(film) + (scenesSource ?? '')),
       passed: report.passed,
       failed,
       draft,

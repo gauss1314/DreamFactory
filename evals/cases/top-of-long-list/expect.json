@@ -1,0 +1,19 @@
+{
+  "duration": [
+    20,
+    60
+  ],
+  "mustShow": [
+    "facts.categoryCount",
+    "series.categories[科普动画]",
+    "series.categories[教程]",
+    "series.categories[知识讲解]",
+    "series.categories[产品演示]",
+    "series.categories[游戏实况]",
+    "series.categories[编程教学]"
+  ],
+  "mustSay": [
+    "facts.categoryCount",
+    "series.categories[科普动画]"
+  ]
+}

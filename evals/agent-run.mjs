@@ -26,7 +26,7 @@ if (args.includes('--help')) {
   让模型在没有人值守的情况下完成每个用例，并记录轮数、费用和结果。
   需要已登录的 Claude Code 命令行（claude）。
 
-  --only <id>       只跑一个用例
+  --only <a,b>      只跑指定的用例
   --model <名称>    指定模型，默认用命令行当前配置的模型
   --jobs <n>        同时跑几个，默认 3
   --budget <美元>   每个用例的费用上限，默认 8
@@ -35,7 +35,7 @@ if (args.includes('--help')) {
   --label <名称>    结果目录名，默认是 日期-模型`);
   process.exit(0);
 }
-const only = value('--only');
+const only = value('--only')?.split(',');
 const model = value('--model');
 const jobs = Number(value('--jobs') ?? 3);
 const budget = Number(value('--budget') ?? 8);
@@ -48,7 +48,7 @@ const PROMPT = `你在一条做数据短片的管线里工作。这次没有人�
 先读 DIRECTOR.md，按它的流程写出 task/film.json，直到草稿渲染（--draft）的自检全部通过。
 
 限制：
-- 只能新建和修改 task/film.json，不要改动其他任何文件。
+- 只能新建和修改 task/film.json，以及确有需要时的 task/scenes.js，不要改动其他任何文件。
 - 按 DIRECTOR.md 的规定最多返工 3 轮；仍不通过就停下，说明卡在哪里。
 
 结束时用三五句话报告：是否通过、管线跑了几次、每次改了什么。`;
@@ -136,7 +136,9 @@ async function runCase(id) {
   const { result, toolUses, readsOutsideWorkspace } = readTranscript(transcript, ws);
 
   const filmFile = path.join(task, 'film.json');
+  const scenesFile = path.join(task, 'scenes.js');
   const delivered = fs.existsSync(filmFile);
+  const scenes = fs.existsSync(scenesFile) ? fs.readFileSync(scenesFile, 'utf8') : null;
   const logFile = path.join(task, 'out', 'runs.jsonl');
   const roundLog = fs.existsSync(logFile)
     ? fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
@@ -147,7 +149,7 @@ async function runCase(id) {
   let verified = { passed: false, failed: ['(没有交付 film.json)'], durationSec: null };
   if (delivered) {
     try {
-      const r = await runFilm(src, { film: JSON.parse(fs.readFileSync(filmFile, 'utf8')), draft: true, log: false, outDir: path.join(workRoot, `${id}.verify`) });
+      const r = await runFilm(src, { film: JSON.parse(fs.readFileSync(filmFile, 'utf8')), scenes, draft: true, log: false, outDir: path.join(workRoot, `${id}.verify`) });
       verified = { passed: r.passed, failed: r.failed, durationSec: r.durationSec };
     } catch (e) {
       verified = { passed: false, failed: [`(运行出错：${e.message.split('\n')[0]})`], durationSec: null };
@@ -161,6 +163,7 @@ async function runCase(id) {
     case: id,
     model: mainModel,
     delivered,
+    customScene: Boolean(scenes),
     verified,
     pipelineRuns: roundLog.length,
     failedRuns: roundLog.filter((r) => !r.passed).length,
@@ -182,13 +185,13 @@ async function runCase(id) {
       readsOutsideWorkspace,
     },
     report: result?.result ?? cli.stderr.slice(-600),
-    files: { film: delivered ? filmFile : null, runs: fs.existsSync(logFile) ? logFile : null },
+    files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, runs: fs.existsSync(logFile) ? logFile : null },
   };
   console.log(`${verified.passed ? '通过  ' : '未通过'} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
   return record;
 }
 
-const ids = fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || d === only);
+const ids = fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || only.includes(d));
 const records = new Array(ids.length);
 let next = 0;
 await Promise.all(
@@ -208,6 +211,7 @@ for (const r of records) {
   const dir = path.join(outDir, r.case);
   fs.mkdirSync(dir, { recursive: true });
   if (r.files.film) fs.copyFileSync(r.files.film, path.join(dir, 'film.json'));
+  if (r.files.scenes) fs.copyFileSync(r.files.scenes, path.join(dir, 'scenes.js'));
   if (r.files.runs) fs.copyFileSync(r.files.runs, path.join(dir, 'runs.jsonl'));
   const { files, ...rest } = r;
   fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(rest, null, 2) + '\n');
@@ -223,10 +227,10 @@ const md = [
   '',
   `模型 ${records[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
   '',
-  '| 用例 | 复验 | 管线运行 | 其中未通过 | 分镜版本 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  '| 用例 | 复验 | 管线运行 | 其中未通过 | 分镜版本 | 写了场景代码 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...records.map((r) =>
-    `| ${r.case} | ${r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
+    `| ${r.case} | ${r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.customScene ? '是' : ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
   '',
   '- **复验**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检。',
   '- **管线运行**：模型自己调用管线的次数，含只查文字层的快速运行。',

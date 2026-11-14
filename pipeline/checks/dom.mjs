@@ -25,6 +25,10 @@ export const spec = {
     const [min, max] = ctx.expect.duration ?? [0, Infinity];
     if (d < min || d > max) problems.push(`片长 ${d.toFixed(1)} 秒，要求 ${min}–${max} 秒`);
     for (const e of ctx.sampling.pageErrors) problems.push(`页面报错：${clip(e, 80)}`);
+    const builtin = new Set(ctx.vertical.builtinScenes);
+    if (ctx.expect.requireCustomScene && !ctx.resolved.scenes.some((sc) => !builtin.has(sc.type))) {
+      problems.push('任务要求的画面内置场景做不出来，需要自定义场景，但影片里只有内置场景');
+    }
     const m = ctx.media;
     if (m) {
       const v = m.video;
@@ -262,7 +266,7 @@ export const subtitles = {
 
 export const typography = {
   id: 'typography',
-  title: '文字规范：没有重复的标点、残留的模板符号、空括号',
+  title: '文字规范：没有重复的标点、残留的模板符号、空括号、带千分位的年份',
   tier: 'dom',
   run(ctx) {
     const rules = [
@@ -270,6 +274,7 @@ export const typography = {
       [/([，。、；：？！,;:?!])\1+/, '重复的标点'],
       [/\{\{|\}\}/, '残留的模板符号'],
       [/（\s*）|\(\s*\)/, '空括号'],
+      [/(?<![\d,])[12],\d{3}\s?年/, '年份带了千分位'],
     ];
     const problems = new Map();
     const scan = (text, where) => {
@@ -280,6 +285,61 @@ export const typography = {
     }
     for (const sc of ctx.timeline.scenes) for (const line of sc.lines) scan(line.display, '旁白');
     return result([...problems.values()], '没有发现文字规范问题');
+  },
+};
+
+export const marks = {
+  id: 'marks',
+  title: '图形：标了数值的图形，长短高低与数值一致',
+  tier: 'dom',
+  run(ctx) {
+    const allowed = allowedNumbers(ctx.data);
+    const problems = [];
+    const groups = new Map();
+    for (const s of ctx.sampling.samples) {
+      for (const m of s.marks ?? []) {
+        const key = `${m.scene}/${m.group}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(m);
+      }
+    }
+    // Scene code written for one film has to say which shape stands for which number.
+    const builtin = new Set(ctx.vertical.builtinScenes);
+    for (const sc of ctx.resolved.scenes) {
+      if (builtin.has(sc.type) || !sc.usesData) continue;
+      if (![...groups.keys()].some((k) => k.startsWith(`${sc.id}/`))) {
+        problems.push(`自定义场景 ${sc.id} 用了数据，但没有给图形标 data-df-value`);
+      }
+    }
+    let compared = 0;
+    for (const [key, list] of groups) {
+      const stray = [...new Set(list.map((m) => m.value))].filter((v) => !hasNumber(allowed, v));
+      for (const v of stray) problems.push(`图形标注的数值 ${v} 不在数据里（${key}）`);
+      if (new Set(list.map((m) => m.value)).size < 3) continue;
+      compared++;
+      const sorted = [...list].sort((a, b) => a.value - b.value);
+      // A larger value must be longer, taller, higher up or further right, on at least one of these.
+      const need = Math.max(3, Math.ceil(new Set(list.map((m) => m.value)).size / 2));
+      const follows = (get) =>
+        new Set(sorted.map((m) => Math.round(get(m)))).size >= need &&
+        sorted.every((m, i) => i === 0 || (sorted[i - 1].value === m.value ? Math.abs(get(m) - get(sorted[i - 1])) <= 1 : get(m) >= get(sorted[i - 1]) - 0.5));
+      const ok = [(m) => m.w, (m) => m.h, (m) => -m.cy, (m) => m.cx].some(follows);
+      if (!ok) problems.push(`图形与数值不一致（${key}）：数值大的图形应该更长、更高或位置更靠上`);
+    }
+    return result(problems, compared ? `${compared} 组图形与数值一致` : '没有可比较的图形');
+  },
+};
+
+export const determinism = {
+  id: 'determinism',
+  title: '可重复：同一时刻重画，画面一致',
+  tier: 'dom',
+  run(ctx) {
+    // Above one pixel in ten thousand. Browser anti-aliasing noise measured far below that.
+    const problems = ctx.sampling.repeat
+      .filter((r) => r.changed > 1e-4)
+      .map((r) => `${fmtT(r.t)} 重画后有 ${(r.changed * 100).toFixed(2)}% 的像素不同，画面不能依赖随机数、时钟或上一帧`);
+    return result(problems, `抽查 ${ctx.sampling.repeat.length} 个时刻，重画结果一致`);
   },
 };
 

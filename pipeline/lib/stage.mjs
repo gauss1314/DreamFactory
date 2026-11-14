@@ -84,10 +84,30 @@ function readTexts() {
       y: r.top + inset,
       w: r.width,
       h: r.height - 2 * inset,
-      color: cs.color,
+      color: el instanceof SVGElement ? cs.fill : cs.color,
       fontSize,
       box: b ? { x: b.left, y: b.top, w: b.width, h: b.height } : null,
       scene: sceneEl ? sceneEl.dataset.scene : '',
+    });
+  }
+  return out;
+}
+
+/** Runs in the page: every shape that declares the data value it stands for. */
+function readMarks() {
+  const out = [];
+  for (const el of document.querySelectorAll('[data-df-value]')) {
+    if (el.getClientRects().length === 0) continue;
+    const r = el.getBoundingClientRect();
+    const sceneEl = el.closest('[data-scene]');
+    out.push({
+      value: Number(el.dataset.dfValue),
+      group: el.dataset.dfGroup || 'default',
+      scene: sceneEl ? sceneEl.dataset.scene : '',
+      w: r.width,
+      h: r.height,
+      cx: r.left + r.width / 2,
+      cy: r.top + r.height / 2,
     });
   }
   return out;
@@ -140,6 +160,25 @@ async function measureContrast({ png, items, scale }) {
   });
 }
 
+/** Runs in the page: the share of pixels that clearly differ between two screenshots. */
+async function pixelDifference({ a, b }) {
+  const load = async (png) => {
+    const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+    const g = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    return g.getImageData(0, 0, bmp.width, bmp.height);
+  };
+  const A = await load(a);
+  const B = await load(b);
+  if (A.width !== B.width || A.height !== B.height) return 1;
+  let strong = 0;
+  for (let i = 0; i < A.data.length; i += 4) {
+    const d = Math.max(Math.abs(A.data[i] - B.data[i]), Math.abs(A.data[i + 1] - B.data[i + 1]), Math.abs(A.data[i + 2] - B.data[i + 2]));
+    if (d > 32) strong++;
+  }
+  return strong / (A.width * A.height);
+}
+
 /** Runs in the page: are CJK glyphs really drawn, or is the font falling back to empty boxes? */
 function cjkGlyphsDraw() {
   const family = getComputedStyle(document.getElementById('stage') || document.body).fontFamily;
@@ -166,7 +205,8 @@ export const SAMPLE_STEP = 0.25;
 
 /**
  * Walk the film once: read text on a fixed grid (plus the midpoint of every narration line and
- * scene), measure contrast once a second, and tile a contact sheet for the agent to look at.
+ * scene), measure contrast once a second, read data marks once each scene has settled, tile a
+ * contact sheet for the agent to look at, and redraw a few moments to see that they repeat.
  */
 export async function sampleFilm(stage, timeline, { contactFile } = {}) {
   const times = new Map();
@@ -175,6 +215,9 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
   for (const scene of timeline.scenes) {
     const mid = ((scene.start + scene.end) / 2).toFixed(3);
     if (!times.has(mid)) times.set(mid, { grid: false });
+    // Late in the scene every animation has finished and the exit fade has not started.
+    const settled = Math.max(scene.start, scene.end - 0.4).toFixed(3);
+    times.set(settled, { ...(times.get(settled) ?? { grid: false }), marks: true });
     for (const line of scene.lines) {
       const m = ((line.start + line.end) / 2).toFixed(3);
       if (!times.has(m)) times.set(m, { grid: false });
@@ -216,7 +259,7 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
         sheetFrames++;
       }
     }
-    samples.push({ t, grid: meta.grid, texts });
+    samples.push({ t, grid: meta.grid, texts, marks: meta.marks ? await stage.page.evaluate(readMarks) : null });
   }
   if (sheet) {
     await new Promise((resolve) => {
@@ -224,6 +267,22 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
       sheet.stdin.end();
     });
   }
+  // The picture must depend on time alone: draw a moment, go elsewhere, come back, compare.
+  // The browser itself is not bit-exact (a few dozen anti-aliased pixels can differ on a redraw),
+  // so the comparison counts clearly different pixels instead of comparing bytes.
+  const repeat = [];
+  const shot = () => stage.page.screenshot({ type: 'png' });
+  for (const f of [0.3, 0.55, 0.8]) {
+    const t = Math.round(timeline.duration * f * 30) / 30;
+    await stage.seek(t);
+    const first = await shot();
+    await stage.seek(Math.max(0, t - 1.7));
+    await stage.seek(Math.min(timeline.duration - 0.001, t + 2.3));
+    await stage.seek(t);
+    const second = await shot();
+    const changed = first.equals(second) ? 0 : await stage.page.evaluate(pixelDifference, { a: first.toString('base64'), b: second.toString('base64') });
+    repeat.push({ t, changed });
+  }
   const cjkOk = await stage.page.evaluate(cjkGlyphsDraw);
-  return { samples, cjkOk, sheetFrames, pageErrors: stage.errors };
+  return { samples, repeat, cjkOk, sheetFrames, pageErrors: stage.errors };
 }

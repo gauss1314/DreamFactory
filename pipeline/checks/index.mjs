@@ -11,6 +11,8 @@ export const CHECKS = [
   dom.subtitles,
   dom.typography,
   dom.emptyFrames,
+  dom.marks,
+  dom.determinism,
   dom.fonts,
   media.videoStillness,
   media.audioLevels,

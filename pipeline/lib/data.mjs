@@ -104,11 +104,15 @@ export function resolveFilm(film, data) {
   return out;
 }
 
-/** Every number a film may show or say: the values in data.json plus series totals and shares. */
+/**
+ * Every number a film may show or say: the values in data.json, numbers written inside its labels
+ * ("7月"), plus series totals and shares. The source block is metadata and does not count.
+ */
 export function allowedNumbers(data) {
   const set = new Set();
   const walk = (v) => {
     if (typeof v === 'number') set.add(v);
+    else if (typeof v === 'string') extractNumbers(v).forEach((n) => set.add(n.value));
     else if (Array.isArray(v)) {
       if (v.length && v.every((it) => it && typeof it === 'object' && typeof it.value === 'number')) {
         const total = v.reduce((a, it) => a + it.value, 0);
@@ -121,7 +125,7 @@ export function allowedNumbers(data) {
       v.forEach(walk);
     } else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
-  walk(data);
+  for (const [key, v] of Object.entries(data)) if (key !== 'source') walk(v);
   return set;
 }
 

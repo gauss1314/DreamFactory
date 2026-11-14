@@ -1,0 +1,110 @@
+{
+  "source": {
+    "name": "示例数据（虚构，仅用于评测）",
+    "asOf": "2026-12-31"
+  },
+  "facts": {
+    "categoryCount": 24,
+    "topN": 6
+  },
+  "series": {
+    "categories": [
+      {
+        "label": "知识讲解",
+        "value": 412
+      },
+      {
+        "label": "产品演示",
+        "value": 388
+      },
+      {
+        "label": "数据新闻",
+        "value": 141
+      },
+      {
+        "label": "游戏实况",
+        "value": 367
+      },
+      {
+        "label": "音乐可视化",
+        "value": 96
+      },
+      {
+        "label": "教程",
+        "value": 455
+      },
+      {
+        "label": "新闻快讯",
+        "value": 208
+      },
+      {
+        "label": "影评",
+        "value": 73
+      },
+      {
+        "label": "科普动画",
+        "value": 521
+      },
+      {
+        "label": "体育集锦",
+        "value": 64
+      },
+      {
+        "label": "财经解读",
+        "value": 233
+      },
+      {
+        "label": "历史故事",
+        "value": 187
+      },
+      {
+        "label": "美食",
+        "value": 58
+      },
+      {
+        "label": "旅行",
+        "value": 49
+      },
+      {
+        "label": "编程教学",
+        "value": 344
+      },
+      {
+        "label": "读书笔记",
+        "value": 112
+      },
+      {
+        "label": "汽车",
+        "value": 37
+      },
+      {
+        "label": "数码评测",
+        "value": 276
+      },
+      {
+        "label": "健身",
+        "value": 44
+      },
+      {
+        "label": "育儿",
+        "value": 29
+      },
+      {
+        "label": "时尚",
+        "value": 33
+      },
+      {
+        "label": "宠物",
+        "value": 52
+      },
+      {
+        "label": "手工",
+        "value": 41
+      },
+      {
+        "label": "访谈",
+        "value": 85
+      }
+    ]
+  }
+}

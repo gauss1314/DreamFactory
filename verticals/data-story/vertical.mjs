@@ -6,6 +6,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export const id = 'data-story';
 export const runtimeDir = path.join(here, 'runtime');
+export const builtinScenes = ['title', 'outro', 'bignumber', 'bars', 'ranges', 'bullets'];
 
 /** The shortest a scene may be so its own animation finishes, whatever the narration length. */
 export function minDuration(scene) {

@@ -1,0 +1,30 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "20 秒讲完类型分布",
+  "source": "数据来源：{{source.name}}（GitHub，截至 {{source.asOf}}）",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "headline": "{{facts.total}} 件作品，都是什么类型？",
+      "narration": [
+        "这份清单收录了{{facts.total}}件作品。"
+      ]
+    },
+    {
+      "id": "categories",
+      "type": "bars",
+      "title": "按类型分布",
+      "sub": "单位：件",
+      "series": {
+        "$": "series.categories"
+      },
+      "highlight": "游戏",
+      "narration": [
+        "模型对比最多，游戏第二，{{series.categories[游戏]}}件。",
+        "讲解与教育只排在倒数第二。"
+      ]
+    }
+  ]
+}

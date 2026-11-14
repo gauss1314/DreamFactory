@@ -1,0 +1,44 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "一年里每个月新增多少作品",
+  "source": "数据来源：{{source.name}}",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "数据故事",
+      "headline": "一年里，每个月新增多少作品？",
+      "sub": "某视频社区 {{facts.year}} 年的代码生成作品，示例数据",
+      "narration": ["一年里，每个月新增多少代码生成作品？"]
+    },
+    {
+      "id": "trend",
+      "type": "line",
+      "title": "每月新增作品数",
+      "sub": "单位：件",
+      "series": { "$": "series.monthly" },
+      "labels": ["1月", "9月", "10月", "11月"],
+      "highlight": "11月",
+      "narration": [
+        "1月只有{{series.monthly[1月]}}件，到9月也才{{series.monthly[9月]}}件。",
+        "10月突然跳到{{series.monthly[10月]}}件。",
+        "11月达到全年最高，{{series.monthly[11月]}}件。"
+      ]
+    },
+    {
+      "id": "reading",
+      "type": "bullets",
+      "title": "怎么看这条线",
+      "items": ["前 9 个月是缓慢爬升", "10 月之后是另一个量级"],
+      "narration": ["前9个月是缓慢爬升。", "10月之后，是另一个量级。"]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "增长不是匀速的",
+      "sub": "示例数据，仅用于演示",
+      "narration": ["增长不是匀速的，拐点只用了一个月。"]
+    }
+  ]
+}

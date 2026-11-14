@@ -1,0 +1,60 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "24 个品类里谁最多",
+  "source": "数据来源：{{source.name}}",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "数据故事",
+      "headline": "{{facts.categoryCount}} 个品类里，谁最多？",
+      "sub": "某视频社区各品类的作品数量，示例数据",
+      "narration": [
+        "这个视频社区一共有{{facts.categoryCount}}个品类。",
+        "作品最多的是哪几个？"
+      ]
+    },
+    {
+      "id": "top",
+      "type": "bars",
+      "title": "作品数量最多的 {{facts.topN}} 个品类",
+      "sub": "单位：件",
+      "series": [
+        {
+          "$": "series.categories[科普动画]"
+        },
+        {
+          "$": "series.categories[教程]"
+        },
+        {
+          "$": "series.categories[知识讲解]"
+        },
+        {
+          "$": "series.categories[产品演示]"
+        },
+        {
+          "$": "series.categories[游戏实况]"
+        },
+        {
+          "$": "series.categories[编程教学]"
+        }
+      ],
+      "highlight": "科普动画",
+      "narration": [
+        "第一名是科普动画，{{series.categories[科普动画]}}件。",
+        "教程和知识讲解排在第二、第三。",
+        "前六名里，大多是教人东西的内容。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "讲清楚一件事的内容最多",
+      "sub": "示例数据，仅用于演示",
+      "narration": [
+        "讲清楚一件事的内容，数量最多。"
+      ]
+    }
+  ]
+}

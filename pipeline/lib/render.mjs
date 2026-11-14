@@ -1,5 +1,5 @@
 // Frame-by-frame render: seek, screenshot, pipe to ffmpeg. Any frame can be drawn on its own,
-// so the result is the same on every run.
+// so every run gives the same picture (up to a few anti-aliased pixels the browser varies).
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import fs from 'node:fs';

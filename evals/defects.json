@@ -322,5 +322,150 @@
       "video-stillness",
       "audio-gaps"
     ]
+  },
+  {
+    "id": "year-with-separator",
+    "title": "年份当成普通数字，显示成 2,026 年",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "data",
+        "set": "facts.year",
+        "value": 2026
+      }
+    ],
+    "expectFail": [
+      "typography"
+    ]
+  },
+  {
+    "id": "share-of-subset",
+    "title": "只展示前 6 名却显示占比，占比是按这 6 个算的",
+    "base": "top-of-long-list",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].showShare",
+        "value": true
+      }
+    ],
+    "expectFail": [
+      "data-accuracy"
+    ]
+  },
+  {
+    "id": "long-list-overflow",
+    "title": "把 24 个品类全部塞进一张图",
+    "base": "top-of-long-list",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].series",
+        "value": {
+          "$": "series.categories"
+        }
+      }
+    ],
+    "expectFail": [
+      "layout"
+    ]
+  },
+  {
+    "id": "over-the-time-limit",
+    "title": "20 秒的片子讲了太多，超出时长上限",
+    "base": "twenty-seconds",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].narration",
+        "value": [
+          "数量最多的是模型对比，{{series.categories[模型对比]}}件。",
+          "游戏排在第二，{{series.categories[游戏]}}件。",
+          "三维场景紧随其后，{{series.categories[3D 世界与模拟]}}件。",
+          "动效与界面排在第四，{{series.categories[动效与界面]}}件。",
+          "产品演示与广告排在第五。",
+          "角色与故事排在第六。",
+          "讲解与教育只排在倒数第二。"
+        ]
+      }
+    ],
+    "expectFail": [
+      "spec"
+    ]
+  },
+  {
+    "id": "built-in-instead-of-line-chart",
+    "title": "任务要求折线图，却用内置柱状图交差",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].type",
+        "value": "bars"
+      }
+    ],
+    "expectFail": [
+      "spec"
+    ]
+  },
+  {
+    "id": "chart-points-misplaced",
+    "title": "折线图上的点画在了别的月份的高度上",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "cy: y(it.value), r:",
+        "with": "cy: y(items[(i * 5) % items.length].value), r:"
+      }
+    ],
+    "expectFail": [
+      "marks"
+    ]
+  },
+  {
+    "id": "chart-axis-inverted",
+    "title": "折线图的纵轴画反了，数值越大位置越低",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const y = (v) => box.bottom - (v / top) * (box.bottom - box.top);",
+        "with": "const y = (v) => box.top + (v / top) * (box.bottom - box.top);"
+      }
+    ],
+    "expectFail": [
+      "marks"
+    ]
+  },
+  {
+    "id": "chart-without-values",
+    "title": "自定义图表没有标出每个点代表的数值",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "'data-df-value': it.value, ",
+        "with": ""
+      }
+    ],
+    "expectFail": [
+      "marks"
+    ]
+  },
+  {
+    "id": "chart-uses-random",
+    "title": "自定义场景里用了随机数，每次重画都不一样",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "p.dot.style.opacity = String(shown);",
+        "with": "p.dot.style.opacity = String(shown);\n        p.dot.setAttribute('r', String(8 + Math.random() * 14));"
+      }
+    ],
+    "expectFail": [
+      "determinism"
+    ]
   }
 ]
