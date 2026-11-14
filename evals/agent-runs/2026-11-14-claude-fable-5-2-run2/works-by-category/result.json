@@ -1,0 +1,54 @@
+{
+  "case": "works-by-category",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 46.767
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "07de9efc3eb1"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "07de9efc3eb1"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 8,
+    "toolUses": 7,
+    "wallSec": 81,
+    "costUsd": 0.52,
+    "tokens": {
+      "input": 10,
+      "output": 3077,
+      "cacheRead": 208839,
+      "cacheWrite": 22410
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"mkdir -p task && cat > task/film.json <<'EOF'\\n{\\n  \\\"vertical\\\": \\\"data-story\\\",\\n  \\\"lang\\\": \\\"zh\\\",\\n  \\\""
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染的自检通过了，没有返工。\n\n- **管线跑了 2 次**：第 1 次是文字层检查（`--no-video`），第 2 次是草稿渲染（`--draft`），两次的检查项都通过。\n- **每次改了什么**：只在第 1 次之前新建了 `task/film.json`，两次运行之间没有改动；没有写 `scenes.js`，也没有动其他文件。\n- **未核对的一项**：“听写核对”被跳过，因为管线还没有接入语音识别，所以语音和旁白稿是否一致没有验证。\n- **片子内容**：片长 46.8 秒，共 5 个场景，讲到了作品总数 2,793、数量最多的模型对比 534 件、游戏类 483 件占 17%，以及只收浏览量 5,000 以上作品的口径。\n- **抽帧图**：我看过一遍，构图正常，没有溢出或重叠。\n\n草稿在 `task/out/film.mp4`；任务只要求到草稿通过，所以没有出去掉 `--draft` 的成片。",
+  "outcome": "passed"
+}

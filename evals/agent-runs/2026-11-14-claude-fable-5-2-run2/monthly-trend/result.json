@@ -1,0 +1,40 @@
+{
+  "case": "monthly-trend",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 31.233
+  },
+  "pipelineRuns": 0,
+  "failedRuns": 0,
+  "filmVersions": null,
+  "roundLog": [],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 11,
+    "toolUses": 10,
+    "wallSec": 107,
+    "costUsd": 1.22,
+    "tokens": {
+      "input": 16,
+      "output": 8394,
+      "cacheRead": 426979,
+      "cacheWrite": 50035
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"node pipeline/cli.mjs run task --no-video; echo EXIT $?\",\"description\":\"Run text-level checks\"}",
+      "Bash: {\"command\":\"npm run film -- task --no-video\",\"description\":\"Run the film pipeline text-level checks\"}"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "未通过自检：管线一次都没跑成，草稿没有经过任何检查。\n\n- **卡在哪里**：本次会话拒绝了运行管线的命令（`node pipeline/cli.mjs run task --no-video` 和等价的 `npm run film -- task --no-video` 都被权限拦下）。我没有再找别的办法绕过。\n- **管线跑了几次**：0 次，返工 0 轮。\n- **写了什么**：`task/film.json` 有三个场景：开场、折线图、收尾。`task/scenes.js` 新增了 `line` 折线图场景，画 12 个月走势，在图上标出 1 月、9 月、10 月和全年最高的 11 月的数量。数字全部用数据引用，旁白和画面都写明是虚构示例数据。\n- **没验证的风险**：片长（目标 35 秒左右，取决于语音合成）、图上标签是否重叠或对比度不足、构图，都要等跑过才知道。\n- **下一步**：放开运行 `node pipeline/cli.mjs` 的权限后，先跑 `--no-video`，再跑 `--draft`，按报告返工。",
+  "outcome": "passed"
+}

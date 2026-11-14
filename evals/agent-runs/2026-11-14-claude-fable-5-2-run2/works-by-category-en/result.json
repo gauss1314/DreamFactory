@@ -1,0 +1,63 @@
+{
+  "case": "works-by-category-en",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 51.033
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 1,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": false,
+      "failed": [
+        "data-accuracy"
+      ],
+      "rendered": false,
+      "filmVersion": "a6237c0db6c9"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "c7b6ae8e82c0"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "c7b6ae8e82c0"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 111,
+    "costUsd": 0.66,
+    "tokens": {
+      "input": 14,
+      "output": 4084,
+      "cacheRead": 321730,
+      "cacheWrite": 27111
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"ls verticals/* pipeline pipeline/*; cat package.json; cat > task/film.json <<'EOF'\\n{\\n  \\\"vertical\\\": \\\"dat"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检已通过，只有“听写核对”一项被跳过，原因是管线还没有接入语音识别。\n\n管线共跑了 3 次，返工 1 轮：\n\n1. **第 1 次（`--no-video`）**：未通过。柱状图的单位写成 `works`，画面上成了 `233works`，数字紧贴字母不被当作数据，所以 233（Explainers & education）被判为没有出现。\n2. **第 2 次（`--no-video`）**：把柱状图的 `unit` 改成带前导空格的 ` works`，全部通过。\n3. **第 3 次（`--draft`）**：没有再改，画面和声音检查通过。\n\n只新建了 `task/film.json`，没有写 `scenes.js`，也没有动其他文件。片长 51.0 秒，在 `expect.json` 允许的 30–75 秒内，但比简报说的“约 40 秒”长。简报要求的总数、最大类型、游戏的数量和占比、5,000 次观看的门槛都已在画面和旁白里出现。\n\n成片（未加 `--draft`）没有出，流程第 6 步还没做。",
+  "outcome": "passed"
+}

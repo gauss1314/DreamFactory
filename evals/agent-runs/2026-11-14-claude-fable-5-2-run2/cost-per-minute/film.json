@@ -1,0 +1,84 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "做一分钟视频要花多少钱",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "每分钟成片成本",
+      "headline": "做一分钟视频要花多少钱",
+      "sub": "四种做法，单位：{{units.cost}}",
+      "narration": [
+        "做一分钟成片视频，要花多少钱？",
+        "我们比较四种做法的每分钟成本。"
+      ]
+    },
+    {
+      "id": "ranges",
+      "type": "ranges",
+      "title": "四种做法的每分钟成本",
+      "sub": "单位：{{units.cost}}，对数刻度",
+      "series": { "$": "series.cost" },
+      "highlight": "代码生成短片",
+      "unit": "{{units.cost}}",
+      "narration": [
+        "四个区间跨度很大，这里用对数刻度。",
+        "代码生成短片，每分钟 {{series.cost[代码生成短片].low}} 到 {{series.cost[代码生成短片].high}} {{units.cost}}。",
+        "视频模型 API，最高 {{series.cost[视频模型 API].high}} {{units.cost}}。",
+        "自由职业者，从 {{series.cost[自由职业者].low}} {{units.cost}}起步。",
+        "工作室报价最高，上限 {{series.cost[工作室].high}} {{units.cost}}。"
+      ]
+    },
+    {
+      "id": "code",
+      "type": "bignumber",
+      "label": "代码生成短片，每分钟成本上限",
+      "value": "{{series.cost[代码生成短片].high}}",
+      "unit": "{{units.cost}}",
+      "note": "区间：{{series.cost[代码生成短片].low}} 到 {{series.cost[代码生成短片].high}} {{units.cost}}",
+      "narration": [
+        "用代码生成，一分钟最多 {{series.cost[代码生成短片].high}} {{units.cost}}。"
+      ],
+      "minDuration": 4
+    },
+    {
+      "id": "studio",
+      "type": "bignumber",
+      "label": "工作室报价，每分钟上限",
+      "value": "{{series.cost[工作室].high}}",
+      "unit": "{{units.cost}}",
+      "note": "自由职业者从 {{series.cost[自由职业者].low}} {{units.cost}}起",
+      "narration": [
+        "交给工作室，一分钟最高 {{series.cost[工作室].high}} {{units.cost}}。"
+      ],
+      "minDuration": 4
+    },
+    {
+      "id": "caveat",
+      "type": "bullets",
+      "title": "怎么读这些数字",
+      "items": [
+        "数字多为创作者自报和报价指南",
+        "只能看量级，不能当精确报价",
+        "代码生成与工作室的差距是量级上的"
+      ],
+      "narration": [
+        "提醒一下，数字多来自创作者自报和报价指南。",
+        "它们只能用来看量级。",
+        "代码生成和工作室之间，差的是数量级。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "先看量级，再做决定",
+      "sub": "代码生成短片：{{series.cost[代码生成短片].low}} 到 {{series.cost[代码生成短片].high}} {{units.cost}}，每分钟",
+      "narration": [
+        "要不要用代码做视频，先看这个量级。"
+      ]
+    }
+  ]
+}

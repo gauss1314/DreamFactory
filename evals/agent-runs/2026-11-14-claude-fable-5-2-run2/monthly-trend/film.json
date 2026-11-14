@@ -1,0 +1,47 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "一年里每个月新增多少作品",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "虚构示例数据",
+      "headline": "每个月新增多少代码生成作品",
+      "sub": "某视频社区 · {{facts.year}} 年",
+      "narration": [
+        "先说明，这是一组虚构的示例数据。",
+        "看某视频社区 {{facts.year}} 年每月新增的代码生成作品。"
+      ]
+    },
+    {
+      "id": "trend",
+      "type": "line",
+      "title": "每月新增代码生成作品",
+      "sub": "{{facts.year}} 年 · 单位：个 · 虚构示例数据",
+      "series": { "$": "series.monthly" },
+      "mark": ["1月", "9月", "10月"],
+      "reveal": ["1月", "9月", "10月", "11月", "12月"],
+      "narration": [
+        "1 月，新增 {{series.monthly[1月]}} 个。",
+        "之后慢慢爬升，9 月是 {{series.monthly[9月]}} 个。",
+        "10 月突然跳到 {{series.monthly[10月]}} 个。",
+        "11 月达到全年最高，{{series.monthly[11月]}} 个。",
+        "12 月略有回落，仍停在高位。"
+      ],
+      "minDuration": 6
+    },
+    {
+      "id": "close",
+      "type": "outro",
+      "headline": "变化集中在 10 月的一次跳升",
+      "sub": "之前是缓慢爬升，之后停在高位",
+      "narration": [
+        "所以这条线不是逐月平稳加速。",
+        "变化集中在 10 月的一次跳升。"
+      ]
+    }
+  ]
+}

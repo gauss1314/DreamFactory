@@ -1,0 +1,31 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "20 秒讲完类型分布",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "total",
+      "type": "bignumber",
+      "label": "收录作品总数",
+      "value": "{{facts.total}}",
+      "unit": "件",
+      "note": "按类型怎么分布？",
+      "narration": ["这份清单一共收录 {{facts.total}} 件作品。"]
+    },
+    {
+      "id": "categories",
+      "type": "bars",
+      "title": "模型对比类最多",
+      "sub": "各类型作品数量",
+      "series": { "$": "series.categories" },
+      "highlight": "模型对比",
+      "unit": "件",
+      "narration": [
+        "数量最多的是模型对比，有 {{series.categories[模型对比]}} 件。",
+        "游戏类紧随其后，有 {{series.categories[游戏]}} 件。"
+      ]
+    }
+  ]
+}

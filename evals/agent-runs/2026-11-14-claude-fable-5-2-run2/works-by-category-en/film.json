@@ -1,0 +1,84 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "Works by type (English)",
+  "source": "Source: {{source.name}} (as of {{source.asOf}})",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "Works by type",
+      "headline": "What are {{facts.total}} works making?",
+      "sub": "A public list of AI-made video works, sorted by type",
+      "narration": [
+        "A public list tracks {{facts.total}} AI-made works.",
+        "What are they actually making?"
+      ]
+    },
+    {
+      "id": "caveat",
+      "type": "bignumber",
+      "label": "Only works with at least this many views are listed",
+      "value": "{{facts.minViews}}",
+      "unit": "views",
+      "note": "Smaller works are not counted",
+      "narration": [
+        "One caveat first.",
+        "The list only holds works with at least {{facts.minViews}} views."
+      ]
+    },
+    {
+      "id": "types",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Count and share of all {{facts.total}} works",
+      "series": { "$": "series.categories" },
+      "highlight": "Model comparisons",
+      "unit": " works",
+      "showShare": true,
+      "narration": [
+        "The works fall into a handful of types.",
+        "Model comparisons are the largest, with {{series.categories[Model comparisons]}} works.",
+        "That is {{share series.categories[Model comparisons]}} of the list.",
+        "Explainers and education account for {{series.categories[Explainers & education]}}."
+      ]
+    },
+    {
+      "id": "games",
+      "type": "bignumber",
+      "label": "Games",
+      "value": "{{series.categories[Games]}}",
+      "unit": "works",
+      "note": "{{share series.categories[Games]}} of all {{facts.total}} works",
+      "narration": [
+        "Games come second, with {{series.categories[Games]}} works.",
+        "That is {{share series.categories[Games]}} of the total."
+      ]
+    },
+    {
+      "id": "takeaways",
+      "type": "bullets",
+      "title": "What to remember",
+      "items": [
+        "{{facts.total}} works, each with at least {{facts.minViews}} views",
+        "Largest type: Model comparisons, {{series.categories[Model comparisons]}} works",
+        "Games: {{series.categories[Games]}} works, {{share series.categories[Games]}} of the list"
+      ],
+      "narration": [
+        "So, {{facts.total}} works, all above the view threshold.",
+        "Model comparisons lead the list.",
+        "And games are close behind."
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "What {{facts.total}} works are making",
+      "sub": "Only works with at least {{facts.minViews}} views are listed",
+      "narration": [
+        "That is what the list is making."
+      ]
+    }
+  ]
+}

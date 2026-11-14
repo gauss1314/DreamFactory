@@ -1,0 +1,62 @@
+{
+  "case": "cost-per-minute",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 54.1
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "d59fd4c54021"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "d59fd4c54021"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "818c44056b94"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 156,
+    "costUsd": 0.82,
+    "tokens": {
+      "input": 18,
+      "output": 5284,
+      "cacheRead": 412519,
+      "cacheWrite": 32916
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"cat > task/film.json <<'EOF'\\n{\\n  \\\"vertical\\\": \\\"data-story\\\",\\n  \\\"lang\\\": \\\"zh\\\",\\n  \\\"title\\\": \\\"做一分钟视频",
+      "Bash: {\"command\":\"node pipeline/cli.mjs run task --no-video; echo EXIT $?\",\"description\":\"Run the text-layer check on the film"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检全部通过，只有“听写核对”一项因管线尚未接入语音识别而被跳过。片长 54.1 秒，在要求的 30–80 秒内，但比简报说的 45 秒左右长了约 9 秒。\n\n管线共跑了 3 次，返工 1 轮，人工介入 0 次：\n\n1. **第 1 次（`--no-video`）**：写出首版 `task/film.json`，共 6 个场景、13 句旁白，文字层检查通过。\n2. **第 2 次（`--draft`）**：没有改动，自检通过。但抽帧图里对数区间图的四根条形没画出来，自检没查出这个问题。原因是我把 `scale` 写成了 `\"log\"`，而运行时把这个字段当作 `[下限, 上限]` 数组读取。\n3. **第 3 次（`--draft`）**：删掉 `scale` 字段，改用默认的自动对数范围，自检通过。抽帧图里四个区间和 1 到 100,000 的刻度都正常显示。\n\n只新建了 `task/film.json`，没有写 `scenes.js`，也没有动其他文件。成片（不带 `--draft`）没有渲染，`--cost-usd` 也没有记录。",
+  "outcome": "passed"
+}
