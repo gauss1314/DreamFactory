@@ -1,0 +1,39 @@
+{
+  "case": "monthly-trend",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 27.033
+  },
+  "pipelineRuns": 0,
+  "failedRuns": 0,
+  "filmVersions": null,
+  "roundLog": [],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 88,
+    "costUsd": 0.02,
+    "tokens": {
+      "input": 10,
+      "output": 18545,
+      "cacheRead": 190778,
+      "cacheWrite": 35088
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"pwd && ls -la && ls -la task/ 2>/dev/null; find / -name DIRECTOR.md -not -path \\\"*/proc/*\\\" 2>/dev/null | he"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "没有通过，也没有跑管线：Bash 被权限拒绝了（运行模式是 don't ask），而 `node pipeline/cli.mjs run task` 只能经由 Bash 执行。所以管线运行次数是 0，返工轮数也是 0。我已经按 DIRECTOR.md 写好了 `task/film.json` 和 `task/scenes.js`：片子是三场（开场、12 个月折线图、收尾），用自定义 `line` 场景画折线，并把 1 月、9 月、10 月、11 月的数值标在图上；数字全部用引用写入，没有手写。这两个文件还没有经过文字层检查和草稿渲染，折线图的标注位置也只是按坐标推算，没有看过画面。要继续，需要在有 Bash 权限的环境里运行 `node pipeline/cli.mjs run task --no-video`，然后按报告修改。",
+  "outcome": "passed"
+}

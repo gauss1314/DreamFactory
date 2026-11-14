@@ -1,0 +1,61 @@
+{
+  "case": "works-by-category-en",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 41.567
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 1,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": false,
+      "failed": [
+        "data-accuracy"
+      ],
+      "rendered": false,
+      "filmVersion": "0b7cc3779f61"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "c0eaf08cb98e"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "c0eaf08cb98e"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 90,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 16,
+      "output": 7190,
+      "cacheRead": 367297,
+      "cacheWrite": 28461
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过。草稿已渲染成 `task/out/film.mp4`，片长 41.6 秒。管线一共跑了 3 次：第 1 次只做文字层检查，数据准确一项失败，原因是结尾页副标题里的日期 `2026-11-13` 被当成数字核对；第 2 次我把结尾副标题改成 \"Based on the works list\"，文字层全部通过；第 3 次 `--draft` 渲染视频并通过了画面和声音检查。字幕、数据来源、数值图形都检查过，全部通过。“听写核对”一项跳过，因为还没接入语音识别。没有写 `--cost-usd` 和 `--intervention` 记录，因为我不知道这轮的模型费用，也没有人工介入。影片文件是 `task/film.json`，没有改动 `scenes.js`、`data.json`、`expect.json` 或 `pipeline/`。",
+  "outcome": "passed"
+}

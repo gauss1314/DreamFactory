@@ -1,0 +1,70 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "这家工作室一年里变了多少",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "theme": { "accent": "#62c6ff" },
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "开场",
+      "type": "title",
+      "kicker": "数据短片",
+      "headline": "这家工作室一年里变了多少",
+      "sub": "对比 2025 年与 2026 年",
+      "narration": [
+        "这是一支用虚构示例数据做的短片。",
+        "我们来看一家小型工作室两年的变化。"
+      ]
+    },
+    {
+      "id": "产量",
+      "type": "bars",
+      "title": "讲解视频产量",
+      "sub": "每年做了多少支",
+      "series": { "$": "series.films" },
+      "highlight": "2026 年",
+      "unit": "支",
+      "narration": [
+        "2025 年，工作室做了{{series.films[2025 年]}}支讲解视频。",
+        "到 2026 年，产量达到{{series.films[2026 年]}}支。"
+      ]
+    },
+    {
+      "id": "单片成本",
+      "type": "bars",
+      "title": "单片成本",
+      "sub": "每支视频平均花多少钱",
+      "series": { "$": "series.costPerFilm" },
+      "highlight": "2026 年",
+      "unit": "元",
+      "narration": [
+        "2025 年，单片成本是{{series.costPerFilm[2025 年]}}元。",
+        "2026 年，单片成本降到{{series.costPerFilm[2026 年]}}元。"
+      ]
+    },
+    {
+      "id": "结论",
+      "type": "bullets",
+      "title": "一年的变化",
+      "items": [
+        "产量明显增加。",
+        "单片成本明显下降。"
+      ],
+      "narration": [
+        "产量明显增加。",
+        "单片成本明显下降。"
+      ]
+    },
+    {
+      "id": "收尾",
+      "type": "outro",
+      "headline": "数据是虚构的示例",
+      "sub": "仅用于演示，不代表真实统计",
+      "narration": [
+        "数据是虚构的示例，仅用于演示。",
+        "不代表真实的行业统计。"
+      ]
+    }
+  ]
+}

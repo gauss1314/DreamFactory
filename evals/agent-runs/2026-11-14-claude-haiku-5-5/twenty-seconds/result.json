@@ -1,0 +1,68 @@
+{
+  "case": "twenty-seconds",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 17.433
+  },
+  "pipelineRuns": 4,
+  "failedRuns": 1,
+  "filmVersions": 3,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": false,
+      "failed": [
+        "data-accuracy"
+      ],
+      "rendered": false,
+      "filmVersion": "171d88f26b4d"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "664de1bd937b"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "664de1bd937b"
+    },
+    {
+      "round": 4,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "b5e735e2a30a"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 15,
+    "toolUses": 14,
+    "wallSec": 88,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 22,
+      "output": 7533,
+      "cacheRead": 522834,
+      "cacheWrite": 27693
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过。草稿片长 17.4 秒，在简报要求的 12–22 秒之内，且低于“20 秒以内”的目标。管线一共跑了 4 次：两次 `--no-video`、两次 `--draft`。第 1 次文字检查未通过：结尾字幕带出了来源名 `zhuyansen/awesome-opus-5.5-video`，其中的 5.5 不在 data.json 里，我把字幕改为“来源标注在画面下方”。第 2 次文字检查通过，但片长 21.4 秒超出了简报的 20 秒目标，所以第 3 次草稿前我删掉了结尾场景，它只重复来源信息，页脚已经标注。草稿成片在 `task/out/film.mp4`。\n\n- 听写核对这一项被管线跳过，因为语音识别还没接入。语音用的是 espeak 后端。\n- 没有记录 `--intervention`，因为没有人改过东西。`--cost-usd` 也没有填，我拿不到这次运行的模型费用。",
+  "outcome": "passed"
+}

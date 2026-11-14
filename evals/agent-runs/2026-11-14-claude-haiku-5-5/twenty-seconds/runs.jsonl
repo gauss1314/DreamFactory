@@ -1,0 +1,4 @@
+{"at":"2026-11-14T10:19:03.813Z","round":1,"filmVersion":"171d88f26b4d","passed":false,"failed":["data-accuracy"],"draft":false,"rendered":false,"durationSec":21.433,"wallSec":5,"costUsd":null,"intervention":null}
+{"at":"2026-11-14T10:19:16.801Z","round":2,"filmVersion":"664de1bd937b","passed":true,"failed":[],"draft":false,"rendered":false,"durationSec":21.433,"wallSec":5.5,"costUsd":null,"intervention":null}
+{"at":"2026-11-14T10:19:39.642Z","round":3,"filmVersion":"664de1bd937b","passed":true,"failed":[],"draft":true,"rendered":true,"durationSec":21.433,"wallSec":17.9,"costUsd":null,"intervention":null}
+{"at":"2026-11-14T10:20:02.394Z","round":4,"filmVersion":"b5e735e2a30a","passed":true,"failed":[],"draft":true,"rendered":true,"durationSec":17.433,"wallSec":15.6,"costUsd":null,"intervention":null}

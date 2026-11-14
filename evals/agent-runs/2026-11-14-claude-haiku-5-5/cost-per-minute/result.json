@@ -1,0 +1,52 @@
+{
+  "case": "cost-per-minute",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 41.8
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "9a539e6efd1e"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "9a539e6efd1e"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 11,
+    "toolUses": 10,
+    "wallSec": 85,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 14,
+      "output": 7275,
+      "cacheRead": 311225,
+      "cacheWrite": 29881
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿通过，没有返工。管线一共跑了 2 次：第 1 次 `--no-video` 文字层检查全部通过，第 2 次 `--draft` 渲染草稿后也全部通过。我只新建了 `task/film.json`，没有写 `scenes.js`，也没有改动其他文件；第一版就通过，所以没有修改。成片约 41.8 秒，数字都引用自 `data.json`，对数刻度图按要求用了 `ranges` 场景。有两点没做：「听写核对」一项因为管线未接入语音识别而跳过，成片 `out/film.mp4` 没有人工逐帧听过；另外没有记录模型费用（`--cost-usd`），因为任务里没有给出花费数字。\n\n成片在 `/tmp/claude-0/-home-user-DreamFactory/34bb706b-fe22-52c6-a383-68d3485b8750/scratchpad/haiku/cost-per-minute/task/out/film.mp4`，抽帧图在同目录的 `out/contact.jpg`。",
+  "outcome": "passed"
+}

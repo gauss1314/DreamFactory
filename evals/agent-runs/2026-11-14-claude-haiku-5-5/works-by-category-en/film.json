@@ -1,0 +1,71 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "What are 2,793 works making? (English)",
+  "source": "Source: {{source.name}} (as of {{source.asOf}})",
+  "theme": { "accent": "#62c6ff" },
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "WORKS BY TYPE",
+      "headline": "What are {{facts.total}} works making?",
+      "sub": "A short look at the list",
+      "narration": [
+        "This is a short look at the works list, sorted by type.",
+        "The list holds {{facts.total}} works in total."
+      ]
+    },
+    {
+      "id": "types",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Number of works in each type",
+      "series": { "$": "series.categories" },
+      "highlight": "Games",
+      "unit": "works",
+      "showShare": true,
+      "narration": [
+        "Model comparisons is the largest type.",
+        "It has {{series.categories[Model comparisons]}} works.",
+        "Games come second, with {{series.categories[Games]}} works.",
+        "Games make up {{share series.categories[Games]}} of all works."
+      ]
+    },
+    {
+      "id": "games",
+      "type": "bignumber",
+      "label": "Games",
+      "value": "{{series.categories[Games]}}",
+      "unit": "works",
+      "note": "{{share series.categories[Games]}} of the list",
+      "narration": [
+        "Games account for {{series.categories[Games]}} works on the list.",
+        "That is {{share series.categories[Games]}} of the total."
+      ]
+    },
+    {
+      "id": "caveat",
+      "type": "bullets",
+      "title": "Read the numbers with care",
+      "items": [
+        "Only works with at least {{facts.minViews}} views are listed.",
+        "Works below that view count are not in these numbers."
+      ],
+      "narration": [
+        "The list only holds works with at least {{facts.minViews}} views.",
+        "Smaller works are not in these numbers."
+      ]
+    },
+    {
+      "id": "outro",
+      "type": "outro",
+      "headline": "Count, share, and the largest type",
+      "sub": "Based on the works list",
+      "narration": [
+        "Thanks for watching this data story."
+      ]
+    }
+  ]
+}

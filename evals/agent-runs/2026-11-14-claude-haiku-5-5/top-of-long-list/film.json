@@ -1,0 +1,76 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "视频社区作品数量最多的品类",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "theme": { "accent": "#62c6ff" },
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "opening",
+      "type": "title",
+      "kicker": "数据短片",
+      "headline": "哪类作品最多",
+      "sub": "视频社区的品类统计",
+      "narration": [
+        "这是一份虚构的示例数据。",
+        "我们看看这个视频社区里，作品最多的是哪些品类。"
+      ]
+    },
+    {
+      "id": "count",
+      "type": "bignumber",
+      "label": "品类总数",
+      "value": "{{facts.categoryCount}}",
+      "unit": "个",
+      "note": "全部品类",
+      "narration": [
+        "一共有{{facts.categoryCount}}个品类。",
+        "画面只展示数量最多的前几名。"
+      ]
+    },
+    {
+      "id": "top-one",
+      "type": "bignumber",
+      "label": "第一名：科普动画",
+      "value": "{{series.categories[科普动画]}}",
+      "unit": "件",
+      "note": "作品数量",
+      "narration": [
+        "排在第一的是科普动画。",
+        "它一共有{{series.categories[科普动画]}}件作品。"
+      ]
+    },
+    {
+      "id": "top-six",
+      "type": "bars",
+      "title": "前 6 名品类",
+      "sub": "作品数量，从多到少排列",
+      "series": [
+        { "$": "series.categories[科普动画]" },
+        { "$": "series.categories[教程]" },
+        { "$": "series.categories[知识讲解]" },
+        { "$": "series.categories[产品演示]" },
+        { "$": "series.categories[游戏实况]" },
+        { "$": "series.categories[编程教学]" }
+      ],
+      "highlight": "科普动画",
+      "unit": "件",
+      "showShare": false,
+      "narration": [
+        "按作品数量从多到少，前六名是这几类。",
+        "科普动画、教程和知识讲解排在最前面。",
+        "编程教学排在第六。"
+      ]
+    },
+    {
+      "id": "closing",
+      "type": "outro",
+      "headline": "作品数量这样排",
+      "sub": "数据为虚构示例，仅供演示",
+      "narration": [
+        "以上数据为虚构示例，不代表真实统计。"
+      ]
+    }
+  ]
+}
