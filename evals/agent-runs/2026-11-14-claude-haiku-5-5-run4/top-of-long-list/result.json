@@ -1,0 +1,52 @@
+{
+  "case": "top-of-long-list",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 32.333
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "62c3ece0defa"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "62c3ece0defa"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 9,
+    "toolUses": 8,
+    "wallSec": 81,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 10,
+      "output": 7921,
+      "cacheRead": 215763,
+      "cacheWrite": 28133
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿通过了自检，没有返工。管线跑了两次：先 `--no-video` 做文字层检查，通过后再 `--draft` 渲染草稿，两次都通过。我按简报写了 `task/film.json`，没有改 `scenes.js`、`data.json` 或 `expect.json`，也没有手写数字。草稿片长 32.3 秒，结构是开场、品类总数、前 6 名条形图和收尾，前 6 名按数量排为科普动画 521、教程 455、知识讲解 412、产品演示 388、游戏实况 367、编程教学 344。唯一跳过的是\"听写核对\"，因为管线还没接语音识别。草稿成片在 `task/out/film.mp4`，我没有去掉 `--draft` 出正式成片。",
+  "outcome": "passed"
+}

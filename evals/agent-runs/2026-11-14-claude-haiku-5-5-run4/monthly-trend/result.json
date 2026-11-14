@@ -1,0 +1,59 @@
+{
+  "case": "monthly-trend",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 29.233
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "66481889d7ac"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "b5a9f03bef71"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "b5a9f03bef71"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 15,
+    "toolUses": 14,
+    "wallSec": 179,
+    "costUsd": 0.03,
+    "tokens": {
+      "input": 20,
+      "output": 25718,
+      "cacheRead": 563604,
+      "cacheWrite": 51811
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**结论：草稿通过。** `--draft` 的自检全部通过，只有\"听写核对\"跳过，因为管线还没接语音识别。管线一共跑了 3 次：前两次是文字层检查（`--no-video`），第三次是草稿渲染（`--draft`）。返工 1 轮：第 1 轮通过后看抽帧图，发现 9 月、11 月等数值标签压在折线上或彼此重叠，第 2 轮把这些标签挪到点的左上方，之后草稿一次通过。另外新增了 `task/scenes.js`，内置场景没有折线图，简报要求必须用折线图。片长 29.2 秒，比简报的\"35 秒左右\"短一些；草稿成片在 `/tmp/claude-0/-home-user-DreamFactory/34bb706b-fe22-52c6-a383-68d3485b8750/scratchpad/haiku4/monthly-trend/task/out/film.mp4`。我没有去掉 `--draft` 出成片，因为任务只要求到草稿通过。",
+  "outcome": "passed"
+}

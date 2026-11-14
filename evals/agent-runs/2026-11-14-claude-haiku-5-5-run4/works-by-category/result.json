@@ -1,0 +1,52 @@
+{
+  "case": "works-by-category",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 43.8
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "fb7836550cf7"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "fb7836550cf7"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 98,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 18,
+      "output": 6951,
+      "cacheRead": 402552,
+      "cacheWrite": 26926
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过。管线跑了两次：一次 `--no-video`（文字层检查），一次 `--draft`（渲染草稿并做全部自检），两次都通过，没有返工。第一次运行前，我在 `task/film.json` 里改了两处措辞：去掉了“排在第七位”和“第 2 多”这类手写的名次数字，因为它们不在 `data.json` 里。草稿片长 43.8 秒，抽帧图和成片分别在 `task/out/contact.jpg` 和 `task/out/film.mp4`。\n\n唯一跳过的是“听写核对”，因为管线还没接入语音识别。运行记录里的模型费用没有填，因为我没有可靠的费用数字；人工介入记为 0 次。",
+  "outcome": "passed"
+}

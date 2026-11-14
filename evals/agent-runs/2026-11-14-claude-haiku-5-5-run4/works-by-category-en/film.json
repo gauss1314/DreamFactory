@@ -1,0 +1,69 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "What 2,793 works are making",
+  "source": "Source: {{source.name}} (as of {{source.asOf}})",
+  "theme": { "accent": "#62c6ff" },
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "WORKS BY TYPE",
+      "headline": "What {{facts.total}} works are making",
+      "sub": "Works with at least {{facts.minViews}} views",
+      "narration": [
+        "This is a look at what {{facts.total}} works are making.",
+        "Here is how they break down by type."
+      ]
+    },
+    {
+      "id": "total",
+      "type": "bignumber",
+      "label": "Works in the list",
+      "value": "{{facts.total}}",
+      "unit": "works",
+      "note": "Each one has at least {{facts.minViews}} views.",
+      "narration": [
+        "The list holds {{facts.total}} works.",
+        "Every work on it has at least {{facts.minViews}} views."
+      ]
+    },
+    {
+      "id": "by-type",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Number of works in each type",
+      "series": { "$": "series.categories" },
+      "highlight": "Games",
+      "unit": "works",
+      "showShare": true,
+      "narration": [
+        "Model comparisons is the largest type, with {{series.categories[Model comparisons]}} works.",
+        "Games come second, with {{series.categories[Games]}} works."
+      ]
+    },
+    {
+      "id": "games",
+      "type": "bignumber",
+      "label": "Games",
+      "value": "{{series.categories[Games]}}",
+      "unit": "works",
+      "note": "{{share series.categories[Games]}} of the whole list",
+      "narration": [
+        "Games account for {{series.categories[Games]}} works.",
+        "That is {{share series.categories[Games]}} of the whole list."
+      ]
+    },
+    {
+      "id": "caveat",
+      "type": "outro",
+      "headline": "Only works with at least {{facts.minViews}} views",
+      "sub": "Source: {{source.name}}",
+      "narration": [
+        "One caveat: the list only holds works with at least {{facts.minViews}} views.",
+        "Works with fewer views are not counted here."
+      ]
+    }
+  ]
+}

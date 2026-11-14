@@ -1,0 +1,52 @@
+{
+  "case": "cost-per-minute",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 56.567
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "eb8407bd8a43"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "eb8407bd8a43"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 12,
+    "toolUses": 11,
+    "wallSec": 125,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 16,
+      "output": 9974,
+      "cacheRead": 366991,
+      "cacheWrite": 29755
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过了草稿自检，视频已渲染到 `task/out/film.mp4`，但语音听写核对这一项被跳过（管线还没接入语音识别），所以旁白和字幕的对应没有机器核实。管线跑了 2 次：先 `--no-video` 做文字层检查，再 `--draft` 渲染草稿，都没有报错，也没有返工。我先写好 `task/film.json`，第一次跑之前改了一句我自己写错的旁白（“三者区间互不重叠”，数据里有重叠，已删掉），之后没有改过文件。成片我没有出（没有去掉 `--draft`），也没有补 `--cost-usd`，因为它不在这次放行的命令里。",
+  "outcome": "passed"
+}

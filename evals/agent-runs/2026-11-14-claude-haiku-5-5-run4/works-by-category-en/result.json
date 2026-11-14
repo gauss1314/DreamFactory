@@ -1,0 +1,52 @@
+{
+  "case": "works-by-category-en",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 42.467
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "e3cd467ab73e"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "e3cd467ab73e"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 83,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 14,
+      "output": 6146,
+      "cacheRead": 301807,
+      "cacheWrite": 25300
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**结果：通过。** 草稿（`--draft`）的全部自检都过了，听写核对一项因管线未接入语音识别而跳过。管线共跑了 2 次：第一次 `--no-video` 文字层检查通过，第二次 `--draft` 渲染草稿也通过，中间没有返工，所以没有改动。\n\n这次是从零写的 `task/film.json`，英文版，5 个场景，片长约 42.5 秒（要求 30–75 秒）。所有数字都用引用写成，没有手写；`source` 带了数据来源名称。没有写 `scenes.js`，只用了内置场景。\n\n成片 `out/film.mp4` 没有生成，因为许可的命令里没有不带 `--draft` 的出片形式，所以只到草稿为止。",
+  "outcome": "passed"
+}

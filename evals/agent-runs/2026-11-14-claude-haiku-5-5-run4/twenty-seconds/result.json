@@ -1,0 +1,52 @@
+{
+  "case": "twenty-seconds",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 19.967
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "39476af2f285"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "39476af2f285"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 64,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 14,
+      "output": 5651,
+      "cacheRead": 299570,
+      "cacheWrite": 23087
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿已通过自检（`--draft`，片长 20.0 秒），没有返工。管线一共跑了 2 次：先 `--no-video` 做文字层检查，再 `--draft` 渲染草稿，两次都通过。我只写了一版 `task/film.json`，没有改 `scenes.js`，也没有动 `data.json` 和 `expect.json`。其中“听写核对”一项被管线跳过，因为语音识别还没接入，这不等于通过。草稿在 `task/out/film.mp4`，没有出成片。",
+  "outcome": "passed"
+}
