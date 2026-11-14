@@ -10,6 +10,7 @@ node pipeline/cli.mjs run <影片目录> --draft      # 草稿画质，带视频
 node pipeline/cli.mjs run <影片目录>              # 成片
 node evals/run.mjs                                # 跑评测集，约两分钟
 node evals/run.mjs --only <用例或缺陷的 id>
+node evals/agent-run.mjs                          # 让模型无人值守做完每个用例，要花模型费用
 ```
 
 做片子之前先读 `DIRECTOR.md`。
@@ -21,6 +22,8 @@ node evals/run.mjs --only <用例或缺陷的 id>
 - `evals/cases/`：评测用例，每个目录有简报、数据、要求和一支参考影片。
 - `evals/defects.json`：缺陷注入集，每条在参考影片上改一处，并写明哪项检查必须失败。
 - `evals/BASELINE.md`：上一次评测的结果。
+- `evals/agent-run.mjs`：无人值守评测。模型只拿到简报、数据、要求和 `DIRECTOR.md`，看不到参考影片。
+- `evals/agent-runs/`：每次无人值守运行交付的分镜、运行记录和汇总。
 
 ## 约定
 
