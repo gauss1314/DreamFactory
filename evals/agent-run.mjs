@@ -205,7 +205,12 @@ await Promise.all(
 
 // Save what the model delivered, and a summary.
 const date = new Date().toISOString().slice(0, 10);
-const label = value('--label') ?? `${date}-${records[0]?.model ?? 'unknown'}`;
+let label = value('--label') ?? `${date}-${records[0]?.model ?? 'unknown'}`;
+if (!value('--label')) {
+  // Never write over an earlier run's record.
+  const base = label;
+  for (let n = 2; fs.existsSync(path.join(here, 'agent-runs', label)); n++) label = `${base}-run${n}`;
+}
 const outDir = path.join(here, 'agent-runs', label);
 for (const r of records) {
   const dir = path.join(outDir, r.case);
