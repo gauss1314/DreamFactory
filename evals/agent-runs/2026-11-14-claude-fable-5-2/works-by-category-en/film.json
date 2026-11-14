@@ -1,0 +1,67 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "Works by type (EN)",
+  "source": "Source: {{source.name}} (as of {{source.asOf}})",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "WORKS BY TYPE",
+      "headline": "What are {{facts.total}} works making?",
+      "sub": "A public list of AI-made video works, sorted by type",
+      "narration": [
+        "What are people making with AI video?"
+      ]
+    },
+    {
+      "id": "total",
+      "type": "bignumber",
+      "label": "Works on the list",
+      "value": { "$": "facts.total" },
+      "unit": "works",
+      "note": "Only works with at least {{facts.minViews}} views are listed",
+      "narration": [
+        "The list holds {{facts.total}} works in total.",
+        "One caveat: it only holds works with at least {{facts.minViews}} views."
+      ]
+    },
+    {
+      "id": "types",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Number of works and share of the list",
+      "series": { "$": "series.categories" },
+      "highlight": "Games",
+      "showShare": true,
+      "narration": [
+        "Model comparisons are the largest type, with {{series.categories[Model comparisons]}} works.",
+        "Games come second, with {{series.categories[Games]}} works.",
+        "That is {{share series.categories[Games]}} of the whole list."
+      ]
+    },
+    {
+      "id": "takeaways",
+      "type": "bullets",
+      "title": "What to remember",
+      "items": [
+        "Games: {{series.categories[Games]}} works, {{share series.categories[Games]}} of the list",
+        "Only works with {{facts.minViews}}+ views are counted"
+      ],
+      "narration": [
+        "Games take {{share series.categories[Games]}} of the list.",
+        "And works below {{facts.minViews}} views are not in the picture."
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "{{facts.total}} works, sorted by type",
+      "sub": "Figures come from the public list named below",
+      "narration": [
+        "That is what {{facts.total}} works are making."
+      ]
+    }
+  ]
+}

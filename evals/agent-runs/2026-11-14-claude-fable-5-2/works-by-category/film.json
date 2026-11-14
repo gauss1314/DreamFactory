@@ -1,0 +1,67 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "2,793 件作品都在做什么",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "一份公开清单",
+      "headline": "{{facts.total}} 件作品都在做什么",
+      "sub": "按类型看 AI 视频作品的分布",
+      "narration": [
+        "这份公开清单收录了 {{facts.total}} 件作品，都在做什么？"
+      ]
+    },
+    {
+      "id": "scope",
+      "type": "bignumber",
+      "label": "清单收录的作品",
+      "value": "{{facts.total}}",
+      "unit": "件",
+      "note": "只收浏览量 {{facts.minViews}} 以上的作品，不代表全部",
+      "narration": [
+        "清单只收浏览量 {{facts.minViews}} 以上的作品。",
+        "所以它不代表全部作品。"
+      ]
+    },
+    {
+      "id": "ranking",
+      "type": "bars",
+      "title": "各类型的作品数量",
+      "sub": "单位：件",
+      "series": { "$": "series.categories" },
+      "highlight": "模型对比",
+      "unit": "件",
+      "narration": [
+        "数量最多的类型是模型对比，有 {{series.categories[模型对比]}} 件。",
+        "游戏和 3D 世界与模拟紧随其后。"
+      ]
+    },
+    {
+      "id": "games",
+      "type": "bars",
+      "title": "游戏类排在第二",
+      "sub": "数量与占比",
+      "series": { "$": "series.categories" },
+      "highlight": "游戏",
+      "unit": "件",
+      "showShare": true,
+      "narration": [
+        "游戏类有 {{series.categories[游戏]}} 件作品。",
+        "约占全部作品的 {{share series.categories[游戏]}}。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "{{facts.total}} 件作品，模型对比最多",
+      "sub": "游戏类 {{series.categories[游戏]}} 件，排在第二",
+      "narration": [
+        "模型对比最多，游戏第二，这就是类型分布。"
+      ]
+    }
+  ]
+}

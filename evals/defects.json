@@ -3,15 +3,31 @@
     "id": "number-typo-on-screen",
     "title": "画面上的数字打错：5,000 写成 5,500",
     "base": "works-by-category",
-    "ops": [{ "file": "film", "set": "scenes[1].note", "value": "入选门槛：浏览量 5,500 以上" }],
-    "expectFail": ["data-accuracy"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].note",
+        "value": "入选门槛：浏览量 5,500 以上"
+      }
+    ],
+    "expectFail": [
+      "data-accuracy"
+    ]
   },
   {
     "id": "number-wrong-in-narration",
     "title": "旁白念错数字：483 念成 438",
     "base": "works-by-category",
-    "ops": [{ "file": "film", "set": "scenes[2].narration[1]", "value": "游戏排第二，438件，占{{share series.categories[游戏]}}。" }],
-    "expectFail": ["data-accuracy"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[2].narration[1]",
+        "value": "游戏排第二，438件，占{{share series.categories[游戏]}}。"
+      }
+    ],
+    "expectFail": [
+      "data-accuracy"
+    ]
   },
   {
     "id": "inline-series-wrong-value",
@@ -22,28 +38,63 @@
         "file": "film",
         "set": "scenes[2].series",
         "value": [
-          { "label": "模型对比", "value": 534 },
-          { "label": "游戏", "value": 583 },
-          { "label": "3D 世界与模拟", "value": 473 },
-          { "label": "动效与界面", "value": 356 },
-          { "label": "产品演示与广告", "value": 272 },
-          { "label": "角色与故事", "value": 251 },
-          { "label": "讲解与教育", "value": 233 },
-          { "label": "音乐与剪辑制作", "value": 191 }
+          {
+            "label": "模型对比",
+            "value": 534
+          },
+          {
+            "label": "游戏",
+            "value": 583
+          },
+          {
+            "label": "3D 世界与模拟",
+            "value": 473
+          },
+          {
+            "label": "动效与界面",
+            "value": 356
+          },
+          {
+            "label": "产品演示与广告",
+            "value": 272
+          },
+          {
+            "label": "角色与故事",
+            "value": 251
+          },
+          {
+            "label": "讲解与教育",
+            "value": 233
+          },
+          {
+            "label": "音乐与剪辑制作",
+            "value": 191
+          }
         ]
       }
     ],
-    "expectFail": ["data-accuracy"]
+    "expectFail": [
+      "data-accuracy"
+    ]
   },
   {
     "id": "required-fact-missing",
     "title": "任务要求展示的总数没有出现在画面上",
     "base": "works-by-category",
     "ops": [
-      { "file": "film", "set": "scenes[0].headline", "value": "这些作品，都在用代码做什么？" },
-      { "file": "film", "remove": "scenes[1]" }
+      {
+        "file": "film",
+        "set": "scenes[0].headline",
+        "value": "这些作品，都在用代码做什么？"
+      },
+      {
+        "file": "film",
+        "remove": "scenes[1]"
+      }
     ],
-    "expectFail": ["data-accuracy"]
+    "expectFail": [
+      "data-accuracy"
+    ]
   },
   {
     "id": "range-typo",
@@ -54,38 +105,112 @@
         "file": "film",
         "set": "scenes[1].series",
         "value": [
-          { "label": "代码生成短片", "low": 2, "high": 20 },
-          { "label": "视频模型 API", "low": 2, "high": 45 },
-          { "label": "自由职业者", "low": 1000, "high": 4000 },
-          { "label": "工作室", "low": 3000, "high": 150000 }
+          {
+            "label": "代码生成短片",
+            "low": 2,
+            "high": 20
+          },
+          {
+            "label": "视频模型 API",
+            "low": 2,
+            "high": 45
+          },
+          {
+            "label": "自由职业者",
+            "low": 1000,
+            "high": 4000
+          },
+          {
+            "label": "工作室",
+            "low": 3000,
+            "high": 150000
+          }
         ]
       }
     ],
-    "expectFail": ["data-accuracy"]
+    "expectFail": [
+      "data-accuracy"
+    ]
   },
   {
     "id": "number-typo-english",
     "title": "英文版画面上的数字打错：5,000 写成 50,000",
     "base": "works-by-category-en",
-    "ops": [{ "file": "film", "set": "scenes[1].note", "value": "Each one has at least 50,000 views" }],
-    "expectFail": ["data-accuracy"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].note",
+        "value": "Each one has at least 50,000 views"
+      }
+    ],
+    "expectFail": [
+      "data-accuracy"
+    ]
+  },
+  {
+    "id": "double-percent",
+    "title": "占比引用后面又手写了一个百分号，显示成 17%%",
+    "base": "works-by-category",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[2].narration[1]",
+        "value": "游戏排第二，{{series.categories[游戏]}}件，占{{share series.categories[游戏]}}%。"
+      }
+    ],
+    "expectFail": [
+      "typography"
+    ]
+  },
+  {
+    "id": "leftover-template",
+    "title": "数据引用少写一个括号，模板符号原样出现在画面上",
+    "base": "works-by-category",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[0].sub",
+        "value": "一份清单，收录了 {{facts.total} 件作品"
+      }
+    ],
+    "expectFail": [
+      "typography"
+    ]
   },
   {
     "id": "no-source",
     "title": "数据画面没有标注来源",
     "base": "works-by-category",
-    "ops": [{ "file": "film", "set": "source", "value": "" }],
-    "expectFail": ["citation"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "source",
+        "value": ""
+      }
+    ],
+    "expectFail": [
+      "citation"
+    ]
   },
   {
     "id": "flash-text",
     "title": "结尾画面一闪而过，来不及读",
     "base": "works-by-category",
     "ops": [
-      { "file": "film", "set": "scenes[4].narration", "value": [] },
-      { "file": "film", "set": "scenes[4].duration", "value": 0.7 }
+      {
+        "file": "film",
+        "set": "scenes[4].narration",
+        "value": []
+      },
+      {
+        "file": "film",
+        "set": "scenes[4].duration",
+        "value": 0.7
+      }
     ],
-    "expectFail": ["readability"]
+    "expectFail": [
+      "readability"
+    ]
   },
   {
     "id": "headline-overflow",
@@ -98,14 +223,26 @@
         "value": "这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题，这是一条写得太长的标题。"
       }
     ],
-    "expectFail": ["layout"]
+    "expectFail": [
+      "layout"
+    ]
   },
   {
     "id": "low-contrast",
     "title": "次要文字颜色太接近背景",
     "base": "works-by-category",
-    "ops": [{ "file": "film", "set": "theme", "value": { "muted": "#27303b" } }],
-    "expectFail": ["contrast"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "theme",
+        "value": {
+          "muted": "#27303b"
+        }
+      }
+    ],
+    "expectFail": [
+      "contrast"
+    ]
   },
   {
     "id": "long-subtitle",
@@ -118,32 +255,72 @@
         "value": "对比测试的数量非常多，这说明大家其实都还在一点一点地摸索这些模型到底能做到什么程度。"
       }
     ],
-    "expectFail": ["subtitles"]
+    "expectFail": [
+      "subtitles"
+    ]
   },
   {
     "id": "empty-scene",
     "title": "一个场景里什么内容都没有",
     "base": "works-by-category",
     "ops": [
-      { "file": "film", "set": "scenes[3].title", "value": "" },
-      { "file": "film", "set": "scenes[3].items", "value": [] },
-      { "file": "film", "set": "scenes[3].narration", "value": [] },
-      { "file": "film", "set": "scenes[3].minDuration", "value": 3 }
+      {
+        "file": "film",
+        "set": "scenes[3].title",
+        "value": ""
+      },
+      {
+        "file": "film",
+        "set": "scenes[3].items",
+        "value": []
+      },
+      {
+        "file": "film",
+        "set": "scenes[3].narration",
+        "value": []
+      },
+      {
+        "file": "film",
+        "set": "scenes[3].minDuration",
+        "value": 3
+      }
     ],
-    "expectFail": ["empty-frames"]
+    "expectFail": [
+      "empty-frames"
+    ]
   },
   {
     "id": "duration-out-of-range",
     "title": "片长不符合任务要求",
     "base": "works-by-category",
-    "ops": [{ "file": "expect", "set": "duration", "value": [60, 90] }],
-    "expectFail": ["spec"]
+    "ops": [
+      {
+        "file": "expect",
+        "set": "duration",
+        "value": [
+          60,
+          90
+        ]
+      }
+    ],
+    "expectFail": [
+      "spec"
+    ]
   },
   {
     "id": "dead-air",
     "title": "结尾画面静止且无声地停了十秒",
     "base": "works-by-category",
-    "ops": [{ "file": "film", "set": "scenes[4].minDuration", "value": 14 }],
-    "expectFail": ["video-stillness", "audio-gaps"]
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[4].minDuration",
+        "value": 14
+      }
+    ],
+    "expectFail": [
+      "video-stillness",
+      "audio-gaps"
+    ]
   }
 ]

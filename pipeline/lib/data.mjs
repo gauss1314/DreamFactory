@@ -85,6 +85,7 @@ export function resolveFilm(film, data) {
   };
   const out = { ...film, lang };
   if (film.source != null) out.source = renderTemplate(film.source, data, 'screen', lang);
+  if (film.title != null) out.title = renderTemplate(film.title, data, 'screen', lang);
   out.scenes = (film.scenes ?? []).map((scene, i) => {
     touched = false;
     const { narration = [], ...rest } = scene;

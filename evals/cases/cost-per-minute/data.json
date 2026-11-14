@@ -4,12 +4,31 @@
     "url": "docs/llm-video-game-research.md",
     "asOf": "2026-11-13"
   },
+  "units": {
+    "cost": "美元"
+  },
   "series": {
     "cost": [
-      { "label": "代码生成短片", "low": 2, "high": 20 },
-      { "label": "视频模型 API", "low": 2, "high": 45 },
-      { "label": "自由职业者", "low": 1000, "high": 4000 },
-      { "label": "工作室", "low": 3000, "high": 15000 }
+      {
+        "label": "代码生成短片",
+        "low": 2,
+        "high": 20
+      },
+      {
+        "label": "视频模型 API",
+        "low": 2,
+        "high": 45
+      },
+      {
+        "label": "自由职业者",
+        "low": 1000,
+        "high": 4000
+      },
+      {
+        "label": "工作室",
+        "low": 3000,
+        "high": 15000
+      }
     ]
   }
 }

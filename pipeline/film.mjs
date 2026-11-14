@@ -1,7 +1,7 @@
 // One run of the pipeline for one film: script -> timeline -> picture -> self-check -> film.
 import fs from 'node:fs';
 import path from 'node:path';
-import { probe, readJson, writeJson } from './lib/util.mjs';
+import { hash, probe, readJson, writeJson } from './lib/util.mjs';
 import { resolveFilm } from './lib/data.mjs';
 import { pickBackend } from './lib/tts.mjs';
 import { buildTimeline } from './lib/timeline.mjs';
@@ -61,7 +61,7 @@ export async function runFilm(filmDir, opts = {}) {
   const failed = checks.filter((c) => c.status === 'fail').map((c) => c.id);
 
   const report = {
-    title: film.title ?? path.basename(filmDir),
+    title: resolved.title ?? path.basename(filmDir),
     passed: failed.length === 0,
     failed,
     durationSec: timeline.duration,
@@ -78,6 +78,7 @@ export async function runFilm(filmDir, opts = {}) {
     const entry = {
       at: new Date().toISOString(),
       round: prior.length + 1,
+      filmVersion: hash(JSON.stringify(film)),
       passed: report.passed,
       failed,
       draft,

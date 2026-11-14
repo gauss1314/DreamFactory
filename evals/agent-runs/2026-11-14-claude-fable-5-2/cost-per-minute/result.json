@@ -1,0 +1,50 @@
+{
+  "case": "cost-per-minute",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 43.3
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "success",
+    "turns": 22,
+    "toolUses": 21,
+    "wallSec": 131,
+    "costUsd": 1.11,
+    "tokens": {
+      "input": 22,
+      "output": 6349,
+      "cacheRead": 579816,
+      "cacheWrite": 46107
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"cat package.json; find pipeline verticals -type f | grep -v node_modules | head -80; ls ../ 2>/dev/null; ls ",
+      "Bash: {\"command\":\"cd task && python3 - <<'E'\\nimport json\\nf=json.load(open('film.json'))\\ns={x['id']:x for x in f['scenes']}\\"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检已通过：12 项通过，听写核对 1 项跳过（管线还没接入语音识别），片长 43.3 秒。\n\n管线共跑了 2 次，返工 1 轮：\n\n1. **第 1 次（`--no-video`）**：写出初稿 `task/film.json`，共五个场景：开场、两张对数刻度区间图（分别高亮代码生成短片和工作室）、口径提醒、收尾。文字层检查全部通过，但片长 55.5 秒，比简报要的 45 秒左右偏长。\n2. **第 2 次（`--draft`）**：删掉 3 句旁白和 1 条要点（开场第二句、“请人来做”的过渡句、口径场景里重复两个上限的那句），片长降到 43.3 秒，画面和声音检查都通过。\n\n有两点需要你知道：\n\n- **没有货币单位**：`data.json` 里没有给单位，我没有自己补，所以画面和旁白里的成本数字都不带单位。要加的话得先在数据里补上。\n- **没有出成片**：按任务要求只做到草稿这一步，`task/out/film.mp4` 目前是草稿画质，没有去掉 `--draft` 再跑。\n\n除了 `task/film.json`，我没有手动改任何文件；`task/out/` 下的产物是管线自己生成的。"
+}

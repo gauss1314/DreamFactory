@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/3，缺陷检出 14/14。
+干净用例误报 0/3，缺陷检出 16/16。
 
 运行环境：Node v22.23.4 · 语音后端 espeak · 草稿画质 · 2026-11-14
 
@@ -26,6 +26,8 @@
 | required-fact-missing | 任务要求展示的总数没有出现在画面上 | data-accuracy | 抓到 |  |
 | range-typo | 区间图手抄数据，把 15,000 抄成 150,000 | data-accuracy | 抓到 |  |
 | number-typo-english | 英文版画面上的数字打错：5,000 写成 50,000 | data-accuracy | 抓到 |  |
+| double-percent | 占比引用后面又手写了一个百分号，显示成 17%% | typography | 抓到 |  |
+| leftover-template | 数据引用少写一个括号，模板符号原样出现在画面上 | typography | 抓到 |  |
 | no-source | 数据画面没有标注来源 | citation | 抓到 |  |
 | flash-text | 结尾画面一闪而过，来不及读 | readability | 抓到 |  |
 | headline-overflow | 标题太长，撑出画面 | layout | 抓到 | readability |
@@ -46,6 +48,7 @@
 | layout | 1 | 1 |  |
 | contrast | 1 | 1 |  |
 | subtitles | 1 | 1 |  |
+| typography | 2 | 2 |  |
 | empty-frames | 1 | 1 |  |
 | fonts | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | video-stillness | 1 | 1 |  |

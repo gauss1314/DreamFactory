@@ -1,0 +1,67 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "做一分钟视频要花多少钱",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "每分钟成片成本",
+      "headline": "做一分钟视频要花多少钱",
+      "sub": "四种做法，放在一起比",
+      "narration": [
+        "做一分钟视频，要花多少钱？"
+      ]
+    },
+    {
+      "id": "low-end",
+      "type": "ranges",
+      "title": "四种做法的每分钟成片成本",
+      "sub": "对数刻度：每一格相差十倍",
+      "series": { "$": "series.cost" },
+      "highlight": "代码生成短片",
+      "narration": [
+        "四个区间跨了四个数量级。",
+        "所以横轴用对数刻度，每一格相差十倍。",
+        "代码生成短片，每分钟只要 {{series.cost[代码生成短片].low}} 到 {{series.cost[代码生成短片].high}}。",
+        "视频模型 API 的上限是 {{series.cost[视频模型 API].high}}，在同一个量级。"
+      ]
+    },
+    {
+      "id": "high-end",
+      "type": "ranges",
+      "title": "请人来做，贵出两三个数量级",
+      "sub": "对数刻度：每一格相差十倍",
+      "series": { "$": "series.cost" },
+      "highlight": "工作室",
+      "narration": [
+        "自由职业者从 {{series.cost[自由职业者].low}} 起步，最高 {{series.cost[自由职业者].high}}。",
+        "工作室的报价最高，上限到 {{series.cost[工作室].high}}。"
+      ]
+    },
+    {
+      "id": "caveat",
+      "type": "bullets",
+      "title": "怎么读这些数字",
+      "items": [
+        "多为创作者自报和报价指南",
+        "只能看量级，不能当精确报价"
+      ],
+      "narration": [
+        "这些数字多为创作者自报和报价指南。",
+        "只能看量级，不能当成精确报价。"
+      ]
+    },
+    {
+      "id": "outro",
+      "type": "outro",
+      "headline": "先看量级，再决定怎么做",
+      "sub": "代码生成短片和工作室报价，差着几个数量级",
+      "narration": [
+        "考虑用代码生成视频的团队，可以先看这个量级。"
+      ]
+    }
+  ]
+}

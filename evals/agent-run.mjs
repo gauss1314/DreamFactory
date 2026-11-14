@@ -140,7 +140,7 @@ async function runCase(id) {
   const logFile = path.join(task, 'out', 'runs.jsonl');
   const roundLog = fs.existsSync(logFile)
     ? fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
-        .map((r) => ({ round: r.round, passed: r.passed, failed: r.failed, rendered: r.rendered }))
+        .map((r) => ({ round: r.round, passed: r.passed, failed: r.failed, rendered: r.rendered, filmVersion: r.filmVersion }))
     : [];
 
   // Check the delivered film again against the case's own data and requirements.
@@ -164,6 +164,7 @@ async function runCase(id) {
     verified,
     pipelineRuns: roundLog.length,
     failedRuns: roundLog.filter((r) => !r.passed).length,
+    filmVersions: new Set(roundLog.map((r) => r.filmVersion).filter(Boolean)).size || null,
     roundLog,
     agent: {
       finished: result?.subtype === 'success' && cli.code === 0,
@@ -222,13 +223,14 @@ const md = [
   '',
   `模型 ${records[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
   '',
-  '| 用例 | 复验 | 管线运行 | 其中未通过 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  '| 用例 | 复验 | 管线运行 | 其中未通过 | 分镜版本 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...records.map((r) =>
-    `| ${r.case} | ${r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
+    `| ${r.case} | ${r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
   '',
   '- **复验**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检。',
   '- **管线运行**：模型自己调用管线的次数，含只查文字层的快速运行。',
+  '- **分镜版本**：这些运行里实际出现过几版不同的 film.json；分镜没改就重跑的不算新版本。',
   '- **守规**：没有改动管线、规范、数据和要求，也没有读工作区以外的文件。',
   '- **费用**含命令行自身的系统提示开销，每次调用起步约 0.2 美元。',
   '',

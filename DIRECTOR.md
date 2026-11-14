@@ -23,6 +23,8 @@
 
 最多返工 3 轮。3 轮后仍不通过，停下来把报告交给人，不要继续试。
 
+命令的退出码：0 表示检查全部通过，1 表示有检查未通过，2 表示运行本身出错（比如引用了不存在的数据）。
+
 ## 硬性规则
 
 - **数字只引用，不手写。** 来自数据的数字一律写成 `{{facts.total}}` 或 `{"$": "series.categories"}`。手写的数字只要不在 `data.json` 里，检查就会失败。
@@ -101,7 +103,7 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
 | `{{facts.total}}` | 一个数字；画面上带千分位，旁白里不带 |
 | `{{series.categories[游戏]}}` | 按 `label` 取一行的 `value` |
 | `{{series.cost[工作室].high}}` | 按 `label` 取一行里的某个字段 |
-| `{{share series.categories[游戏]}}` | 这一行占整组的百分比，取整 |
+| `{{share series.categories[游戏]}}` | 这一行占整组的百分比，取整，已经带百分号，后面不要再写 `%` |
 
 可以出现的数字有三类：`data.json` 里的任何数字、每组数据的合计、每一行的占比。
 
@@ -115,6 +117,7 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
 | `layout` | 文字太长 | 缩短文字 |
 | `contrast` | 改了主题色 | 换一个与背景差得更开的颜色 |
 | `subtitles` | 旁白太长 | 拆成两句 |
+| `typography` | 占比引用后面又写了 `%`，或引用少写了括号 | 删掉多余的符号，补全括号 |
 | `empty-frames` | 场景没有内容 | 补内容，或删掉这个场景 |
 | `video-stillness` | 一句旁白太长，画面一直不动 | 拆句，或把内容分到两个场景 |
 | `audio-gaps` | 场景没有旁白，或 `minDuration` 远大于旁白 | 补旁白，或缩短 |

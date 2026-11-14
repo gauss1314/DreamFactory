@@ -1,0 +1,56 @@
+{
+  "case": "works-by-category",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 35.733
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "success",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 127,
+    "costUsd": 0.99,
+    "tokens": {
+      "input": 20,
+      "output": 6729,
+      "cacheRead": 494741,
+      "cacheWrite": 39093
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"cat > task/film.json <<'EOF'\\n{\\n  \\\"vertical\\\": \\\"data-story\\\",\\n  \\\"lang\\\": \\\"zh\\\",\\n  \\\"title\\\": \\\"2,793 ",
+      "Bash: {\"command\":\"python3 - <<'EOF'\\nimport json\\np='task/film.json'\\nf=json.load(open(p))\\ns={x['id']:x for x in f['scenes']}"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检全部通过：12 项通过，听写核对 1 项跳过（管线还没接入语音识别）。片长 35.7 秒，语音后端是 espeak。\n\n管线一共跑了 3 次，只返工了 1 轮：\n\n1. **第 1 次（`--no-video`）**：初稿 6 个场景、16 句旁白，文字层检查通过。但片长 57.7 秒，偏离简报要的 40 秒左右；抽帧图里占比还显示成了“17%%”，因为我在占比引用后面多写了一个百分号。\n2. **第 2 次（`--no-video`）**：删掉与前文重复的“三点结论”场景，旁白压到 8 句，去掉多余的百分号。检查通过，片长 35.7 秒。\n3. **第 3 次（`--draft`）**：没有改动，渲染草稿并查画面和声音，全部通过。\n\n只新建和修改了 `task/film.json`，其他文件没动。没有去掉 `--draft` 出成片，`task/out/film.mp4` 目前是草稿画质。"
+}

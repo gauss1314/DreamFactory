@@ -260,6 +260,29 @@ export const subtitles = {
   },
 };
 
+export const typography = {
+  id: 'typography',
+  title: '文字规范：没有重复的标点、残留的模板符号、空括号',
+  tier: 'dom',
+  run(ctx) {
+    const rules = [
+      [/[%％]{2,}/, '重复的百分号'],
+      [/([，。、；：？！,;:?!])\1+/, '重复的标点'],
+      [/\{\{|\}\}/, '残留的模板符号'],
+      [/（\s*）|\(\s*\)/, '空括号'],
+    ];
+    const problems = new Map();
+    const scan = (text, where) => {
+      for (const [re, name] of rules) if (re.test(text)) problems.set(`${name}|${text}`, `${name}：${where}「${clip(text, 30)}」`);
+    };
+    for (const s of ctx.sampling.samples) {
+      for (const x of s.texts) if (shown(x) && x.role !== 'animating' && x.role !== 'subtitle') scan(x.text, '画面');
+    }
+    for (const sc of ctx.timeline.scenes) for (const line of sc.lines) scan(line.display, '旁白');
+    return result([...problems.values()], '没有发现文字规范问题');
+  },
+};
+
 export const fonts = {
   id: 'fonts',
   title: '字体：中文字形能正常显示',

@@ -19,7 +19,7 @@
       "id": "cost",
       "type": "ranges",
       "title": "每分钟成片的成本",
-      "sub": "美元，对数刻度",
+      "sub": "{{units.cost}}，对数刻度",
       "series": { "$": "series.cost" },
       "highlight": "代码生成短片",
       "narration": [

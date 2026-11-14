@@ -1,0 +1,56 @@
+{
+  "case": "works-by-category-en",
+  "model": "claude-fable-5-2",
+  "delivered": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 39.267
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "success",
+    "turns": 19,
+    "toolUses": 18,
+    "wallSec": 135,
+    "costUsd": 1.13,
+    "tokens": {
+      "input": 22,
+      "output": 5875,
+      "cacheRead": 622388,
+      "cacheWrite": 47979
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"node pipeline/cli.mjs run task --no-video; echo exit=$?\",\"description\":\"Run text-level checks\"}",
+      "Bash: {\"command\":\"cd task && python3 - <<'E'\\nimport json\\nf=json.load(open('film.json'))\\nf['title']='Works by type (EN)'\\ns="
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（`--draft`）的自检已全部通过，片长 39.3 秒；唯一没跑的是听写核对，管线还没接语音识别，所以是跳过。最后这版我没有再看抽帧图，成片（去掉 `--draft`）也没有出。\n\n管线共跑了 3 次，没有一次检查失败：\n\n1. **第 1 次（`--no-video`）**：初稿，文字层检查全过，但片长 51.4 秒，比简报要的约 40 秒长。\n2. **第 2 次（`--no-video`）**：这次是空跑。我用脚本改 `film.json` 被权限拒绝，文件没变，结果与第 1 次相同，但 `out/runs.jsonl` 里多记了一轮。\n3. **第 3 次（`--draft`）**：删了 3 句旁白和 1 条要点（开场第二句、“3D worlds” 那句、要点里重复的“最大类型”），把开场旁白换成一句不带数字的问句；另外把片名改成纯文字，因为片名里的 `{{facts.total}}` 不会被替换。\n\n只新建并修改了 `task/film.json`；管线自己在 `task/out/` 下生成了报告、抽帧图和草稿视频。"
+}
