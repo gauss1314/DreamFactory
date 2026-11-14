@@ -106,7 +106,7 @@ export function resolveFilm(film, data) {
 
 /**
  * Every number a film may show or say: the values in data.json, numbers written inside its labels
- * ("7月"), plus series totals and shares. The source block is metadata and does not count.
+ * ("7月") and its source block (an as-of date), plus series totals and shares.
  */
 export function allowedNumbers(data) {
   const set = new Set();
@@ -125,7 +125,7 @@ export function allowedNumbers(data) {
       v.forEach(walk);
     } else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
-  for (const [key, v] of Object.entries(data)) if (key !== 'source') walk(v);
+  walk(data);
   return set;
 }
 

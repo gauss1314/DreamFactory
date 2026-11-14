@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/7，缺陷检出 27/27。
+干净用例误报 0/7，缺陷检出 28/28。
 
 运行环境：Node v22.23.4 · 语音后端 espeak · 草稿画质 · 2026-11-14
 
@@ -34,7 +34,7 @@
 | leftover-template | 数据引用少写一个括号，模板符号原样出现在画面上 | typography | 抓到 |  |
 | no-source | 数据画面没有标注来源 | citation | 抓到 |  |
 | flash-text | 结尾画面一闪而过，来不及读 | readability | 抓到 |  |
-| headline-overflow | 标题太长，撑出画面 | layout | 抓到 | readability |
+| headline-overflow | 标题太长，撑出画面 | layout | 抓到 | readability、sync |
 | low-contrast | 次要文字颜色太接近背景 | contrast | 抓到 |  |
 | long-subtitle | 一句旁白太长，字幕挤成两行 | subtitles | 抓到 |  |
 | empty-scene | 一个场景里什么内容都没有 | empty-frames | 抓到 |  |
@@ -51,6 +51,7 @@
 | chart-uses-random | 自定义场景里用了随机数，每次重画都不一样 | determinism | 抓到 |  |
 | chart-points-invisible | 折线图上的点半径写成零，画不出来 | marks | 抓到 |  |
 | ranges-scale-not-a-range | 区间图的 scale 写成了 "log"，四根条形画不出来 | 拒绝运行并报错 | 抓到 |  |
+| chart-lags-narration | 折线图画得太晚，旁白念完数字画面才出现 | sync | 抓到 | data-accuracy、readability |
 
 ## 各项检查的覆盖
 
@@ -63,6 +64,7 @@
 | layout | 2 | 2 |  |
 | contrast | 1 | 1 |  |
 | subtitles | 1 | 1 |  |
+| sync | 1 | 1 |  |
 | typography | 3 | 3 |  |
 | empty-frames | 1 | 1 |  |
 | marks | 4 | 4 |  |

@@ -495,5 +495,20 @@
       }
     ],
     "expectError": "scale must be [low, high]"
+  },
+  {
+    "id": "chart-lags-narration",
+    "title": "折线图画得太晚，旁白念完数字画面才出现",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "ease((t - 0.5) / 1.8)",
+        "with": "ease((t - 9) / 1.8)"
+      }
+    ],
+    "expectFail": [
+      "sync"
+    ]
   }
 ]

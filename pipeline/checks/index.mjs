@@ -9,6 +9,7 @@ export const CHECKS = [
   dom.layout,
   dom.contrast,
   dom.subtitles,
+  dom.sync,
   dom.typography,
   dom.emptyFrames,
   dom.marks,

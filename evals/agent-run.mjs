@@ -32,7 +32,8 @@ if (args.includes('--help')) {
   --budget <美元>   每个用例的费用上限，默认 8
   --timeout <分钟>  每个用例的时间上限，默认 30
   --work <目录>     工作区位置，默认在系统临时目录
-  --label <名称>    结果目录名，默认是 日期-模型`);
+  --label <名称>    结果目录名，默认是 日期-模型
+  --summarize <名称> 不运行，只按已有记录重新生成该结果目录的汇总`);
   process.exit(0);
 }
 const only = value('--only')?.split(',');
@@ -40,7 +41,7 @@ const model = value('--model');
 const jobs = Number(value('--jobs') ?? 3);
 const budget = Number(value('--budget') ?? 8);
 const timeoutMin = Number(value('--timeout') ?? 30);
-const workRoot = path.resolve(value('--work') ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dreamfactory-agent-')));
+const workRoot = value('--summarize') ? null : path.resolve(value('--work') ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dreamfactory-agent-')));
 
 const PROMPT = `你在一条做数据短片的管线里工作。这次没有人值守，没有人可以提问，全程自己完成。
 
@@ -121,6 +122,17 @@ function readTranscript(file, ws) {
   return { result: events.findLast((e) => e.type === 'result') ?? null, toolUses: uses.length, readsOutsideWorkspace: outside };
 }
 
+/**
+ * passed: the model got its own draft through the checks, and the film passes again here.
+ * unchecked: the film passes here, but the model never got a draft through the checks itself.
+ * interrupted: the model did not end normally (usage limit, budget, timeout).
+ */
+function outcomeOf(r) {
+  if (!r.agent.finished) return 'interrupted';
+  if (!r.verified.passed) return 'failed';
+  return r.roundLog.some((x) => x.passed && x.rendered) ? 'passed' : 'unchecked';
+}
+
 async function runCase(id) {
   const src = path.join(casesDir, id);
   const ws = path.join(workRoot, id);
@@ -195,12 +207,13 @@ async function runCase(id) {
     report: result?.result ?? cli.stderr.slice(-600),
     files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, runs: fs.existsSync(logFile) ? logFile : null },
   };
-  record.outcome = !record.agent.finished ? 'interrupted' : verified.passed ? 'passed' : 'failed';
-  console.log(`${{ passed: '通过  ', failed: '未通过', interrupted: '中断  ' }[record.outcome]} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
+  record.outcome = outcomeOf(record);
+  console.log(`${{ passed: '通过  ', failed: '未通过', interrupted: '中断  ', unchecked: '未自检' }[record.outcome]} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
   return record;
 }
 
-const ids = fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || only.includes(d));
+const summarizeOnly = value('--summarize');
+const ids = summarizeOnly ? [] : fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || only.includes(d));
 const records = new Array(ids.length);
 let next = 0;
 await Promise.all(
@@ -213,9 +226,9 @@ await Promise.all(
 );
 
 // Save what the model delivered, and a summary.
-const date = new Date().toISOString().slice(0, 10);
-let label = value('--label') ?? `${date}-${records[0]?.model ?? 'unknown'}`;
-if (!value('--label')) {
+let label = summarizeOnly ?? value('--label') ?? `${new Date().toISOString().slice(0, 10)}-${records[0]?.model ?? 'unknown'}`;
+const date = label.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? new Date().toISOString().slice(0, 10);
+if (!summarizeOnly && !value('--label')) {
   // Never write over an earlier run's record.
   const base = label;
   for (let n = 2; fs.existsSync(path.join(here, 'agent-runs', label)); n++) label = `${base}-run${n}`;
@@ -234,16 +247,16 @@ for (const r of records) {
 // The summary covers every case recorded under this label, so an interrupted case can be re-run alone.
 const all = fs.readdirSync(outDir).filter((d) => fs.existsSync(path.join(outDir, d, 'result.json'))).sort()
   .map((d) => JSON.parse(fs.readFileSync(path.join(outDir, d, 'result.json'), 'utf8')));
-const outcome = (r) => r.outcome ?? (r.verified.passed ? 'passed' : 'failed');
+const outcome = outcomeOf;
 const perMinute = (r) => (r.agent.costUsd != null && r.verified.durationSec ? (r.agent.costUsd / (r.verified.durationSec / 60)).toFixed(2) : '');
 const count = (o) => all.filter((r) => outcome(r) === o).length;
 const clean = (r) => r.integrity.rulesUntouched && r.integrity.inputsUntouched && r.integrity.readsOutsideWorkspace.length === 0;
 const verdict = (r) =>
-  outcome(r) === 'interrupted' ? `中断：${r.agent.stopReason}` : r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`;
+  ({ interrupted: `中断：${r.agent.stopReason}`, failed: `未通过：${r.verified.failed.join('、')}`, unchecked: '未自检', passed: '通过' })[outcome(r)];
 const md = [
   `# 无人值守运行：${label}`,
   '',
-  `${count('passed')}/${all.length} 个用例交付了通过复验的影片${count('interrupted') ? `，${count('interrupted')} 个中途被打断，不计入结果` : ''}。模型只拿到简报、数据、要求和导演规范，看不到参考影片，全程没有人介入。`,
+  `${count('passed')}/${all.length} 个用例由模型自己跑通自检，并通过复验${count('unchecked') ? `；${count('unchecked')} 个交付的影片能通过复验，但模型自己没有跑通自检` : ''}${count('failed') ? `；${count('failed')} 个未通过复验` : ''}${count('interrupted') ? `；${count('interrupted')} 个中途被打断，不计入结果` : ''}。模型只拿到简报、数据、要求和导演规范，看不到参考影片，全程没有人介入。`,
   '',
   `模型 ${all[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
   '',
@@ -252,7 +265,7 @@ const md = [
   ...all.map((r) =>
     `| ${r.case} | ${verdict(r)} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.customScene ? '是' : ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
   '',
-  '- **结果**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检。模型没有正常结束的运行（用量限额、费用上限、超时）记为中断。',
+  '- **结果**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检，这叫复验。“通过”要求模型自己也跑通过草稿自检；片子能过复验但模型自己没跑通的记为“未自检”。模型没有正常结束的运行（用量限额、费用上限、超时）记为“中断”。',
   '- **管线运行**：模型自己调用管线的次数，含只查文字层的快速运行。',
   '- **分镜版本**：这些运行里实际出现过几版不同的 film.json；分镜没改就重跑的不算新版本。',
   '- **守规**：没有改动管线、规范、数据和要求，也没有读工作区以外的文件。',
@@ -263,6 +276,6 @@ const md = [
   ...all.flatMap((r) => [`### ${r.case}`, '', ...String(r.report).trim().split('\n').map((l) => `> ${l}`), '']),
 ].join('\n');
 fs.writeFileSync(path.join(outDir, 'SUMMARY.md'), md);
-console.log(`\n${count('passed')}/${all.length} 通过复验${count('interrupted') ? `，${count('interrupted')} 个被中断` : ''}。结果：${path.join(outDir, 'SUMMARY.md')}`);
-console.log(`工作区和完整对话记录：${workRoot}`);
+console.log(`\n${count('passed')}/${all.length} 通过${count('unchecked') ? `，${count('unchecked')} 个未自检` : ''}${count('interrupted') ? `，${count('interrupted')} 个被中断` : ''}。结果：${path.join(outDir, 'SUMMARY.md')}`);
+if (!summarizeOnly) console.log(`工作区和完整对话记录：${workRoot}`);
 process.exit(count('passed') === all.length ? 0 : 1);

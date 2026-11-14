@@ -216,6 +216,36 @@ export const citation = {
   },
 };
 
+export const sync = {
+  id: 'sync',
+  title: '同步：旁白念到的数字，画面不能晚出现',
+  tier: 'dom',
+  run(ctx) {
+    // When each number first becomes readable in the picture. Subtitles do not count; axis labels do.
+    const firstShown = new Map();
+    for (const s of ctx.sampling.samples) {
+      if (!s.grid) continue;
+      for (const x of s.texts) {
+        if (!shown(x) || x.role === 'subtitle' || x.role === 'animating') continue;
+        for (const n of extractNumbers(x.text)) if (!firstShown.has(n.value)) firstShown.set(n.value, s.t);
+      }
+    }
+    const problems = [];
+    let compared = 0;
+    for (const sc of ctx.timeline.scenes) {
+      for (const line of sc.lines) {
+        for (const n of extractNumbers(line.display)) {
+          const at = firstShown.get(n.value);
+          if (at === undefined) continue; // said but never drawn: nothing to be late
+          compared++;
+          if (at > line.end + 0.3) problems.push(`旁白在 ${fmtT(line.start)} 说到 ${n.raw}，画面到 ${fmtT(at)} 才出现`);
+        }
+      }
+    }
+    return result(problems, compared ? `旁白提到的 ${compared} 处数字，画面都没有晚出现` : '旁白里没有同时画在画面上的数字');
+  },
+};
+
 export const emptyFrames = {
   id: 'empty-frames',
   title: '空画面：没有内容的画面不超过 1.5 秒',
