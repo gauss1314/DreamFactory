@@ -9,38 +9,60 @@
       "id": "open",
       "type": "title",
       "kicker": "虚构示例数据",
-      "headline": "每个月新增多少代码生成作品",
-      "sub": "某视频社区 · {{facts.year}} 年",
+      "headline": "{{facts.year}} 年，每月新增多少作品？",
+      "sub": "某视频社区的代码生成作品，逐月来看",
       "narration": [
-        "先说明，这是一组虚构的示例数据。",
-        "看某视频社区 {{facts.year}} 年每月新增的代码生成作品。"
+        "先说明，这是一份虚构的示例数据。",
+        "{{facts.year}} 年，某视频社区每月新增多少代码生成作品？"
       ]
     },
     {
       "id": "trend",
       "type": "line",
-      "title": "每月新增代码生成作品",
-      "sub": "{{facts.year}} 年 · 单位：个 · 虚构示例数据",
+      "title": "{{facts.year}} 年每月新增的代码生成作品",
+      "sub": "单位：件 · 虚构示例数据",
       "series": { "$": "series.monthly" },
-      "mark": ["1月", "9月", "10月"],
-      "reveal": ["1月", "9月", "10月", "11月", "12月"],
-      "narration": [
-        "1 月，新增 {{series.monthly[1月]}} 个。",
-        "之后慢慢爬升，9 月是 {{series.monthly[9月]}} 个。",
-        "10 月突然跳到 {{series.monthly[10月]}} 个。",
-        "11 月达到全年最高，{{series.monthly[11月]}} 个。",
-        "12 月略有回落，仍停在高位。"
+      "ticks": [0, 200, 400, 600],
+      "callouts": [
+        { "$": "series.monthly[1月]" },
+        { "$": "series.monthly[9月]" },
+        { "$": "series.monthly[10月]" },
+        { "$": "series.monthly[11月]" }
       ],
-      "minDuration": 6
+      "place": { "1月": "above-right", "9月": "below", "10月": "left", "11月": "above" },
+      "highlight": "11月",
+      "reveal": [0, 8, 9, 10, 11],
+      "narration": [
+        "1月只有 {{series.monthly[1月]}} 件。",
+        "之后缓慢爬升，到 9月是 {{series.monthly[9月]}} 件。",
+        "10月突然跳到 {{series.monthly[10月]}} 件。",
+        "11月是全年最高，{{series.monthly[11月]}} 件。",
+        "12月略有回落，仍有 {{series.monthly[12月]}} 件。"
+      ]
     },
     {
-      "id": "close",
-      "type": "outro",
-      "headline": "变化集中在 10 月的一次跳升",
-      "sub": "之前是缓慢爬升，之后停在高位",
+      "id": "shape",
+      "type": "bullets",
+      "title": "这条线的形状",
+      "items": [
+        "前 9 个月：缓慢爬升",
+        "10月：一次明显的跳升",
+        "11月见顶，12月略有回落"
+      ],
       "narration": [
-        "所以这条线不是逐月平稳加速。",
-        "变化集中在 10 月的一次跳升。"
+        "看形状：前 9 个月是缓坡。",
+        "10月是一次明显的跳升。",
+        "11月见顶之后，12月略有回落。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "变化集中在 10月之后",
+      "sub": "虚构示例数据，仅用于评测，不代表真实统计",
+      "narration": [
+        "变化主要集中在 10月之后。",
+        "再提醒一次，数据是虚构的示例。"
       ]
     }
   ]

@@ -95,16 +95,24 @@ const planted = await pool(defectRuns, async (d) => {
     }
     const r = await runFilm(dir, {
       ...files, draft: true, tts, log: false,
-      video: d.expectFail.some((id) => mediaIds.has(id)),
+      video: (d.expectFail ?? []).some((id) => mediaIds.has(id)),
       outDir: path.join(tmpDir, `defect-${d.id}`),
     });
+    if (d.expectError) {
+      console.log(`漏检   ${d.id}  ← 应该报错“${d.expectError}”，却正常跑完了`);
+      return { ...d, expectFail: [], ok: false, missed: ['(应该报错)'], extra: r.failed };
+    }
     const missed = d.expectFail.filter((id) => !r.failed.includes(id));
     const extra = r.failed.filter((id) => !d.expectFail.includes(id));
     console.log(`${missed.length ? '漏检  ' : '抓到  '} ${d.id}${missed.length ? `  ← 没有失败：${missed.join(', ')}` : ''}`);
     return { ...d, ok: missed.length === 0, missed, extra };
   } catch (e) {
+    if (d.expectError && e.message.includes(d.expectError)) {
+      console.log(`抓到   ${d.id}`);
+      return { ...d, expectFail: [], ok: true, missed: [], extra: [] };
+    }
     console.log(`出错   ${d.id}  ← ${e.message.split('\n')[0]}`);
-    return { ...d, ok: false, missed: d.expectFail, extra: [], error: e.message };
+    return { ...d, expectFail: d.expectFail ?? [], ok: false, missed: d.expectFail ?? ['(运行出错)'], extra: [], error: e.message };
   }
 });
 
@@ -141,7 +149,7 @@ const md = [
   '',
   '| 缺陷 | 改了什么 | 应失败的检查 | 结果 | 连带失败的检查 |',
   '| --- | --- | --- | --- | --- |',
-  ...planted.map((d) => `| ${d.id} | ${cell(d.title)} | ${d.expectFail.join('、')} | ${d.ok ? '抓到' : `漏检：${d.missed.join('、')}`} | ${d.extra.join('、')} |`),
+  ...planted.map((d) => `| ${d.id} | ${cell(d.title)} | ${d.expectError ? '拒绝运行并报错' : d.expectFail.join('、')} | ${d.ok ? '抓到' : `漏检：${d.missed.join('、')}`} | ${d.extra.join('、')} |`),
   '',
   '## 各项检查的覆盖',
   '',

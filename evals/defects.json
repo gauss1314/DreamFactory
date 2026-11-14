@@ -467,5 +467,33 @@
     "expectFail": [
       "determinism"
     ]
+  },
+  {
+    "id": "chart-points-invisible",
+    "title": "折线图上的点半径写成零，画不出来",
+    "base": "monthly-trend",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "r: hot ? 12 : 8,",
+        "with": "r: 0,"
+      }
+    ],
+    "expectFail": [
+      "marks"
+    ]
+  },
+  {
+    "id": "ranges-scale-not-a-range",
+    "title": "区间图的 scale 写成了 \"log\"，四根条形画不出来",
+    "base": "cost-per-minute",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].scale",
+        "value": "log"
+      }
+    ],
+    "expectError": "scale must be [low, high]"
   }
 ]

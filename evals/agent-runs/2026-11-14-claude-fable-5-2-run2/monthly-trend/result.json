@@ -6,35 +6,47 @@
   "verified": {
     "passed": true,
     "failed": [],
-    "durationSec": 31.233
+    "durationSec": 40.167
   },
-  "pipelineRuns": 0,
+  "pipelineRuns": 2,
   "failedRuns": 0,
-  "filmVersions": null,
-  "roundLog": [],
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "bbc217096dcd"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "bbc217096dcd"
+    }
+  ],
   "agent": {
     "finished": true,
     "stopReason": "完成",
-    "turns": 11,
-    "toolUses": 10,
-    "wallSec": 107,
-    "costUsd": 1.22,
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 129,
+    "costUsd": 1.17,
     "tokens": {
-      "input": 16,
-      "output": 8394,
-      "cacheRead": 426979,
-      "cacheWrite": 50035
+      "input": 12,
+      "output": 7594,
+      "cacheRead": 318344,
+      "cacheWrite": 50457
     },
-    "refusedActions": [
-      "Bash: {\"command\":\"node pipeline/cli.mjs run task --no-video; echo EXIT $?\",\"description\":\"Run text-level checks\"}",
-      "Bash: {\"command\":\"npm run film -- task --no-video\",\"description\":\"Run the film pipeline text-level checks\"}"
-    ]
+    "refusedActions": []
   },
   "integrity": {
     "rulesUntouched": true,
     "inputsUntouched": true,
     "readsOutsideWorkspace": []
   },
-  "report": "未通过自检：管线一次都没跑成，草稿没有经过任何检查。\n\n- **卡在哪里**：本次会话拒绝了运行管线的命令（`node pipeline/cli.mjs run task --no-video` 和等价的 `npm run film -- task --no-video` 都被权限拦下）。我没有再找别的办法绕过。\n- **管线跑了几次**：0 次，返工 0 轮。\n- **写了什么**：`task/film.json` 有三个场景：开场、折线图、收尾。`task/scenes.js` 新增了 `line` 折线图场景，画 12 个月走势，在图上标出 1 月、9 月、10 月和全年最高的 11 月的数量。数字全部用数据引用，旁白和画面都写明是虚构示例数据。\n- **没验证的风险**：片长（目标 35 秒左右，取决于语音合成）、图上标签是否重叠或对比度不足、构图，都要等跑过才知道。\n- **下一步**：放开运行 `node pipeline/cli.mjs` 的权限后，先跑 `--no-video`，再跑 `--draft`，按报告返工。",
+  "report": "草稿渲染的自检已通过：16 项检查里 15 项通过，1 项（听写核对）因管线尚未接入语音识别而跳过。\n\n- **管线跑了 2 次**：第 1 次是 `--no-video` 文字层检查，第 2 次是 `--draft` 草稿渲染。两次都直接通过，没有返工，两次之间也没有改任何文件。\n- **新建的文件**：`task/film.json` 和 `task/scenes.js`。内置场景没有折线图，所以在 `scenes.js` 里写了一个自定义的 `line` 场景。\n- **片子内容**：共 4 个场景（开场、折线图、三条结论、收尾）。折线随旁白逐段画出 12 个月的走势，图上标了 1月 42、9月 149、10月 418 和全年最高的 11月 531，开头和结尾都说明数据是虚构示例。\n- **片长偏差**：片长 40.2 秒，比简报说的“35 秒左右”长约 5 秒，但在 `expect.json` 允许的 20–60 秒之内。\n- **未做的部分**：按任务要求只做到草稿通过，没有去掉 `--draft` 出成片。`task/out/film.mp4` 目前是草稿画质。",
   "outcome": "passed"
 }

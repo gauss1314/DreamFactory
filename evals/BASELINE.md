@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/7，缺陷检出 25/25。
+干净用例误报 0/7，缺陷检出 27/27。
 
 运行环境：Node v22.23.4 · 语音后端 espeak · 草稿画质 · 2026-11-14
 
@@ -49,6 +49,8 @@
 | chart-axis-inverted | 折线图的纵轴画反了，数值越大位置越低 | marks | 抓到 | layout |
 | chart-without-values | 自定义图表没有标出每个点代表的数值 | marks | 抓到 |  |
 | chart-uses-random | 自定义场景里用了随机数，每次重画都不一样 | determinism | 抓到 |  |
+| chart-points-invisible | 折线图上的点半径写成零，画不出来 | marks | 抓到 |  |
+| ranges-scale-not-a-range | 区间图的 scale 写成了 "log"，四根条形画不出来 | 拒绝运行并报错 | 抓到 |  |
 
 ## 各项检查的覆盖
 
@@ -63,7 +65,7 @@
 | subtitles | 1 | 1 |  |
 | typography | 3 | 3 |  |
 | empty-frames | 1 | 1 |  |
-| marks | 3 | 3 |  |
+| marks | 4 | 4 |  |
 | determinism | 1 | 1 |  |
 | fonts | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | video-stillness | 1 | 1 |  |

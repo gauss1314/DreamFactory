@@ -313,6 +313,8 @@ export const marks = {
     }
     let compared = 0;
     for (const [key, list] of groups) {
+      const flat = list.filter((m) => m.w < 1 || m.h < 1).length;
+      if (flat) problems.push(`${flat} 个图形没有画出来，宽或高为零（${key}）`);
       const stray = [...new Set(list.map((m) => m.value))].filter((v) => !hasNumber(allowed, v));
       for (const v of stray) problems.push(`图形标注的数值 ${v} 不在数据里（${key}）`);
       if (new Set(list.map((m) => m.value)).size < 3) continue;

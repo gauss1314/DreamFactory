@@ -32,6 +32,9 @@ function svg(tag, attrs, parent) {
   return el;
 }
 
+/** A number with its unit. A unit in Latin letters gets a space; "233works" reads as one word. */
+const withUnit = (text, unit) => (unit ? text + (/^[A-Za-z]/.test(unit) ? ' ' : '') + unit : text);
+
 function chartHead(scene, root) {
   h('h2', 'chart-title', scene.title, root);
   if (scene.sub) h('div', 'chart-sub', scene.sub, root);
@@ -91,7 +94,7 @@ const builders = {
       const track = h('div', 'row-track', null, row);
       const fill = h('div', 'bar-fill', null, track);
       fill.dataset.dfValue = String(it.value);
-      const value = h('div', 'bar-value', fmt(it.value) + (scene.unit || ''), track);
+      const value = h('div', 'bar-value', withUnit(fmt(it.value), scene.unit), track);
       if (scene.showShare) h('span', 'bar-share', `${Math.round((100 * it.value) / total)}%`, value);
       return { label, fill, value, frac: it.value / max };
     });
@@ -109,6 +112,10 @@ const builders = {
     chartHead(scene, root);
     const list = h('div', 'rows', null, root);
     const items = scene.series || [];
+    const sc = scene.scale;
+    if (sc != null && !(Array.isArray(sc) && sc.length === 2 && sc.every((v) => typeof v === 'number' && v > 0) && sc[0] < sc[1])) {
+      throw new Error(`scene "${scene.id}": scale must be [low, high], two positive numbers with low first; leave it out for an automatic range`);
+    }
     const lo = scene.scale?.[0] ?? 10 ** Math.floor(Math.log10(Math.min(...items.map((it) => it.low))));
     const hi = scene.scale?.[1] ?? 10 ** Math.ceil(Math.log10(Math.max(...items.map((it) => it.high))));
     const pos = (v) => (Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo));
