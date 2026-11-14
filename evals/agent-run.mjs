@@ -109,7 +109,8 @@ function readTranscript(file, ws) {
     .filter((e) => e.type === 'assistant')
     .flatMap((e) => e.message?.content ?? [])
     .filter((b) => b.type === 'tool_use');
-  const inside = (p) => path.resolve(ws, p).startsWith(fs.realpathSync(ws)) || path.resolve(ws, p).startsWith(ws);
+  const ownSpill = (p) => p.includes(`${path.sep}.claude${path.sep}`) && p.includes(`${path.sep}tool-results${path.sep}`);
+  const inside = (p) => path.resolve(ws, p).startsWith(fs.realpathSync(ws)) || path.resolve(ws, p).startsWith(ws) || ownSpill(p);
   const outside = uses
     .filter((u) => ['Read', 'Glob', 'Grep'].includes(u.name))
     .map((u) => u.input?.file_path ?? u.input?.path)
@@ -170,8 +171,12 @@ async function runCase(id) {
     filmVersions: new Set(roundLog.map((r) => r.filmVersion).filter(Boolean)).size || null,
     roundLog,
     agent: {
-      finished: result?.subtype === 'success' && cli.code === 0,
-      stopReason: result?.subtype ?? `命令行退出码 ${cli.code}`,
+      finished: Boolean(result) && !result.is_error && (result.terminal_reason ?? 'completed') === 'completed',
+      stopReason: !result
+        ? `命令行退出码 ${cli.code}`
+        : !result.is_error
+          ? '完成'
+          : `${result.terminal_reason ?? result.subtype}${result.api_error_status ? ` ${result.api_error_status}` : ''}：${String(result.result ?? '').split('\n')[0].slice(0, 80)}`,
       turns: result?.num_turns ?? null,
       toolUses,
       wallSec: result ? Math.round(result.duration_ms / 1000) : null,
@@ -187,7 +192,8 @@ async function runCase(id) {
     report: result?.result ?? cli.stderr.slice(-600),
     files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, runs: fs.existsSync(logFile) ? logFile : null },
   };
-  console.log(`${verified.passed ? '通过  ' : '未通过'} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
+  record.outcome = !record.agent.finished ? 'interrupted' : verified.passed ? 'passed' : 'failed';
+  console.log(`${{ passed: '通过  ', failed: '未通过', interrupted: '中断  ' }[record.outcome]} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
   return record;
 }
 
@@ -222,22 +228,28 @@ for (const r of records) {
   fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(rest, null, 2) + '\n');
 }
 
+// The summary covers every case recorded under this label, so an interrupted case can be re-run alone.
+const all = fs.readdirSync(outDir).filter((d) => fs.existsSync(path.join(outDir, d, 'result.json'))).sort()
+  .map((d) => JSON.parse(fs.readFileSync(path.join(outDir, d, 'result.json'), 'utf8')));
+const outcome = (r) => r.outcome ?? (r.verified.passed ? 'passed' : 'failed');
 const perMinute = (r) => (r.agent.costUsd != null && r.verified.durationSec ? (r.agent.costUsd / (r.verified.durationSec / 60)).toFixed(2) : '');
-const passed = records.filter((r) => r.verified.passed).length;
+const count = (o) => all.filter((r) => outcome(r) === o).length;
 const clean = (r) => r.integrity.rulesUntouched && r.integrity.inputsUntouched && r.integrity.readsOutsideWorkspace.length === 0;
+const verdict = (r) =>
+  outcome(r) === 'interrupted' ? `中断：${r.agent.stopReason}` : r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`;
 const md = [
   `# 无人值守运行：${label}`,
   '',
-  `${passed}/${records.length} 个用例交付了通过复验的影片。模型只拿到简报、数据、要求和导演规范，看不到参考影片，全程没有人介入。`,
+  `${count('passed')}/${all.length} 个用例交付了通过复验的影片${count('interrupted') ? `，${count('interrupted')} 个中途被打断，不计入结果` : ''}。模型只拿到简报、数据、要求和导演规范，看不到参考影片，全程没有人介入。`,
   '',
-  `模型 ${records[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
+  `模型 ${all[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
   '',
-  '| 用例 | 复验 | 管线运行 | 其中未通过 | 分镜版本 | 写了场景代码 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
+  '| 用例 | 结果 | 管线运行 | 其中未通过 | 分镜版本 | 写了场景代码 | 模型轮数 | 用时（秒） | 费用（美元） | 片长（秒） | 每分钟成片（美元） | 守规 |',
   '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-  ...records.map((r) =>
-    `| ${r.case} | ${r.verified.passed ? '通过' : `未通过：${r.verified.failed.join('、')}`} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.customScene ? '是' : ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
+  ...all.map((r) =>
+    `| ${r.case} | ${verdict(r)} | ${r.pipelineRuns} | ${r.failedRuns} | ${r.filmVersions ?? ''} | ${r.customScene ? '是' : ''} | ${r.agent.turns ?? ''} | ${r.agent.wallSec ?? ''} | ${r.agent.costUsd ?? ''} | ${r.verified.durationSec?.toFixed(1) ?? ''} | ${perMinute(r)} | ${clean(r) ? '是' : '否'} |`),
   '',
-  '- **复验**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检。',
+  '- **结果**：模型交付后，用用例原本的数据和要求重新跑一遍草稿渲染和全部自检。模型没有正常结束的运行（用量限额、费用上限、超时）记为中断。',
   '- **管线运行**：模型自己调用管线的次数，含只查文字层的快速运行。',
   '- **分镜版本**：这些运行里实际出现过几版不同的 film.json；分镜没改就重跑的不算新版本。',
   '- **守规**：没有改动管线、规范、数据和要求，也没有读工作区以外的文件。',
@@ -245,9 +257,9 @@ const md = [
   '',
   '## 模型自己的汇报',
   '',
-  ...records.flatMap((r) => [`### ${r.case}`, '', ...String(r.report).trim().split('\n').map((l) => `> ${l}`), '']),
+  ...all.flatMap((r) => [`### ${r.case}`, '', ...String(r.report).trim().split('\n').map((l) => `> ${l}`), '']),
 ].join('\n');
 fs.writeFileSync(path.join(outDir, 'SUMMARY.md'), md);
-console.log(`\n${passed}/${records.length} 通过复验。结果：${path.join(outDir, 'SUMMARY.md')}`);
+console.log(`\n${count('passed')}/${all.length} 通过复验${count('interrupted') ? `，${count('interrupted')} 个被中断` : ''}。结果：${path.join(outDir, 'SUMMARY.md')}`);
 console.log(`工作区和完整对话记录：${workRoot}`);
-process.exit(passed === records.length ? 0 : 1);
+process.exit(count('passed') === all.length ? 0 : 1);
