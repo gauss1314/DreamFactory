@@ -102,6 +102,11 @@ const planted = await pool(defectRuns, async (d) => {
       console.log(`漏检   ${d.id}  ← 应该报错“${d.expectError}”，却正常跑完了`);
       return { ...d, expectFail: [], ok: false, missed: ['(应该报错)'], extra: r.failed };
     }
+    const skippedChecks = d.expectFail.filter((id) => r.checks.find((c) => c.id === id)?.status === 'skip');
+    if (skippedChecks.length) {
+      console.log(`跳过   ${d.id}  ← 本次运行跳过了 ${skippedChecks.join('、')}`);
+      return { ...d, ok: null, missed: [], extra: [], skippedChecks };
+    }
     const missed = d.expectFail.filter((id) => !r.failed.includes(id));
     const extra = r.failed.filter((id) => !d.expectFail.includes(id));
     console.log(`${missed.length ? '漏检  ' : '抓到  '} ${d.id}${missed.length ? `  ← 没有失败：${missed.join(', ')}` : ''}`);
@@ -118,7 +123,9 @@ const planted = await pool(defectRuns, async (d) => {
 
 // Scoreboard
 const falseAlarms = clean.filter((c) => !c.ok).length;
-const caught = planted.filter((d) => d.ok).length;
+const judged = planted.filter((d) => d.ok !== null);
+const caught = judged.filter((d) => d.ok).length;
+const passedOver = planted.length - judged.length;
 const coverage = CHECKS.map((c) => {
   const aimed = planted.filter((d) => d.expectFail.includes(c.id));
   return { id: c.id, title: c.title, aimed: aimed.length, caught: aimed.filter((d) => !d.missed.includes(c.id)).length };
@@ -131,7 +138,7 @@ const cell = (s) => String(s).replace(/\|/g, '\\|');
 const md = [
   '# 评测基线',
   '',
-  `干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${planted.length}。`,
+  `干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${judged.length}${passedOver ? `，另有 ${passedOver} 条因对应的检查被跳过而没有判定` : ''}。`,
   '',
   `运行环境：Node ${process.version} · 语音后端 ${backend} · 草稿画质 · ${new Date().toISOString().slice(0, 10)}`,
   '',
@@ -149,7 +156,7 @@ const md = [
   '',
   '| 缺陷 | 改了什么 | 应失败的检查 | 结果 | 连带失败的检查 |',
   '| --- | --- | --- | --- | --- |',
-  ...planted.map((d) => `| ${d.id} | ${cell(d.title)} | ${d.expectError ? '拒绝运行并报错' : d.expectFail.join('、')} | ${d.ok ? '抓到' : `漏检：${d.missed.join('、')}`} | ${d.extra.join('、')} |`),
+  ...planted.map((d) => `| ${d.id} | ${cell(d.title)} | ${d.expectError ? '拒绝运行并报错' : d.expectFail.join('、')} | ${d.ok === null ? `未判定：${d.skippedChecks.join('、')} 被跳过` : d.ok ? '抓到' : `漏检：${d.missed.join('、')}`} | ${d.extra.join('、')} |`),
   '',
   '## 各项检查的覆盖',
   '',
@@ -166,7 +173,7 @@ fs.mkdirSync(tmpDir, { recursive: true });
 fs.writeFileSync(path.join(tmpDir, 'scoreboard.md'), md);
 if (args.includes('--save-baseline')) fs.writeFileSync(path.join(here, 'BASELINE.md'), md);
 
-console.log(`\n干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${planted.length}，用时 ${Math.round((Date.now() - started) / 1000)} 秒`);
+console.log(`\n干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${judged.length}${passedOver ? `（${passedOver} 条未判定）` : ''}，用时 ${Math.round((Date.now() - started) / 1000)} 秒`);
 if (unproven.length) console.log(`没有缺陷样例的检查：${unproven.join('、')}`);
 console.log(`计分板：${path.join(tmpDir, 'scoreboard.md')}`);
-process.exit(falseAlarms === 0 && caught === planted.length ? 0 : 1);
+process.exit(falseAlarms === 0 && caught === judged.length ? 0 : 1);

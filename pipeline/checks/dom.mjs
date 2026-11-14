@@ -75,6 +75,8 @@ export const dataAccuracy = {
     const lines = ctx.timeline.scenes.flatMap((sc) => sc.lines);
     for (const line of lines) {
       for (const n of extractNumbers(line.display)) if (!hasNumber(allowed, n.value)) flag(n.raw, `旁白「${clip(line.display)}」`);
+      if (line.speech === line.display) continue;
+      for (const n of extractNumbers(line.speech)) if (!hasNumber(allowed, n.value)) flag(n.raw, `念出来的旁白「${clip(line.speech)}」`);
     }
 
     // Required facts must be readable in the picture itself, not only in subtitles.

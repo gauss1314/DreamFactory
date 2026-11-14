@@ -9,7 +9,7 @@
       "type": "title",
       "headline": "{{facts.total}} 件作品，都是什么类型？",
       "narration": [
-        "这份清单收录了{{facts.total}}件作品。"
+        "这份清单收录了{{facts.total}}件作品，都是什么类型？"
       ]
     },
     {

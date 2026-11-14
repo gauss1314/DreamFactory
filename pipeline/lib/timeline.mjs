@@ -15,7 +15,7 @@ export async function buildTimeline({ resolved, outDir, backend, vertical, fps =
   for (const scene of resolved.scenes) {
     const clips = [];
     for (const line of scene.lines) {
-      clips.push(await synth({ backend, lang: resolved.lang, voice: resolved.voice?.name, text: line.speech, dir: audioDir }));
+      clips.push(await synth({ backend, lang: resolved.lang, voice: resolved.voice?.name, rate: resolved.voice?.rate, text: line.speech }));
     }
     const speech = clips.reduce((a, c) => a + c.duration, 0) + GAP * Math.max(0, clips.length - 1);
     const natural = clips.length ? LEAD + speech + TAIL : 0;

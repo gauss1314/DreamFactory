@@ -89,7 +89,8 @@ function runCli(ws, transcriptFile) {
   if (model) cliArgs.push('--model', model);
   cliArgs.push('--allowedTools', ...TOOLS);
   return new Promise((resolve) => {
-    const child = spawn('claude', cliArgs, { cwd: ws, stdio: ['ignore', 'pipe', 'pipe'] });
+    const env = { ...process.env, DF_TTS_CACHE: path.join(workRoot, '.tts-cache') };
+    const child = spawn('claude', cliArgs, { cwd: ws, env, stdio: ['ignore', 'pipe', 'pipe'] });
     const out = fs.createWriteStream(transcriptFile);
     let stderr = '';
     child.stdout.pipe(out);
@@ -153,7 +154,7 @@ async function runCase(id) {
   const inputs = ['brief.md', 'data.json', 'expect.json'];
   for (const f of inputs) fs.copyFileSync(path.join(src, f), path.join(task, f));
   if (fs.existsSync(path.join(repo, 'node_modules'))) fs.symlinkSync(path.join(repo, 'node_modules'), path.join(ws, 'node_modules'), 'dir');
-  const before = { rules: treeHash(ws, ['task', 'node_modules']), inputs: fileHash(inputs.map((f) => path.join(task, f))) };
+  const before = { rules: treeHash(ws, ['task', 'node_modules', '.cache']), inputs: fileHash(inputs.map((f) => path.join(task, f))) };
 
   console.log(`开始   ${id}`);
   const transcript = path.join(workRoot, `${id}.transcript.jsonl`);
@@ -209,7 +210,7 @@ async function runCase(id) {
       refusedActions: (result?.permission_denials ?? []).map((d) => `${d.tool_name}: ${JSON.stringify(d.tool_input).slice(0, 120)}`),
     },
     integrity: {
-      rulesUntouched: treeHash(ws, ['task', 'node_modules']) === before.rules,
+      rulesUntouched: treeHash(ws, ['task', 'node_modules', '.cache']) === before.rules,
       inputsUntouched: fileHash(inputs.map((f) => path.join(task, f))) === before.inputs,
       readsOutsideWorkspace,
     },

@@ -1,8 +1,8 @@
 # 评测基线
 
-干净用例误报 0/7，缺陷检出 28/28。
+干净用例误报 0/7，缺陷检出 30/30。
 
-运行环境：Node v22.23.4 · 语音后端 espeak · 草稿画质 · 2026-11-14
+运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-14
 
 ## 干净用例
 
@@ -10,13 +10,13 @@
 
 | 用例 | 结果 | 片长（秒） | 误报的检查 |
 | --- | --- | --- | --- |
-| asks-for-derived-number | 通过 | 20.6 |  |
-| cost-per-minute | 通过 | 45.7 |  |
-| monthly-trend | 通过 | 25.9 |  |
-| top-of-long-list | 通过 | 23.2 |  |
-| twenty-seconds | 通过 | 12.6 |  |
-| works-by-category | 通过 | 54.1 |  |
-| works-by-category-en | 通过 | 52.3 |  |
+| asks-for-derived-number | 通过 | 26.6 |  |
+| cost-per-minute | 通过 | 43.5 |  |
+| monthly-trend | 通过 | 27.4 |  |
+| top-of-long-list | 通过 | 22.0 |  |
+| twenty-seconds | 通过 | 14.1 |  |
+| works-by-category | 通过 | 52.6 |  |
+| works-by-category-en | 通过 | 48.6 |  |
 
 ## 缺陷注入
 
@@ -51,14 +51,16 @@
 | chart-uses-random | 自定义场景里用了随机数，每次重画都不一样 | determinism | 抓到 |  |
 | chart-points-invisible | 折线图上的点半径写成零，画不出来 | marks | 抓到 |  |
 | ranges-scale-not-a-range | 区间图的 scale 写成了 "log"，四根条形画不出来 | 拒绝运行并报错 | 抓到 |  |
-| chart-lags-narration | 折线图画得太晚，旁白念完数字画面才出现 | sync | 抓到 | data-accuracy、readability |
+| chart-lags-narration | 折线图画得太晚，旁白念完数字画面才出现 | sync | 抓到 |  |
+| voice-says-something-else | 字幕是一句话，语音念的是另一句话 | asr | 抓到 |  |
+| voice-says-wrong-number | 字幕写 483，语音念成 438 | data-accuracy、asr | 抓到 |  |
 
 ## 各项检查的覆盖
 
 | 检查 | 缺陷样例 | 抓到 | 备注 |
 | --- | --- | --- | --- |
 | spec | 3 | 3 |  |
-| data-accuracy | 7 | 7 |  |
+| data-accuracy | 8 | 8 |  |
 | citation | 1 | 1 |  |
 | readability | 1 | 1 |  |
 | layout | 2 | 2 |  |
@@ -73,4 +75,4 @@
 | video-stillness | 1 | 1 |  |
 | audio-levels | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | audio-gaps | 1 | 1 |  |
-| asr | 0 | 0 | 本次运行跳过 |
+| asr | 2 | 2 |  |

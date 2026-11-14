@@ -92,10 +92,13 @@ export function resolveFilm(film, data) {
     const resolved = walk(rest);
     resolved.id = scene.id ?? `scene-${i + 1}`;
     resolved.lines = narration.map((line) => {
-      if (line.includes('{{')) touched = true;
+      // A line is a string, or { text, say } when the voice should read it differently from the subtitle.
+      const text = typeof line === 'string' ? line : line.text;
+      const say = typeof line === 'string' ? line : line.say ?? line.text;
+      if (text.includes('{{') || say.includes('{{')) touched = true;
       return {
-        display: renderTemplate(line, data, 'screen', lang),
-        speech: renderTemplate(line, data, 'speech', lang),
+        display: renderTemplate(text, data, 'screen', lang),
+        speech: renderTemplate(say, data, 'speech', lang),
       };
     });
     resolved.usesData = touched;

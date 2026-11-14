@@ -59,14 +59,14 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
   "title": "片名，只用于报告",
   "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
   "theme": { "accent": "#62c6ff" },
-  "voice": { "backend": "auto" },
+  "voice": { "backend": "auto", "name": "zh-CN-XiaoxiaoNeural", "rate": "+0%" },
   "scenes": []
 }
 ```
 
 - `lang`：`zh` 或 `en`，决定语音和字幕长度上限。
 - `theme`：可选，可改 `bg`、`text`、`muted`、`accent`、`bar`、`track` 六个颜色。
-- `voice.backend`：`auto`、`espeak`、`edge`、`silent`。
+- `voice`：可选，整段都可以不写。`backend` 是 `auto`、`edge`、`espeak`、`silent` 之一，`auto` 会选已安装的最自然的一种。`name` 是声音，中文默认 `zh-CN-XiaoxiaoNeural`（女声），男声可用 `zh-CN-YunxiNeural`、`zh-CN-YunyangNeural`。`rate` 是语速，比如 `+10%`。
 
 每个场景都可以带这些字段：
 
@@ -74,7 +74,7 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
 | --- | --- |
 | `id` | 场景名，出现在报告里 |
 | `type` | 场景类型，见下表 |
-| `narration` | 旁白，一句一个字符串；字幕与它逐句对应 |
+| `narration` | 旁白，一句一个字符串；字幕与它逐句对应。语音把某个词念错时，可以写成 `{"text": "字幕", "say": "让语音念的写法"}`，只改读法，不要改意思 |
 | `minDuration` | 这个场景至少停留多少秒 |
 | `duration` | 把场景固定为多少秒；短于旁白会报错 |
 
@@ -176,5 +176,6 @@ export default {
 | `marks` | 自定义图表里图形的位置或大小与数值对不上，或没有标数值 | 检查坐标换算；给每个代表数据的图形加 `data-df-value` |
 | `determinism` | 自定义场景用了随机数、时钟，或在两帧之间留了状态 | 改成只根据传入的时间计算 |
 | `video-stillness` | 一句旁白太长，画面一直不动 | 拆句，或把内容分到两个场景 |
+| `asr` | 语音没有念出字幕里的数字，或 `say` 写的和字幕不是一回事 | 检查 `say`；数字写成阿拉伯数字，单位写全 |
 | `audio-gaps` | 场景没有旁白，或 `minDuration` 远大于旁白 | 补旁白，或缩短 |
 | `spec` | 片长超出要求 | 增删场景或旁白 |

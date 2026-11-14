@@ -17,7 +17,8 @@ node evals/agent-run.mjs                          # 让模型无人值守做完�
 
 ## 结构
 
-- `pipeline/`：管线本体。`film.mjs` 是一次运行的全流程，`lib/` 是各个环节，`checks/` 是自检。
+- `pipeline/`：管线本体。`film.mjs` 是一次运行的全流程，`lib/` 是各个环节，`checks/` 是自检，`tools/asr.py` 是语音识别的 Python 小工具。
+- `.cache/tts/`：合成过的语音和听写结果的缓存，不入库，删掉只会让下次运行慢一些。
 - `verticals/data-story/`：数据短片的画面。`runtime/df.js` 里每种场景是一个函数。影片目录里的 `scenes.js` 可以为那一支片子增加场景。
 - `evals/cases/`：评测用例，每个目录有简报、数据、要求和一支参考影片，个别带参考的 `scenes.js`。
 - `evals/defects.json`：缺陷注入集，每条在参考影片上改一处，并写明哪项检查必须失败。
@@ -35,4 +36,6 @@ node evals/agent-run.mjs                          # 让模型无人值守做完�
 - 代表数据的图形要带 `data-df-value`，`marks` 检查靠它核对图形与数值是否一致。
 - 缺陷可以改场景代码：`{"file": "scenes", "replace": "原文", "with": "改成"}`。改参考的 `scenes.js` 时要确认缺陷里引用的原文还在。
 - 不引入 npm 依赖，除了 Playwright。在已经预装 Playwright 的云端环境里不要运行 `npm install`。
+- 语音供应商都在 `pipeline/lib/tts.mjs`，一个后端一个函数。新增后端后跑一遍评测，参考影片的片长会随语速变化，贴着时长上下限的要调整参考影片，不要放宽要求。
+- 评测默认用 `auto` 选中的语音。没有网络时加 `--tts espeak`，这时听写核对会跳过，对应的缺陷记为“未判定”。
 - 代码注释用英文，文档和报告用中文。

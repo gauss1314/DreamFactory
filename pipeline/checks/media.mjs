@@ -1,5 +1,6 @@
 // Checks that read the encoded film and its audio mix.
 import { LOUDNESS_TARGET, measureLevels } from '../lib/audio.mjs';
+import { asrAvailable, compareSpeech, transcribe } from '../lib/asr.mjs';
 import { run } from '../lib/util.mjs';
 
 const fmtT = (t) => `${t.toFixed(1)}s`;
@@ -78,9 +79,30 @@ export const audioGaps = {
 
 export const asr = {
   id: 'asr',
-  title: '听写核对：语音识别结果与旁白稿一致',
+  title: '听写核对：语音识别听到的内容和数字与字幕一致',
   tier: 'media',
-  run() {
-    return { status: 'skip', summary: '还没有接入语音识别', details: [] };
+  async run(ctx) {
+    const skip = (summary) => ({ status: 'skip', summary, details: [] });
+    if (!ctx.audio.voiced) return skip('没有人声（静音语音后端）');
+    if (ctx.timeline.backend === 'espeak') return skip('espeak 的发音连语音识别都听不懂，只用来占位，不做核对');
+    if (!(await asrAvailable())) return skip('没有安装语音识别，运行 pip install faster-whisper 后可用');
+    const lines = ctx.timeline.scenes.flatMap((sc) => sc.lines);
+    const heard = await transcribe(lines.map((l) => l.audio), ctx.resolved.lang);
+    const clip = (t) => (t.length > 26 ? `${t.slice(0, 26)}…` : t);
+    const problems = [];
+    lines.forEach((line, i) => {
+      const c = compareSpeech(line.display, heard[i]);
+      if (c.missing.length) {
+        problems.push(`字幕里的 ${c.missing.join('、')} 没有在语音里听到：字幕「${clip(line.display)}」，听到「${clip(heard[i])}」`);
+      } else if (c.letters >= 4 && c.distance > 0.5) {
+        // Homophones ("支" heard as "只") stay well under this; a different sentence does not.
+        problems.push(`语音和字幕说的不是一回事：字幕「${clip(line.display)}」，听到「${clip(heard[i])}」`);
+      }
+    });
+    return {
+      status: problems.length ? 'fail' : 'pass',
+      summary: problems.length ? `${problems.length} 处问题` : `${lines.length} 句旁白，听到的内容和数字都与字幕一致`,
+      details: problems.slice(0, 12),
+    };
   },
 };
