@@ -1,0 +1,11 @@
+{
+  "duration": [30, 75],
+  "mustShow": [
+    "facts.total",
+    "series.categories[模型对比]",
+    "series.categories[游戏]",
+    "series.categories[3D 世界与模拟]",
+    "series.categories[讲解与教育]"
+  ],
+  "mustSay": ["facts.total", "series.categories[游戏]"]
+}

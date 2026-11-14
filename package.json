@@ -1,0 +1,17 @@
+{
+  "name": "dreamfactory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-driven pipeline for narrated data-story videos, with self-checks and an eval set",
+  "scripts": {
+    "film": "node pipeline/cli.mjs run",
+    "evals": "node evals/run.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

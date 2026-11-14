@@ -1,0 +1,23 @@
+{
+  "source": {
+    "name": "zhuyansen/awesome-opus-5.5-video",
+    "url": "https://github.com/zhuyansen/awesome-opus-5.5-video",
+    "asOf": "2026-11-13"
+  },
+  "facts": {
+    "total": 2793,
+    "minViews": 5000
+  },
+  "series": {
+    "categories": [
+      { "label": "Model comparisons", "value": 534 },
+      { "label": "Games", "value": 483 },
+      { "label": "3D worlds & simulations", "value": 473 },
+      { "label": "Motion graphics & UI", "value": 356 },
+      { "label": "Product demos & ads", "value": 272 },
+      { "label": "Characters & stories", "value": 251 },
+      { "label": "Explainers & education", "value": 233 },
+      { "label": "Music, editing & production", "value": 191 }
+    ]
+  }
+}

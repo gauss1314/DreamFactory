@@ -1,0 +1,23 @@
+{
+  "source": {
+    "name": "zhuyansen/awesome-opus-5.5-video",
+    "url": "https://github.com/zhuyansen/awesome-opus-5.5-video",
+    "asOf": "2026-11-13"
+  },
+  "facts": {
+    "total": 2793,
+    "minViews": 5000
+  },
+  "series": {
+    "categories": [
+      { "label": "模型对比", "value": 534 },
+      { "label": "游戏", "value": 483 },
+      { "label": "3D 世界与模拟", "value": 473 },
+      { "label": "动效与界面", "value": 356 },
+      { "label": "产品演示与广告", "value": 272 },
+      { "label": "角色与故事", "value": 251 },
+      { "label": "讲解与教育", "value": 233 },
+      { "label": "音乐与剪辑制作", "value": 191 }
+    ]
+  }
+}

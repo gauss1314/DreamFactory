@@ -1,0 +1,55 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "做一分钟视频要花多少钱",
+  "source": "数据来源：{{source.name}}（截至 {{source.asOf}}，多为自报与报价）",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "数据故事",
+      "headline": "做一分钟视频，要花多少钱？",
+      "sub": "四种做法，价格差了两到三个数量级",
+      "narration": [
+        "做一分钟的讲解视频，要花多少钱？",
+        "四种做法，价格差了两到三个数量级。"
+      ]
+    },
+    {
+      "id": "cost",
+      "type": "ranges",
+      "title": "每分钟成片的成本",
+      "sub": "美元，对数刻度",
+      "series": { "$": "series.cost" },
+      "highlight": "代码生成短片",
+      "narration": [
+        "让模型写代码生成，一支短片大约{{series.cost[代码生成短片].low}}到{{series.cost[代码生成短片].high}}美元。",
+        "调用视频生成模型，每分钟{{series.cost[视频模型 API].low}}到{{series.cost[视频模型 API].high}}美元。",
+        "请自由职业者，每分钟{{series.cost[自由职业者].low}}到{{series.cost[自由职业者].high}}美元。",
+        "交给工作室，每分钟{{series.cost[工作室].low}}到{{series.cost[工作室].high}}美元。"
+      ]
+    },
+    {
+      "id": "reading",
+      "type": "bullets",
+      "title": "怎么读这组数字",
+      "items": [
+        "代码路线和视频模型价格相近，差别在可控",
+        "和人工相比，便宜了百倍到千倍",
+        "数字多为自报和报价，只能看量级"
+      ],
+      "narration": [
+        "代码路线和视频模型价格相近，差别在可控。",
+        "和人工相比，便宜了百倍到千倍。",
+        "不过数字多为自报和报价，只能看量级。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "便宜的不只是制作，还有修改",
+      "sub": "代码生成的片子，改一行就能重出一版",
+      "narration": ["代码生成的片子，改一行就能重出一版。"]
+    }
+  ]
+}

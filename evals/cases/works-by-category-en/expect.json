@@ -1,0 +1,10 @@
+{
+  "duration": [30, 75],
+  "mustShow": [
+    "facts.total",
+    "series.categories[Model comparisons]",
+    "series.categories[Games]",
+    "series.categories[Explainers & education]"
+  ],
+  "mustSay": ["facts.total", "series.categories[Games]"]
+}

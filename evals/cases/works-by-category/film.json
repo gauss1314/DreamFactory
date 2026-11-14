@@ -1,0 +1,69 @@
+{
+  "vertical": "data-story",
+  "lang": "zh",
+  "title": "2,793 件作品都在做什么",
+  "source": "数据来源：{{source.name}}（GitHub，截至 {{source.asOf}}）",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "数据故事",
+      "headline": "{{facts.total}} 件作品，都在用代码做什么？",
+      "sub": "一份清单，收录了文本大模型写代码做出的视频和游戏",
+      "narration": [
+        "文本大模型开始直接写代码做视频和游戏。",
+        "一份公开清单，收录了{{facts.total}}件作品。",
+        "它们都在做什么？"
+      ]
+    },
+    {
+      "id": "total",
+      "type": "bignumber",
+      "label": "清单收录的作品",
+      "value": { "$": "facts.total" },
+      "unit": "件",
+      "note": "入选门槛：浏览量 {{facts.minViews}} 以上",
+      "narration": [
+        "入选的门槛，是浏览量{{facts.minViews}}以上。",
+        "所以这是被看见的那一部分，不是全部。"
+      ]
+    },
+    {
+      "id": "categories",
+      "type": "bars",
+      "title": "按类型分布",
+      "sub": "单位：件，右侧为占比",
+      "series": { "$": "series.categories" },
+      "highlight": "游戏",
+      "showShare": true,
+      "narration": [
+        "数量最多的是模型对比，{{series.categories[模型对比]}}件。",
+        "游戏排第二，{{series.categories[游戏]}}件，占{{share series.categories[游戏]}}。",
+        "三维场景紧随其后，{{series.categories[3D 世界与模拟]}}件。",
+        "讲解和教育类最少之一，只有{{series.categories[讲解与教育]}}件。"
+      ]
+    },
+    {
+      "id": "takeaways",
+      "type": "bullets",
+      "title": "这说明什么",
+      "items": [
+        "最热的不只是视频，还有能玩的东西",
+        "对比测试很多，大家还在摸索能力边界",
+        "讲解类偏少，值得关注"
+      ],
+      "narration": [
+        "最热的不只是视频，还有能玩的东西。",
+        "对比测试很多，说明大家还在摸索能力边界。",
+        "讲解类作品偏少，值得关注。"
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "代码，正在成为一种做内容的方式",
+      "sub": "数字为清单作者整理，创作者自报，仅供参考",
+      "narration": ["代码，正在成为一种做内容的方式。"]
+    }
+  ]
+}

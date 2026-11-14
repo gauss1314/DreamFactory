@@ -1,0 +1,10 @@
+{
+  "duration": [30, 80],
+  "mustShow": [
+    "series.cost[代码生成短片].low",
+    "series.cost[代码生成短片].high",
+    "series.cost[自由职业者].low",
+    "series.cost[工作室].high"
+  ],
+  "mustSay": ["series.cost[代码生成短片].high", "series.cost[工作室].high"]
+}

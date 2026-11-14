@@ -1,0 +1,86 @@
+// Checks that read the encoded film and its audio mix.
+import { LOUDNESS_TARGET, measureLevels } from '../lib/audio.mjs';
+import { run } from '../lib/util.mjs';
+
+const fmtT = (t) => `${t.toFixed(1)}s`;
+
+export const videoStillness = {
+  id: 'video-stillness',
+  title: '画面：没有黑屏，也没有长时间静止',
+  tier: 'media',
+  async run(ctx) {
+    const limit = ctx.expect.maxFrozenSec ?? 6;
+    const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', ctx.video.file,
+      '-vf', 'blackdetect=d=0.5:pix_th=0.03,freezedetect=n=0.001:d=2', '-an', '-f', 'null', '-']);
+    const problems = [];
+    for (const m of stderr.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)) {
+      problems.push(`${fmtT(Number(m[1]))}–${fmtT(Number(m[2]))} 是黑屏`);
+    }
+    const starts = [...stderr.matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+    const lengths = [...stderr.matchAll(/freeze_duration: ([\d.]+)/g)].map((m) => Number(m[1]));
+    let longest = 0;
+    starts.forEach((start, i) => {
+      const len = lengths[i] ?? ctx.timeline.duration - start; // a freeze that runs to the end has no length logged
+      longest = Math.max(longest, len);
+      if (len >= limit) problems.push(`${fmtT(start)} 起画面静止 ${len.toFixed(1)} 秒，上限 ${limit} 秒`);
+    });
+    return {
+      status: problems.length ? 'fail' : 'pass',
+      summary: problems.length ? `${problems.length} 处问题` : `没有黑屏，最长静止 ${longest.toFixed(1)} 秒`,
+      details: problems,
+    };
+  },
+};
+
+export const audioLevels = {
+  id: 'audio-levels',
+  title: '响度：整体响度和峰值在范围内',
+  tier: 'media',
+  async run(ctx) {
+    if (!ctx.audio.voiced) return { status: 'skip', summary: '没有人声（静音语音后端）', details: [] };
+    const { lufs, peak } = await measureLevels(ctx.audio.file);
+    const problems = [];
+    if (Math.abs(lufs - LOUDNESS_TARGET) > 2.5) problems.push(`整体响度 ${lufs} LUFS，目标 ${LOUDNESS_TARGET}±2.5`);
+    if (peak > -1) problems.push(`峰值 ${peak} dBFS，上限 -1`);
+    return {
+      status: problems.length ? 'fail' : 'pass',
+      summary: problems.length ? `${problems.length} 处问题` : `${lufs} LUFS，峰值 ${peak} dBFS`,
+      details: problems,
+    };
+  },
+};
+
+export const audioGaps = {
+  id: 'audio-gaps',
+  title: '停顿：旁白之间没有过长的无声',
+  tier: 'media',
+  async run(ctx) {
+    if (!ctx.audio.voiced) return { status: 'skip', summary: '没有人声（静音语音后端）', details: [] };
+    const limit = ctx.expect.maxSilenceSec ?? 3.5;
+    const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', ctx.audio.file,
+      '-af', 'silencedetect=noise=-45dB:d=2', '-f', 'null', '-']);
+    const starts = [...stderr.matchAll(/silence_start: (-?[\d.]+)/g)].map((m) => Math.max(0, Number(m[1])));
+    const lengths = [...stderr.matchAll(/silence_duration: ([\d.]+)/g)].map((m) => Number(m[1]));
+    const problems = [];
+    let longest = 0;
+    starts.forEach((start, i) => {
+      const len = lengths[i] ?? ctx.timeline.duration - start;
+      longest = Math.max(longest, len);
+      if (len >= limit) problems.push(`${fmtT(start)} 起无声 ${len.toFixed(1)} 秒，上限 ${limit} 秒`);
+    });
+    return {
+      status: problems.length ? 'fail' : 'pass',
+      summary: problems.length ? `${problems.length} 处问题` : `最长无声 ${longest.toFixed(1)} 秒`,
+      details: problems,
+    };
+  },
+};
+
+export const asr = {
+  id: 'asr',
+  title: '听写核对：语音识别结果与旁白稿一致',
+  tier: 'media',
+  run() {
+    return { status: 'skip', summary: '还没有接入语音识别', details: [] };
+  },
+};

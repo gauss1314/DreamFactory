@@ -1,0 +1,68 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "What are 2,793 works making?",
+  "source": "Source: {{source.name}} (GitHub, as of {{source.asOf}})",
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "DATA STORY",
+      "headline": "{{facts.total}} works. What are they all making?",
+      "sub": "A public list of videos and games that text models built in code",
+      "narration": [
+        "Text models now write code that becomes video and games.",
+        "One public list holds {{facts.total}} of these works.",
+        "So what are people making?"
+      ]
+    },
+    {
+      "id": "total",
+      "type": "bignumber",
+      "label": "Works on the list",
+      "value": { "$": "facts.total" },
+      "note": "Each one has at least {{facts.minViews}} views",
+      "narration": [
+        "Every entry has at least {{facts.minViews}} views.",
+        "So this is the visible part, not the whole picture."
+      ]
+    },
+    {
+      "id": "categories",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Count, with share of the total",
+      "series": { "$": "series.categories" },
+      "highlight": "Games",
+      "showShare": true,
+      "narration": [
+        "Model comparisons lead with {{series.categories[Model comparisons]}} works.",
+        "Games come second with {{series.categories[Games]}}, or {{share series.categories[Games]}}.",
+        "3D worlds follow closely at {{series.categories[3D worlds & simulations]}}.",
+        "Explainers sit near the bottom with {{series.categories[Explainers & education]}}."
+      ]
+    },
+    {
+      "id": "takeaways",
+      "type": "bullets",
+      "title": "What this tells us",
+      "items": [
+        "The heat is in things you can play, not only watch",
+        "Many comparison tests: people are still mapping the limits",
+        "Explainers are few, and worth a look"
+      ],
+      "narration": [
+        "The heat is in things you can play, not only watch.",
+        "There are many comparison tests, so people are still mapping the limits.",
+        "Explainers are few, and worth a look."
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "Code is becoming a way to make content",
+      "sub": "Figures were compiled by the list's author from creator posts",
+      "narration": ["Code is becoming a way to make content."]
+    }
+  ]
+}
