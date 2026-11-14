@@ -1,0 +1,158 @@
+#!/usr/bin/env node
+// The eval set has two halves:
+//   1. clean cases  - reference films that must pass every check (measures false alarms)
+//   2. defects      - the same films with one planted fault each; the named checks must fail
+//                     (measures whether the checks catch what they claim to catch)
+// A check with no defect aimed at it is unproven, and the scoreboard says so.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { runFilm } from '../pipeline/film.mjs';
+import { CHECKS } from '../pipeline/checks/index.mjs';
+import { readJson } from '../pipeline/lib/util.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const casesDir = path.join(here, 'cases');
+const tmpDir = path.join(here, '.tmp');
+
+const args = process.argv.slice(2);
+const value = (name) => {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+if (args.includes('--help')) {
+  console.log(`用法：node evals/run.mjs [选项]
+
+  --only <id>        只跑一个用例或缺陷
+  --tts <后端>       auto（默认）| espeak | edge | silent
+  --jobs <n>         同时跑几个，默认 3
+  --save-baseline    把结果写入 evals/BASELINE.md`);
+  process.exit(0);
+}
+const only = value('--only');
+const tts = value('--tts');
+const jobs = Number(value('--jobs') ?? 3);
+
+const segments = (p) => [...p.matchAll(/[^.[\]]+|\[(\d+)\]/g)].map((m) => (m[1] !== undefined ? Number(m[1]) : m[0]));
+function applyOp(target, op) {
+  const segs = segments(op.set ?? op.remove);
+  let cur = target;
+  for (const s of segs.slice(0, -1)) cur = cur[s];
+  const last = segs.at(-1);
+  if ('set' in op) cur[last] = op.value;
+  else if (Array.isArray(cur)) cur.splice(last, 1);
+  else delete cur[last];
+}
+
+async function pool(items, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(jobs, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await worker(items[i]);
+      }
+    }),
+  );
+  return results;
+}
+
+const mediaIds = new Set(CHECKS.filter((c) => c.tier === 'media').map((c) => c.id));
+const caseIds = fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'film.json'))).sort();
+const defects = readJson(path.join(here, 'defects.json'));
+
+const cleanRuns = caseIds.filter((id) => !only || only === id);
+const defectRuns = defects.filter((d) => !only || only === d.id);
+fs.rmSync(tmpDir, { recursive: true, force: true });
+const started = Date.now();
+
+const clean = await pool(cleanRuns, async (id) => {
+  try {
+    const r = await runFilm(path.join(casesDir, id), { draft: true, tts, log: false, outDir: path.join(tmpDir, `clean-${id}`) });
+    console.log(`${r.passed ? '通过  ' : '误报  '} ${id}${r.passed ? '' : `  ← ${r.failed.join(', ')}`}`);
+    return { id, ok: r.passed, failed: r.failed, durationSec: r.durationSec, backend: r.backend, checks: r.checks };
+  } catch (e) {
+    console.log(`出错   ${id}  ← ${e.message.split('\n')[0]}`);
+    return { id, ok: false, failed: ['(运行出错)'], error: e.message, checks: [] };
+  }
+});
+
+const planted = await pool(defectRuns, async (d) => {
+  const dir = path.join(casesDir, d.base);
+  const files = {
+    film: readJson(path.join(dir, 'film.json')),
+    data: readJson(path.join(dir, 'data.json')),
+    expect: readJson(path.join(dir, 'expect.json')),
+  };
+  for (const op of d.ops) applyOp(files[op.file], op);
+  try {
+    const r = await runFilm(dir, {
+      ...files, draft: true, tts, log: false,
+      video: d.expectFail.some((id) => mediaIds.has(id)),
+      outDir: path.join(tmpDir, `defect-${d.id}`),
+    });
+    const missed = d.expectFail.filter((id) => !r.failed.includes(id));
+    const extra = r.failed.filter((id) => !d.expectFail.includes(id));
+    console.log(`${missed.length ? '漏检  ' : '抓到  '} ${d.id}${missed.length ? `  ← 没有失败：${missed.join(', ')}` : ''}`);
+    return { ...d, ok: missed.length === 0, missed, extra };
+  } catch (e) {
+    console.log(`出错   ${d.id}  ← ${e.message.split('\n')[0]}`);
+    return { ...d, ok: false, missed: d.expectFail, extra: [], error: e.message };
+  }
+});
+
+// Scoreboard
+const falseAlarms = clean.filter((c) => !c.ok).length;
+const caught = planted.filter((d) => d.ok).length;
+const coverage = CHECKS.map((c) => {
+  const aimed = planted.filter((d) => d.expectFail.includes(c.id));
+  return { id: c.id, title: c.title, aimed: aimed.length, caught: aimed.filter((d) => !d.missed.includes(c.id)).length };
+});
+const skipped = new Set(clean.flatMap((c) => c.checks.filter((k) => k.status === 'skip').map((k) => k.id)));
+const unproven = coverage.filter((c) => c.aimed === 0).map((c) => c.id);
+const backend = clean.find((c) => c.backend)?.backend ?? tts ?? 'auto';
+const cell = (s) => String(s).replace(/\|/g, '\\|');
+
+const md = [
+  '# 评测基线',
+  '',
+  `干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${planted.length}。`,
+  '',
+  `运行环境：Node ${process.version} · 语音后端 ${backend} · 草稿画质 · ${new Date().toISOString().slice(0, 10)}`,
+  '',
+  '## 干净用例',
+  '',
+  '参考影片不应触发任何检查。这里的失败就是误报。',
+  '',
+  '| 用例 | 结果 | 片长（秒） | 误报的检查 |',
+  '| --- | --- | --- | --- |',
+  ...clean.map((c) => `| ${c.id} | ${c.ok ? '通过' : '误报'} | ${c.durationSec?.toFixed(1) ?? ''} | ${cell(c.failed.join('、'))} |`),
+  '',
+  '## 缺陷注入',
+  '',
+  '每条缺陷只在参考影片上改一处。指定的检查必须失败，否则算漏检。',
+  '',
+  '| 缺陷 | 改了什么 | 应失败的检查 | 结果 | 连带失败的检查 |',
+  '| --- | --- | --- | --- | --- |',
+  ...planted.map((d) => `| ${d.id} | ${cell(d.title)} | ${d.expectFail.join('、')} | ${d.ok ? '抓到' : `漏检：${d.missed.join('、')}`} | ${d.extra.join('、')} |`),
+  '',
+  '## 各项检查的覆盖',
+  '',
+  '| 检查 | 缺陷样例 | 抓到 | 备注 |',
+  '| --- | --- | --- | --- |',
+  ...coverage.map((c) => {
+    const note = skipped.has(c.id) ? '本次运行跳过' : c.aimed === 0 ? '没有缺陷样例，效果未经验证' : '';
+    return `| ${c.id} | ${c.aimed} | ${c.caught} | ${note} |`;
+  }),
+  '',
+].join('\n');
+
+fs.mkdirSync(tmpDir, { recursive: true });
+fs.writeFileSync(path.join(tmpDir, 'scoreboard.md'), md);
+if (args.includes('--save-baseline')) fs.writeFileSync(path.join(here, 'BASELINE.md'), md);
+
+console.log(`\n干净用例误报 ${falseAlarms}/${clean.length}，缺陷检出 ${caught}/${planted.length}，用时 ${Math.round((Date.now() - started) / 1000)} 秒`);
+if (unproven.length) console.log(`没有缺陷样例的检查：${unproven.join('、')}`);
+console.log(`计分板：${path.join(tmpDir, 'scoreboard.md')}`);
+process.exit(falseAlarms === 0 && caught === planted.length ? 0 : 1);

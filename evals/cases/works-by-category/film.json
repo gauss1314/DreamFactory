@@ -40,7 +40,7 @@
         "数量最多的是模型对比，{{series.categories[模型对比]}}件。",
         "游戏排第二，{{series.categories[游戏]}}件，占{{share series.categories[游戏]}}。",
         "三维场景紧随其后，{{series.categories[3D 世界与模拟]}}件。",
-        "讲解和教育类最少之一，只有{{series.categories[讲解与教育]}}件。"
+        "讲解和教育类排倒数第二，只有{{series.categories[讲解与教育]}}件。"
       ]
     },
     {
