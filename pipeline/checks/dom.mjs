@@ -218,16 +218,19 @@ export const citation = {
 
 export const sync = {
   id: 'sync',
-  title: '同步：旁白念到的数字，画面不能晚出现',
+  title: '同步：同一个场景里，旁白念到的数字，画面不能晚出现',
   tier: 'dom',
   run(ctx) {
-    // When each number first becomes readable in the picture. Subtitles do not count; axis labels do.
+    // Per scene, when each number first becomes readable in the picture. Subtitles do not count;
+    // axis labels do. A number that only appears in a later scene is foreshadowing, not lag.
     const firstShown = new Map();
     for (const s of ctx.sampling.samples) {
       if (!s.grid) continue;
       for (const x of s.texts) {
-        if (!shown(x) || x.role === 'subtitle' || x.role === 'animating') continue;
-        for (const n of extractNumbers(x.text)) if (!firstShown.has(n.value)) firstShown.set(n.value, s.t);
+        if (!shown(x) || !x.scene || x.role === 'subtitle' || x.role === 'animating') continue;
+        if (!firstShown.has(x.scene)) firstShown.set(x.scene, new Map());
+        const seen = firstShown.get(x.scene);
+        for (const n of extractNumbers(x.text)) if (!seen.has(n.value)) seen.set(n.value, s.t);
       }
     }
     const problems = [];
@@ -235,14 +238,14 @@ export const sync = {
     for (const sc of ctx.timeline.scenes) {
       for (const line of sc.lines) {
         for (const n of extractNumbers(line.display)) {
-          const at = firstShown.get(n.value);
-          if (at === undefined) continue; // said but never drawn: nothing to be late
+          const at = firstShown.get(sc.id)?.get(n.value);
+          if (at === undefined) continue;
           compared++;
           if (at > line.end + 0.3) problems.push(`旁白在 ${fmtT(line.start)} 说到 ${n.raw}，画面到 ${fmtT(at)} 才出现`);
         }
       }
     }
-    return result(problems, compared ? `旁白提到的 ${compared} 处数字，画面都没有晚出现` : '旁白里没有同时画在画面上的数字');
+    return result(problems, compared ? `旁白提到的 ${compared} 处数字，画面都没有晚出现` : '没有旁白和画面同场出现的数字');
   },
 };
 

@@ -1,0 +1,3 @@
+{"at":"2026-11-14T14:23:44.966Z","round":1,"filmVersion":"a7904ae498af","passed":false,"failed":["sync"],"draft":false,"rendered":false,"durationSec":40.567,"wallSec":12.2,"costUsd":null,"intervention":null}
+{"at":"2026-11-14T14:24:03.774Z","round":2,"filmVersion":"756372ac9fb9","passed":true,"failed":[],"draft":false,"rendered":false,"durationSec":41.067,"wallSec":12.2,"costUsd":null,"intervention":"旁白去掉了“6”，改成“前面的几个”，避免画面还没出现时就念到数字"}
+{"at":"2026-11-14T14:24:44.961Z","round":3,"filmVersion":"756372ac9fb9","passed":true,"failed":[],"draft":true,"rendered":true,"durationSec":41.067,"wallSec":37.1,"costUsd":null,"intervention":null}

@@ -1,0 +1,54 @@
+{
+  "case": "works-by-category",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 40.867
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "9d74815fb0fe"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "9d74815fb0fe"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 91,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 18,
+      "output": 6932,
+      "cacheRead": 411640,
+      "cacheWrite": 30880
+    },
+    "refusedActions": [
+      "Bash: {\"command\":\"cd /tmp/claude-0/-home-user-DreamFactory/34bb706b-fe22-52c6-a383-68d3485b8750/scratchpad/haiku2/works-by-cat"
+    ]
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿已通过自检，`--draft` 渲染的草稿在 `task/out/film.mp4`，片长 40.9 秒。管线一共跑了 2 次：先用 `--no-video` 做文字层检查，通过后用 `--draft` 渲染草稿并通过。第一次检查前写了 `task/film.json`，包含开场、总数、各类型柱状图、游戏类和收尾 5 个场景，数字全部用数据引用，没有手写。两次运行之间没有改动，只在第一次运行前修过一句旁白。\n\n\"听写核对\"一项跳过，原因是管线还没接入语音识别。另外，这次命令形式不允许加 `--cost-usd`，也没有人工介入，所以没有补记费用和介入次数。",
+  "outcome": "passed"
+}

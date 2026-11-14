@@ -1,0 +1,52 @@
+{
+  "case": "monthly-trend",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 38.167
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "3a12090e5dca"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "3a12090e5dca"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 17,
+    "toolUses": 16,
+    "wallSec": 232,
+    "costUsd": 0.09,
+    "tokens": {
+      "input": 26,
+      "output": 36038,
+      "cacheRead": 813866,
+      "cacheWrite": 76891
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**结论：草稿通过。** 片长 38.2 秒，16 项检查中 15 项通过，1 项“听写核对”跳过，因为管线还没接入语音识别。管线跑了 2 次：第 1 次 `--no-video` 文字层检查全部通过，第 2 次 `--draft` 渲染草稿后仍然全部通过，没有返工。我做的是一版成品：`task/film.json` 加上 `task/scenes.js`。简报要求折线图，内置场景没有这种图，所以在 `scenes.js` 里写了一个 `line` 场景，1 月、9 月、10 月、11 月的数量标在图上，11 月标为全年最高。草稿文件在 `/tmp/claude-0/-home-user-DreamFactory/34bb706b-fe22-52c6-a383-68d3485b8750/scratchpad/haiku3/monthly-trend/task/out/film.mp4`，我没有去掉 `--draft` 出成片。",
+  "outcome": "passed"
+}

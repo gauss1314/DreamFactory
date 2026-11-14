@@ -1,0 +1,52 @@
+{
+  "case": "works-by-category-en",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 47.367
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "ecdec677690c"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "ecdec677690c"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 11,
+    "toolUses": 10,
+    "wallSec": 95,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 12,
+      "output": 6641,
+      "cacheRead": 255596,
+      "cacheWrite": 26154
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**结论：通过。** 草稿渲染的自检全部通过（听写核对一项因未接入语音识别而跳过），英文短片约 47 秒，草稿在 `task/out/film.mp4`，未出成片。管线一共跑了 2 次：`--no-video` 文字层检查 1 次，`--draft` 草稿 1 次，两次都一次通过，没有返工。改动只有一处：写出 `task/film.json` 时把片名里手写的 \"2,793\" 去掉，改成不含数字的片名，然后才跑第一次检查；两次运行之间没有再改。简报里的增幅类数字没有，所有数字都是引用：总数 2793、类型最多的 Model comparisons（534）、Games 的数量（483）和占比（17%），并标了 5000 播放量的限制。没有写 `scenes.js`，也没有补 `--cost-usd` 和 `--intervention` 记录。",
+  "outcome": "passed"
+}

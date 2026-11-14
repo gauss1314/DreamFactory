@@ -1,0 +1,52 @@
+{
+  "case": "top-of-long-list",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 32.233
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "840b55822e73"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "840b55822e73"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 77,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 20,
+      "output": 6457,
+      "cacheRead": 464757,
+      "cacheWrite": 32187
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过了。管线共跑了两次：先 `--no-video` 做文字层检查，全部通过；再 `--draft` 渲染草稿，所有检查通过，成片规格正确、片长 32.2 秒。只新建了 `task/film.json`，没有写 `scenes.js`，也没有返工，所以没有修改第二次。草稿里“听写核对”一项被跳过，原因是管线还没接入语音识别。报告里的“第 2 轮”是因为第一次文字层运行也被计入了轮数。草稿成片在 `task/out/film.mp4`。",
+  "outcome": "passed"
+}

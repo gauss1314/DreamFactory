@@ -34,7 +34,7 @@
 | leftover-template | 数据引用少写一个括号，模板符号原样出现在画面上 | typography | 抓到 |  |
 | no-source | 数据画面没有标注来源 | citation | 抓到 |  |
 | flash-text | 结尾画面一闪而过，来不及读 | readability | 抓到 |  |
-| headline-overflow | 标题太长，撑出画面 | layout | 抓到 | readability、sync |
+| headline-overflow | 标题太长，撑出画面 | layout | 抓到 | readability |
 | low-contrast | 次要文字颜色太接近背景 | contrast | 抓到 |  |
 | long-subtitle | 一句旁白太长，字幕挤成两行 | subtitles | 抓到 |  |
 | empty-scene | 一个场景里什么内容都没有 | empty-frames | 抓到 |  |

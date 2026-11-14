@@ -1,0 +1,52 @@
+{
+  "case": "works-by-category",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 42.067
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "5d390f7201f8"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "5d390f7201f8"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 10,
+    "toolUses": 9,
+    "wallSec": 100,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 14,
+      "output": 8980,
+      "cacheRead": 317369,
+      "cacheWrite": 28621
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**通过。** 草稿渲染自检全部通过，成片在 /tmp/claude-0/-home-user-DreamFactory/34bb706b-fe22-52c6-a383-68d3485b8750/scratchpad/haiku3/works-by-category/task/out/film.mp4。管线一共跑了两次：先 `--no-video` 做文字层检查，再 `--draft` 渲染草稿。我只新建了 task/film.json，没有写 scenes.js，第一次跑通过后没有返工。片长 42.1 秒，内容覆盖简报要求的作品总数 2793、类型第一的模型对比（534）、游戏 483 件（占 17%）。有一项未执行：「听写核对」因为尚未接入语音识别而跳过，所以旁白的语音内容没有被机器核对过。另外，我没有记录 `--intervention` 和 `--cost-usd`，因为允许的命令格式里不含这两个参数。",
+  "outcome": "passed"
+}

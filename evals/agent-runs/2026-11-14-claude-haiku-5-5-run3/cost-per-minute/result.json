@@ -1,0 +1,52 @@
+{
+  "case": "cost-per-minute",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 43.367
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "d6af6797bc4a"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "d6af6797bc4a"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 13,
+    "toolUses": 12,
+    "wallSec": 91,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 16,
+      "output": 7082,
+      "cacheRead": 364528,
+      "cacheWrite": 27449
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过。草稿自检全部通过，`task/film.json` 已写好，草稿成片在 `task/out/film.mp4`，片长 43.4 秒。管线共跑了 2 次：第一次 `--no-video` 文字层检查通过，第二次 `--draft` 渲染并通过。两次之间没有改动：第一次运行前我做了两处修改（把 `series` 改为引用整组 `series.cost`，并把工作室那句旁白里写死的“一万五千”改成数字引用），之后没有返工。另外，“听写核对”一项按报告被跳过（尚未接入语音识别），`--cost-usd` 和 `--intervention` 我没有补记，因为没有可靠的费用数字。",
+  "outcome": "passed"
+}

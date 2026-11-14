@@ -1,0 +1,81 @@
+{
+  "vertical": "data-story",
+  "lang": "en",
+  "title": "Works by type (English)",
+  "source": "Data source: {{source.name}} (as of {{source.asOf}})",
+  "theme": { "accent": "#62c6ff" },
+  "voice": { "backend": "auto" },
+  "scenes": [
+    {
+      "id": "open",
+      "type": "title",
+      "kicker": "Works by type",
+      "headline": "What are {{facts.total}} works making?",
+      "sub": "A look at the list, by type",
+      "narration": [
+        "This list holds {{facts.total}} works.",
+        "Here is what they make."
+      ]
+    },
+    {
+      "id": "caveat-scope",
+      "type": "bignumber",
+      "label": "All works on the list",
+      "value": "{{facts.total}}",
+      "unit": "works",
+      "note": "Each has at least {{facts.minViews}} views.",
+      "narration": [
+        "Every work on this list has at least {{facts.minViews}} views.",
+        "The list counts {{facts.total}} of them."
+      ]
+    },
+    {
+      "id": "types",
+      "type": "bars",
+      "title": "Works by type",
+      "sub": "Count and share of all works",
+      "series": { "$": "series.categories" },
+      "highlight": "Games",
+      "unit": "works",
+      "showShare": true,
+      "narration": [
+        "Model comparisons is the largest type, with {{series.categories[Model comparisons]}} works.",
+        "Games is the second largest, with {{series.categories[Games]}} works."
+      ]
+    },
+    {
+      "id": "games",
+      "type": "bignumber",
+      "label": "Games",
+      "value": "{{series.categories[Games]}}",
+      "unit": "works",
+      "note": "{{share series.categories[Games]}} of all works",
+      "narration": [
+        "Games make up {{share series.categories[Games]}} of all works.",
+        "That is {{series.categories[Games]}} works, out of {{facts.total}}."
+      ]
+    },
+    {
+      "id": "caveat",
+      "type": "bullets",
+      "title": "Read this with care",
+      "items": [
+        "The list only holds works with at least {{facts.minViews}} views.",
+        "Works below that line are not counted here."
+      ],
+      "narration": [
+        "The list only holds works with at least {{facts.minViews}} views.",
+        "Works below that line are not counted here."
+      ]
+    },
+    {
+      "id": "end",
+      "type": "outro",
+      "headline": "Numbers from the list",
+      "sub": "Source is shown on screen",
+      "narration": [
+        "All figures come from the list named on screen."
+      ]
+    }
+  ]
+}

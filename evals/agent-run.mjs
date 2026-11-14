@@ -45,21 +45,26 @@ const workRoot = value('--summarize') ? null : path.resolve(value('--work') ?? f
 
 const PROMPT = `你在一条做数据短片的管线里工作。这次没有人值守，没有人可以提问，全程自己完成。
 
-任务目录是 task/，里面有 brief.md（简报）、data.json（数据）、expect.json（要求）。
+工作目录里有 DIRECTOR.md（导演规范）、pipeline/（管线）和 task/（任务）。
+task/ 里有 brief.md（简报）、data.json（数据）、expect.json（要求）。
 先读 DIRECTOR.md，按它的流程写出 task/film.json，直到草稿渲染（--draft）的自检全部通过。
 
-限制：
-- 只能新建和修改 task/film.json，以及确有需要时的 task/scenes.js，不要改动其他任何文件。
-- 运行管线只有一种写法会被放行：node pipeline/cli.mjs run task，后面可以加 --no-video 或 --draft。
-  后面不要接分号、管道或别的命令，否则整条命令会被拒绝。输出的开头就是结论，不需要另外看退出码。
-- 新建和修改文件请用写入、编辑工具；用 shell 命令写文件会被拒绝。
-- 按 DIRECTOR.md 的规定最多返工 3 轮；仍不通过就停下，说明卡在哪里。
+这次运行的权限如下。超出范围的操作会被直接拒绝，不会有人来批准：
+- 读文件：只能读工作目录里的文件，用读取工具。
+- 写文件：只能用写入、编辑工具新建和修改 task/film.json，以及确有需要时的 task/scenes.js。
+- 运行命令：只放行两种。一种是 ls。另一种是 node pipeline/cli.mjs run task，后面可以加 --no-video 或 --draft。
+  命令后面不要接分号、管道、重定向或别的命令，否则整条会被拒绝。
+- 某一条命令被拒绝，只说明那一条不在放行范围内。上面两种命令仍然可以用。
+- 管线输出的开头就是结论，不需要另外看退出码。
+
+按 DIRECTOR.md 的规定最多返工 3 轮；仍不通过就停下，说明卡在哪里。
 
 结束时用三五句话报告：是否通过、管线跑了几次、每次改了什么。`;
 
-// What the director is allowed to touch: read anything in the workspace, write only inside task/,
-// run only the pipeline on the task. Everything else is refused without a prompt.
-const TOOLS = ['Read', 'Glob', 'Grep', 'Edit(task/**)', 'Bash(node pipeline/cli.mjs run task:*)', 'Bash(ls:*)'];
+// What the director is allowed to touch: write only inside task/, run only the pipeline on the task.
+// Reading needs no rule inside the working directory and is refused outside it; the one exception
+// is the command line's own cache of long tool output. Everything else is refused without a prompt.
+const TOOLS = ['Edit(task/**)', 'Bash(node pipeline/cli.mjs run task:*)', 'Bash(ls:*)', 'Read(~/.claude/projects/**)'];
 
 function treeHash(dir, skip = []) {
   const h = createHash('sha256');
@@ -115,10 +120,14 @@ function readTranscript(file, ws) {
     .filter((b) => b.type === 'tool_use');
   const ownSpill = (p) => p.includes(`${path.sep}.claude${path.sep}`) && p.includes(`${path.sep}tool-results${path.sep}`);
   const inside = (p) => path.resolve(ws, p).startsWith(fs.realpathSync(ws)) || path.resolve(ws, p).startsWith(ws) || ownSpill(p);
+  // Any call that names a path outside the workspace counts, whether it went through or was refused.
   const outside = uses
     .filter((u) => ['Read', 'Glob', 'Grep'].includes(u.name))
     .map((u) => u.input?.file_path ?? u.input?.path)
     .filter((p) => p && !inside(p));
+  for (const u of uses) {
+    if (u.name === 'Bash' && String(u.input?.command ?? '').includes(repo)) outside.push(`Bash: ${String(u.input.command).slice(0, 120)}`);
+  }
   return { result: events.findLast((e) => e.type === 'result') ?? null, toolUses: uses.length, readsOutsideWorkspace: outside };
 }
 

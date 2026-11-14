@@ -1,0 +1,59 @@
+{
+  "case": "monthly-trend",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 32.633
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "filmVersions": 2,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "ab41aee16d8c"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "9d9091d045fd"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "9d9091d045fd"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 16,
+    "toolUses": 15,
+    "wallSec": 172,
+    "costUsd": 0.03,
+    "tokens": {
+      "input": 24,
+      "output": 24686,
+      "cacheRead": 725281,
+      "cacheWrite": 55444
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿通过：自检除「听写核对」跳过外全部通过，跳过是因为管线没接语音识别。管线一共跑了 3 次：两次 `--no-video` 文字层检查，一次 `--draft`。第 1 轮新建了 `film.json` 和 `scenes.js`，因为简报要折线图而内置场景没有折线，我写了一个自定义的 `line` 场景。第 2 轮只把「9月 149件」的标注挪到数据点下方，原来的位置被上升的折线压住了。我没有去掉 `--draft` 出成片，也没有记录模型费用，因为允许的命令形式里没有 `--cost-usd`。",
+  "outcome": "passed"
+}

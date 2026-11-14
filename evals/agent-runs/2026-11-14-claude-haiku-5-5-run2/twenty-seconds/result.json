@@ -1,0 +1,52 @@
+{
+  "case": "twenty-seconds",
+  "model": "claude-haiku-5-5",
+  "delivered": true,
+  "customScene": false,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 16.233
+  },
+  "pipelineRuns": 2,
+  "failedRuns": 0,
+  "filmVersions": 1,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "d78e1ab6bd34"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "d78e1ab6bd34"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 9,
+    "toolUses": 8,
+    "wallSec": 58,
+    "costUsd": 0.01,
+    "tokens": {
+      "input": 12,
+      "output": 6632,
+      "cacheRead": 267949,
+      "cacheWrite": 23832
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "通过。`task/film.json` 是唯一新建的文件，没有改 `data.json`、`expect.json` 或管线代码，也没有写 `scenes.js`。管线一共跑了两次：先 `--no-video` 文字层检查，一次通过；再 `--draft` 渲染草稿，全部检查通过。两次之间没有返工，文件只写了一版。草稿为 16.2 秒，内容是开场、作品总数 2,793、类型分布条形图（模型对比高亮，讲解与教育只在画面上）、游戏类 483。唯一跳过的是“听写核对”，因为管线还没接语音识别。我看了抽帧图和报告，没有逐帧看成片。",
+  "outcome": "passed"
+}
