@@ -1,7 +1,7 @@
 // One run of the pipeline for one film: script -> timeline -> picture -> self-check -> film.
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hash, probe, readJson, writeJson } from './lib/util.mjs';
 import { resolveFilm } from './lib/data.mjs';
 import { pickBackend } from './lib/tts.mjs';
@@ -38,9 +38,12 @@ function pictureKey(resolved, scenesSource, vertical) {
     }
   };
   walk(vertical.runtimeDir);
-  const renderer = fs.readFileSync(new URL('./lib/render.mjs', import.meta.url), 'utf8');
-  return hash(JSON.stringify([picture, scenesSource ?? '', files, renderer]));
+  // the renderer and the sampler are part of the key: changing how frames are read invalidates it
+  const code = ['./lib/render.mjs', './lib/stage.mjs'].map((f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8'));
+  return hash(JSON.stringify([picture, scenesSource ?? '', files, code]));
 }
+
+const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 export async function runFilm(filmDir, opts = {}) {
   const started = Date.now();
@@ -108,10 +111,26 @@ export async function runFilm(filmDir, opts = {}) {
     audio.stems = sound ? { music: path.join(outDir, 'audio', 'music.wav'), sfx: path.join(outDir, 'audio', 'sfx.wav') } : {};
 
     // Picture: read the text back from the live page, then render if asked.
-    sampling = await sampleFilm(stage, timeline, { contactFile });
+    // Sampling reads the picture only, so it is cached under the picture's key, like the render.
+    const key = pictureKey(resolved, scenesSource, vertical);
+    const sampleCache = process.env.DF_RENDER_CACHE === 'off' ? null : path.join(process.env.DF_RENDER_CACHE ?? path.join(repoRoot, '.cache', 'render'), `${key}-${draft ? 'draft' : 'full'}-sample`);
+    if (sampleCache && fs.existsSync(path.join(sampleCache, 'sampling.json'))) {
+      sampling = readJson(path.join(sampleCache, 'sampling.json'));
+      if (fs.existsSync(path.join(sampleCache, 'contact.jpg'))) fs.copyFileSync(path.join(sampleCache, 'contact.jpg'), contactFile);
+    } else {
+      sampling = await sampleFilm(stage, timeline, { contactFile });
+      if (sampleCache && !sampling.pageErrors.length) {
+        const tmp = `${sampleCache}.${process.pid}.${Date.now()}.tmp`;
+        fs.mkdirSync(tmp, { recursive: true });
+        writeJson(path.join(tmp, 'sampling.json'), sampling);
+        if (fs.existsSync(contactFile)) fs.copyFileSync(contactFile, path.join(tmp, 'contact.jpg'));
+        fs.rmSync(sampleCache, { recursive: true, force: true });
+        fs.renameSync(tmp, sampleCache);
+      }
+    }
     timing('sample');
     if (opts.video !== false) {
-      video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null, cacheKey: pictureKey(resolved, scenesSource, vertical) });
+      video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null, cacheKey: key });
     }
     timing('render');
   } finally {

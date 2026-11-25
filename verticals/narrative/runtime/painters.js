@@ -296,8 +296,17 @@ export function lerp(a, b, t) {
 
 // ---------- town, stone and weather ----------
 
-export function paintHouses(kit, g, x0, x1, base, seed, { reflect = 0, haze = 0 } = {}) {
+/**
+ * A row of houses, each different: height, width, roof, colour. Painted, not blocked in: walls with
+ * vertical brushwork, lighter at the top; eaves with a shadow under them, capped chimneys; windows
+ * with sills and lintels, some shuttered, some with glazing bars, each lit its own way; doors on the
+ * ground floor. `light` is the side the sun is on (1 right, -1 left, 0 none): that edge catches it.
+ * Returns the chimney tops, for smoke.
+ */
+export function paintHouses(kit, g, x0, x1, base, seed, { reflect = 0, haze = 0, light = 0 } = {}) {
   const r = kit.rng(seed);
+  // details come from their own stream, so adding them never moves a house
+  const d = kit.rng(seed * 7 + 13);
   const L = look(kit);
   const walls = L.houseWalls;
   const parts = [];
@@ -306,37 +315,100 @@ export function paintHouses(kit, g, x0, x1, base, seed, { reflect = 0, haze = 0 
     const h = 70 + r() * 170;
     parts.push({ x, w, h, roof: ['gable', 'gable', 'flat', 'hip'][Math.floor(r() * 4)], pitch: 18 + r() * 40,
       col: kit.jit(walls[Math.floor(r() * walls.length)], r, 10), chimney: r() < 0.45 ? r() : -1,
-      win: Array.from({ length: 24 }, () => r()), cols: 1 + Math.floor(w / 42), rows: Math.max(1, Math.floor((h - 30) / 44)), ww: 10 + r() * 8 });
+      win: Array.from({ length: 24 }, () => r()), cols: 1 + Math.floor(w / 42), rows: Math.max(1, Math.floor((h - 30) / 44)), ww: 10 + r() * 8,
+      shutters: d() < 0.35 ? kit.jit(kit.mix(L.roofShade, '#6f8a7a', d()), d, 12) : null,
+      bars: d() < 0.6, door: w > 72 ? 0.2 + d() * 0.6 : -1, cornice: d() < 0.5, seed: Math.floor(d() * 1e6) });
     x += w + 2 + r() * 14;
   }
+  const chimneys = [];
   const draw = (flip) => {
     const sy = flip ? -1 : 1;
     const a = flip ? 0.45 : 1;
     for (const p of parts) {
       const top = base - sy * p.h;
+      const dr = kit.rng(p.seed);
       g.fillStyle = kit.css(p.col, a);
       g.fillRect(p.x, Math.min(base, top), p.w, p.h);
+      if (!flip) {
+        // the wall: lighter toward the eaves, darker at the street, brushed in vertical strokes
+        const grad = g.createLinearGradient(0, top, 0, base);
+        grad.addColorStop(0, kit.css(kit.mix(p.col, '#fff4e0', 0.12), 0.9));
+        grad.addColorStop(1, kit.css(kit.mix(p.col, L.roofShade, 0.22), 0.9));
+        g.fillStyle = grad;
+        g.fillRect(p.x, top, p.w, p.h);
+        g.save();
+        g.beginPath();
+        g.rect(p.x, top, p.w, p.h);
+        g.clip();
+        kit.mottle(g, p.x, top, p.w, p.h, () => kit.jit(p.col, dr, 14), { n: Math.max(6, Math.round((p.w * p.h) / 700)), size: 18, alpha: 0.16, r: dr, angle: Math.PI / 2 });
+        g.restore();
+        // the edge toward the sun catches it; the other side stays a touch darker
+        if (light) {
+          const lx = light > 0 ? p.x + p.w - 4 : p.x;
+          g.fillStyle = kit.css(kit.mix(p.col, L.windowsBright, 0.45), 0.55);
+          g.fillRect(lx, top, 4, p.h);
+          g.fillStyle = kit.css(L.roofShade, 0.12);
+          g.fillRect(light > 0 ? p.x : p.x + p.w - 6, top, 6, p.h);
+        }
+        if (p.cornice) {
+          g.fillStyle = kit.css(kit.mix(p.col, '#fff4e0', 0.25), 0.8);
+          g.fillRect(p.x - 2, top + 4, p.w + 4, 3);
+        }
+        // the shadow under the eaves
+        g.fillStyle = kit.css(L.roofShade, 0.35);
+        g.fillRect(p.x, top, p.w, 7);
+      }
       // the roof
       const rc = kit.css(kit.mix(p.col, L.roofShade, 0.45), a);
       g.beginPath();
       if (p.roof === 'gable') {
-        g.moveTo(p.x - 6, top);
+        g.moveTo(p.x - 8, top);
         g.lineTo(p.x + p.w / 2, top - sy * p.pitch);
-        g.lineTo(p.x + p.w + 6, top);
+        g.lineTo(p.x + p.w + 8, top);
       } else if (p.roof === 'hip') {
-        g.moveTo(p.x - 6, top);
+        g.moveTo(p.x - 8, top);
         g.lineTo(p.x + p.w * 0.25, top - sy * p.pitch * 0.6);
         g.lineTo(p.x + p.w * 0.75, top - sy * p.pitch * 0.6);
-        g.lineTo(p.x + p.w + 6, top);
+        g.lineTo(p.x + p.w + 8, top);
       } else {
-        g.rect(p.x - 4, top - sy * 8, p.w + 8, sy * 8);
+        g.rect(p.x - 5, top - sy * 8, p.w + 10, sy * 8);
       }
       g.closePath();
       g.fillStyle = rc;
       g.fill();
+      if (!flip && p.roof !== 'flat') {
+        // courses of tiles, following the slope, and a lit ridge on the sun side
+        g.save();
+        g.clip();
+        g.strokeStyle = kit.css(L.roofShade, 0.35);
+        g.lineWidth = 1.2;
+        for (let k = 1; k < 5; k++) {
+          const y = top - (p.pitch * (p.roof === 'hip' ? 0.6 : 1) * k) / 5;
+          g.beginPath();
+          g.moveTo(p.x - 8, y);
+          g.lineTo(p.x + p.w + 8, y);
+          g.stroke();
+        }
+        if (light) {
+          g.fillStyle = kit.css(L.windowsBright, 0.18);
+          g.fillRect(light > 0 ? p.x + p.w / 2 : p.x - 8, top - p.pitch, p.w / 2 + 8, p.pitch);
+        }
+        g.restore();
+        g.strokeStyle = kit.css(L.roofShade, 0.8);
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(p.x - 8, top);
+        g.lineTo(p.x + p.w + 8, top);
+        g.stroke();
+      }
       if (p.chimney >= 0) {
+        const cx = p.x + p.w * (0.2 + p.chimney * 0.5);
+        const cy = top - sy * (p.pitch * 0.5 + 22);
         g.fillStyle = rc;
-        g.fillRect(p.x + p.w * (0.2 + p.chimney * 0.5), top - sy * (p.pitch * 0.5 + 22), 12, sy * 26);
+        g.fillRect(cx, cy, 12, sy * 26);
+        // the cap
+        g.fillRect(cx - 3, cy - sy * 4, 18, sy * 5);
+        if (!flip) chimneys.push([cx + 6, cy - 4]);
       }
       // windows: not a grid of lights; some lit, some dark, sizes per house
       let k = 0;
@@ -346,9 +418,52 @@ export function paintHouses(kit, g, x0, x1, base, seed, { reflect = 0, haze = 0 
           const wx = p.x + 10 + j * ((p.w - 20) / p.cols) + 2;
           const wy = base - sy * (30 + i * 44) - (flip ? 0 : p.ww * 1.4);
           if (v < 0.25) continue;
-          g.fillStyle = v > 0.62 ? kit.css(kit.mix(L.windows, L.windowsBright, v - 0.62), 0.9 * a) : kit.css(L.roofShade, 0.7 * a);
-          g.fillRect(wx, wy, p.ww, p.ww * 1.4);
+          const wh = p.ww * 1.4;
+          if (p.door >= 0 && i === 0 && Math.abs(wx + p.ww / 2 - (p.x + p.w * p.door)) < p.ww) continue;
+          const lit = v > 0.62;
+          g.fillStyle = lit ? kit.css(kit.mix(L.windows, L.windowsBright, v - 0.62), 0.9 * a) : kit.css(L.roofShade, 0.7 * a);
+          g.fillRect(wx, wy, p.ww, wh);
+          if (flip) continue;
+          if (lit) {
+            // the light is warmest low in the room
+            const lg = g.createLinearGradient(0, wy, 0, wy + wh);
+            lg.addColorStop(0, kit.css(L.roofShade, 0.25));
+            lg.addColorStop(1, kit.css(L.windowsBright, 0.25));
+            g.fillStyle = lg;
+            g.fillRect(wx, wy, p.ww, wh);
+          }
+          if (p.bars) {
+            g.fillStyle = kit.css(L.roofShade, lit ? 0.55 : 0.3);
+            g.fillRect(wx + p.ww / 2 - 0.8, wy, 1.6, wh);
+            g.fillRect(wx, wy + wh * 0.45, p.ww, 1.6);
+          }
+          // sill below, lintel above
+          g.fillStyle = kit.css(kit.mix(p.col, '#fff4e0', 0.35), 0.85);
+          g.fillRect(wx - 2, wy + wh, p.ww + 4, 3);
+          g.fillStyle = kit.css(L.roofShade, 0.4);
+          g.fillRect(wx - 1, wy - 3, p.ww + 2, 2);
+          if (p.shutters) {
+            g.fillStyle = kit.css(p.shutters, 0.9);
+            g.fillRect(wx - p.ww * 0.45 - 1, wy, p.ww * 0.42, wh);
+            g.fillRect(wx + p.ww + 1, wy, p.ww * 0.42, wh);
+          }
         }
+      }
+      if (!flip && p.door >= 0) {
+        // a door with a rounded head and a step
+        const dw = 16 + (p.seed % 7);
+        const dh = 34 + (p.seed % 9);
+        const dx = p.x + p.w * p.door - dw / 2;
+        g.fillStyle = kit.css(kit.mix(L.roofShade, p.col, 0.25), 0.95);
+        g.beginPath();
+        g.moveTo(dx, base);
+        g.lineTo(dx, base - dh + dw / 2);
+        g.arc(dx + dw / 2, base - dh + dw / 2, dw / 2, Math.PI, 0);
+        g.lineTo(dx + dw, base);
+        g.closePath();
+        g.fill();
+        g.fillStyle = kit.css(kit.mix(p.col, '#fff4e0', 0.3), 0.8);
+        g.fillRect(dx - 3, base - 3, dw + 6, 3);
       }
     }
   };
@@ -362,6 +477,67 @@ export function paintHouses(kit, g, x0, x1, base, seed, { reflect = 0, haze = 0 
   if (haze) {
     g.fillStyle = `rgba(150,150,180,${haze})`;
     g.fillRect(x0, base - 300, x1 - x0, 300);
+  }
+  return { chimneys };
+}
+
+/**
+ * Smoke from a chimney top at (x, y): puffs that rise, widen, thin out and lean with the wind,
+ * cycling on twos. `scale` for distance, `wind` for the lean (negative leans left).
+ */
+export function smoke(kit, g, t, x, y, { scale = 1, wind = 1, alpha = 0.5, seed = 1, color = [222, 212, 226] } = {}) {
+  const r = kit.rng(900 + seed * 13);
+  const ph = r();
+  const tw = kit.twos(t);
+  const [cr, cg, cb] = color;
+  for (let p = 0; p < 8; p++) {
+    const u = (tw * 0.3 + p / 8 + ph) % 1;
+    const al = alpha * (1 - u) * Math.min(1, u * 6);
+    const px = x + scale * (wind * u * u * 150 + 10 * Math.sin(u * 6 + ph * 6));
+    const py = y - scale * u * 230;
+    const rad = scale * (9 + u * 40);
+    const grd = g.createRadialGradient(px - rad * 0.2, py - rad * 0.2, 1, px, py, rad);
+    grd.addColorStop(0, `rgba(${cr},${cg},${cb},${al})`);
+    grd.addColorStop(0.6, `rgba(${cr - 26},${cg - 28},${cb - 16},${al * 0.7})`);
+    grd.addColorStop(1, `rgba(${cr - 40},${cg - 42},${cb - 25},0)`);
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(px, py, rad, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+/**
+ * Ground mist between y0 (its top) and y1 (the ground): densest at the ground, soft at the top,
+ * broken into drifting patches. `drift` moves the patches sideways (pass t times a speed).
+ */
+export function paintMist(kit, g, y0, y1, seed, { color = [226, 218, 230], alpha = 0.45, drift = 0, w = 1920 } = {}) {
+  const [cr, cg, cb] = color;
+  const band = g.createLinearGradient(0, y0, 0, y1);
+  band.addColorStop(0, `rgba(${cr},${cg},${cb},0)`);
+  band.addColorStop(0.7, `rgba(${cr},${cg},${cb},${alpha * 0.6})`);
+  band.addColorStop(1, `rgba(${cr},${cg},${cb},${alpha})`);
+  g.fillStyle = band;
+  g.fillRect(0, y0, w, y1 - y0);
+  const r = kit.rng(seed);
+  const h = y1 - y0;
+  for (let i = 0; i < 14; i++) {
+    const cx = ((((r() * (w + 800) + drift) % (w + 800)) + (w + 800)) % (w + 800)) - 400;
+    const cy = y0 + h * (0.35 + r() * 0.6);
+    const rx = 220 + r() * 380;
+    const ry = h * (0.15 + r() * 0.25);
+    const al = alpha * (0.25 + r() * 0.35);
+    g.save();
+    g.translate(cx, cy);
+    g.scale(1, ry / rx);
+    const grd = g.createRadialGradient(0, 0, 1, 0, 0, rx);
+    grd.addColorStop(0, `rgba(${cr},${cg},${cb},${al})`);
+    grd.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(0, 0, rx, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
   }
 }
 
@@ -563,4 +739,41 @@ export function lampPost(kit, g, x, ground, top, on) {
   g.fillStyle = LP.iron;
   g.fillRect(lx - 26, ly - 30, 52, 8);
   return [lx, ly];
+}
+
+/**
+ * A low sun shining into the lens: a warm glow that lifts everything near it (screen blend), and a
+ * few soft rays fanning down through haze. Call it after the background and before the characters,
+ * so they stand dark against it. `strength` 0..1 can rise over a shot as the sun comes up.
+ */
+export function sunGlow(kit, g, [sx, sy], { strength = 1, rays = 7, seed = 1, color = [255, 206, 150], w = 1920, h = 1080 } = {}) {
+  const [cr, cg, cb] = color;
+  g.save();
+  g.globalCompositeOperation = 'screen';
+  const glow = g.createRadialGradient(sx, sy, 10, sx, sy, Math.max(w, h) * 0.6);
+  glow.addColorStop(0, `rgba(${cr},${cg},${cb},${0.55 * strength})`);
+  glow.addColorStop(0.35, `rgba(${cr},${cg},${cb},${0.18 * strength})`);
+  glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  g.fillStyle = glow;
+  g.fillRect(0, 0, w, h);
+  const r = kit.rng(seed);
+  for (let i = 0; i < rays; i++) {
+    // rays fan downward and away from the sun, each its own width and strength
+    const a = Math.PI / 2 + (r() - 0.5) * 2.2;
+    const len = h * (0.6 + r() * 0.6);
+    const spread = 0.03 + r() * 0.05;
+    const ex = sx + Math.cos(a) * len;
+    const ey = sy + Math.sin(a) * len;
+    const ray = g.createLinearGradient(sx, sy, ex, ey);
+    ray.addColorStop(0, `rgba(${cr},${cg},${cb},${(0.1 + r() * 0.1) * strength})`);
+    ray.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    g.fillStyle = ray;
+    g.beginPath();
+    g.moveTo(sx, sy);
+    g.lineTo(sx + Math.cos(a - spread) * len, sy + Math.sin(a - spread) * len);
+    g.lineTo(sx + Math.cos(a + spread) * len, sy + Math.sin(a + spread) * len);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
 }

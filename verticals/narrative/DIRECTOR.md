@@ -85,6 +85,7 @@ export default {
 - **画面不能突然跳。** 剪辑点、淡入淡出和 `events` 里声明的时刻以外，相邻两帧不能有大的变化。
 - **碰着的地方真的碰着。** 角色抓着、推着、骑着、叼着东西时，在报告里给出这几处的点，并在 `film.json` 的 `contacts` 里声明。点用 `kit.at(g, x, y)` 取：它把当前变换下的 (x, y) 换算成画面像素，所以在角色函数里、在 `g.translate`/`g.scale` 之后取都可以。两端各自取，不要把一端的坐标抄给另一端，否则检查就失去意义。
 - **抛出去的东西走抛物线。** 被颠出、扔出、弹起的东西，每帧用 `kit.prop('面包', { x, y, s, air, ballistic: true, from: '推车' })` 报告：`y` 是它正下方的地面高度，`air` 是离地多高（像素），`from` 是它从谁身上飞出去。高度要随时间按抛物线变化。侧面镜头里 `y` 不变；要往镜头这边飞，就在 `film.json` 里写 `horizon`，并让 `s` 按 `s ∝ (y − horizon)` 变大。
+- **不要在设了 `filter` 的画布上画很多笔。** `g.filter = 'blur(...)'` 之后的每一次绘制都会单独模糊一次，几百笔就要几秒一帧。先把东西画进一张 `kit.layer`，再设好 `filter` 把整张底版画上去一次。
 - **只用 `/runtime/painters.js` 和 `kit`**，不要引入别的模块，也不要用图片。
 
 ### 引擎提供的工具
@@ -125,7 +126,10 @@ export default {
 | `paintRiver(kit, g, w, y0, y1, 太阳x, 种子)` | 映着天空的河面 |
 | `glitter(kit, g, t, 太阳x, y0, y1, 宽度, 种子)` | 太阳下面闪烁的碎金 |
 | `paintSlope`、`paintRoad`、`reeds` | 草坡、碎石路、芦苇 |
-| `paintHouses(kit, g, x0, x1, 底线, 种子, { reflect, haze })` | 一排各不相同的房子，可带倒影 |
+| `paintHouses(kit, g, x0, x1, 底线, 种子, { reflect, haze, light })` | 一排各不相同的房子：墙面笔触、出檐、窗台、百叶、门；`light` 是太阳在哪边（1 右，-1 左）；返回 `{ chimneys }`，烟囱口的位置 |
+| `smoke(kit, g, t, x, y, { scale, wind, seed })` | 烟囱冒的烟，越往上越淡越宽，顺风斜（按一拍二动） |
+| `paintMist(kit, g, 顶, 地面, 种子, { alpha, drift })` | 贴地的晨雾，地面最浓，往上散开；`drift` 让雾团横向飘 |
+| `sunGlow(kit, g, [x, y], { strength, rays })` | 逆光：太阳周围的暖光和几道光束；画在背景之后、角色之前 |
 | `paintWall`、`paintArchBridge`、`paintCobbles`、`paintPuddle` | 石墙、石拱桥、石板路、水洼 |
 | `ripples`、`rain` | 水洼里的涟漪、斜着落的雨（都按一拍二动） |
 | `lampPost(kit, g, x, 地面, 顶部, 亮度)` | 路灯杆，返回灯的位置 |

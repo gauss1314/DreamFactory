@@ -515,13 +515,15 @@ export default {
     paintClouds(kit, g0, [[420, 210, 760, 110], [1180, 120, 520, 80], [1720, 330, 520, 90]], sun);
     paintFarBank(kit, g0, 1920, 712, 7);
     mistBand(g0, 560, 740, 0.55);
-    g0.save();
-    g0.translate(0, 748);
-    g0.scale(0.6, 0.6);
+    // the far row, painted on its own layer and softened once: a filter left on while painting
+    // blurs every single stroke, which costs seconds
+    const far = kit.layer(1920, 400);
+    far.g.translate(0, 300);
+    far.g.scale(0.6, 0.6);
+    paintHouses(kit, far.g, -60, 3300, 0, 41);
     g0.filter = 'blur(1.2px)';
-    paintHouses(kit, g0, -60, 3300, 0, 41);
+    g0.drawImage(far.canvas, 0, 448);
     g0.filter = 'none';
-    g0.restore();
     mistBand(g0, 520, 775, 0.5);
     paintHouses(kit, g0, -30, 1960, 820, 23);
     mistBand(g0, 600, 830, 0.32);
