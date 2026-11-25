@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/8，缺陷检出 35/35。
+干净用例误报 0/9，缺陷检出 37/37。
 
 运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-25
 
@@ -14,6 +14,7 @@
 | cost-per-minute | 通过 | 43.5 |  |
 | monthly-trend | 通过 | 27.4 |  |
 | pelican-embankment | 通过 | 15.0 |  |
+| postman-tortoise | 通过 | 12.0 |  |
 | top-of-long-list | 通过 | 22.0 |  |
 | twenty-seconds | 通过 | 14.1 |  |
 | works-by-category | 通过 | 52.6 |  |
@@ -60,6 +61,8 @@
 | bell-late | 车铃声比画面晚了四分之一秒 | cue-sync | 抓到 |  |
 | event-without-sound | 分镜里声明了一个画面事件，却没有配声音 | cue-sync | 抓到 |  |
 | riding-sideways | 侧面画的鹈鹕沿着通向纵深的路斜着往远处滑（这支片子第一版的真实错误） | heading | 抓到 |  |
+| music-too-loud | 配乐开得太响，盖住了旁白 | voice-over-music | 抓到 |  |
+| chime-late | 主角亮起时的钢片琴晚了 0.3 秒 | cue-sync | 抓到 |  |
 
 ## 各项检查的覆盖
 
@@ -85,4 +88,5 @@
 | asr | 2 | 2 | 本次运行跳过 |
 | pops | 1 | 1 |  |
 | palette | 1 | 1 | 本次运行跳过 |
-| cue-sync | 2 | 2 | 本次运行跳过 |
+| cue-sync | 3 | 3 |  |
+| voice-over-music | 1 | 1 |  |
