@@ -8,9 +8,10 @@
 node pipeline/cli.mjs run <影片目录> --no-video   # 只做文字层检查，十几秒
 node pipeline/cli.mjs run <影片目录> --draft      # 草稿画质，带视频和声音检查
 node pipeline/cli.mjs run <影片目录>              # 成片
-node evals/run.mjs                                # 跑评测集，约两分钟
-node evals/run.mjs --only <用例或缺陷的 id>
+node evals/run.mjs                                # 跑评测集：画面没改约四分钟，改了运行时约十五分钟
+node evals/run.mjs --only <id,id>                 # 只跑指定的用例或缺陷
 node evals/agent-run.mjs                          # 让模型无人值守做完每个用例，要花模型费用
+node evals/review.mjs <影片目录>                   # 让另一个模型只看画面审片，列出要退回的地方
 ```
 
 做数据短片之前先读 `DIRECTOR.md`，做叙事短片之前先读 `verticals/narrative/DIRECTOR.md`。
@@ -43,4 +44,6 @@ node evals/agent-run.mjs                          # 让模型无人值守做完�
 - 评测默认用 `auto` 选中的语音。没有网络时加 `--tts espeak`，这时听写核对会跳过，对应的缺陷记为“未判定”。
 - 每条垂直管线在 `vertical.mjs` 里列出自己要跑的检查。新增检查时要决定它属于哪条管线。
 - 代码注释用英文，文档和报告用中文。
+- `.cache/render/` 按画面的全部来源（分镜、场景代码、运行时、渲染和抽样代码）缓存渲染和抽样结果。只改声音或检查时，评测会复用画面，只重新混音。缓存不入库，删掉只会变慢；怀疑缓存有问题时设 `DF_RENDER_CACHE=off`。`DF_TIMING=1` 会打印每一步的用时。
+- 叙事片的画面里不要在设了 `filter` 的画布上画很多笔，每一笔都会单独模糊一次，一帧能慢到几秒。先画进底版再整体模糊。
 - 同一时间只跑一个 `node evals/run.mjs`：它启动时会清空共用的 `evals/.tmp/`，两个同时跑会互相删掉对方的文件。
