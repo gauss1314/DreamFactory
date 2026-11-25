@@ -187,5 +187,5 @@ node pipeline/cli.mjs run task --no-video
 | `cue-sync` | 事件没登记声音；声音晚了；被前一个声音盖住 | 登记 `cues`；把声音放在 `ev.t`；收住前一个声音 |
 | `determinism` | 用了 `Math.random()` 或时钟，或在两帧之间留了状态 | 改用 `kit.rng` 和传入的 `t` |
 | `video-stillness` | 画面静止太久 | 加一点动：草、水、雨、镜头慢移 |
-| `audio-levels` | 太吵或太轻 | 一般不会出现，管线会调整；出现就是某个声音放得过大 |
+| `audio-levels` | 峰值超过 -1 dBFS：管线会把整体响度调到 -14 LUFS，但不压峰值，一个比别的都响得多的瞬间声音（撞击、落地）会被一起抬上去 | 把那个声音调轻，让它和其他声音差不多响；不要去调整体音量 |
 | `spec` | 片长不在 `expect.json` 的范围内 | 改镜头时长 |

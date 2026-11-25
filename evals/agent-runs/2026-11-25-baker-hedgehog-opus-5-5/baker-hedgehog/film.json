@@ -1,0 +1,25 @@
+{
+  "vertical": "narrative",
+  "lang": "zh",
+  "title": "清晨的面包师",
+  "tempo": 120,
+  "finish": { "vignette": 0.3, "halation": 0.14, "grain": 0.05, "warm": "#ffe0b0" },
+  "look": {
+    "sky": [[0, "#56658f"], [0.4, "#8e93b4"], [0.75, "#d9c3bc"], [1, "#ffe0b0"]],
+    "cloud": { "light": "#ffe9cc", "half": "#d6bcc4", "shadow": "#9a96b8", "deep": "#7e7ea6" },
+    "hills": "#a3a3c4",
+    "town": "#8f90b5",
+    "bank": "#7d80a8",
+    "windows": "#ffd99a",
+    "windowsBright": "#fff0c8",
+    "houseWalls": ["#7a7c9c", "#86788a", "#6e7c8e", "#8c8274", "#767290", "#857a88"],
+    "roofShade": "#3e4060",
+    "cobble": { "gap": "#4a4660", "stone": "#878099", "dark": "#6f6886", "light": "#a99fae", "sheen": "#f0d2bc" },
+    "shadow": "rgba(80,60,120,0.35)"
+  },
+  "scenes": [
+    { "id": "s1-town", "type": "town", "duration": 4.0, "fadeIn": 0.6 },
+    { "id": "s2-side", "type": "side", "duration": 5.0, "events": { "bump": 2.5, "land": 3.05 } },
+    { "id": "s3-end", "type": "pigeon", "duration": 4.0, "fadeOut": 1.0, "events": { "land": 1.0, "peck": [1.5, 2.0] } }
+  ]
+}

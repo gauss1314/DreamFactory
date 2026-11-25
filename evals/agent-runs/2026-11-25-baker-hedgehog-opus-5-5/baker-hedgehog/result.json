@@ -1,0 +1,80 @@
+{
+  "case": "baker-hedgehog",
+  "model": "claude-opus-5-5",
+  "vertical": "narrative",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 13
+  },
+  "pipelineRuns": 5,
+  "failedRuns": 3,
+  "filmVersions": 5,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "3b0cfb21462a"
+    },
+    {
+      "round": 2,
+      "passed": false,
+      "failed": [
+        "heading"
+      ],
+      "rendered": false,
+      "filmVersion": "9cd71df52ae0"
+    },
+    {
+      "round": 3,
+      "passed": false,
+      "failed": [
+        "cue-sync"
+      ],
+      "rendered": true,
+      "filmVersion": "9c5fdce9ebdb"
+    },
+    {
+      "round": 4,
+      "passed": false,
+      "failed": [
+        "audio-levels"
+      ],
+      "rendered": true,
+      "filmVersion": "fd97a5d19e2e"
+    },
+    {
+      "round": 5,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "0d2e046de548"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 55,
+    "toolUses": 54,
+    "wallSec": 1115,
+    "costUsd": 3.91,
+    "tokens": {
+      "input": 48,
+      "output": 93801,
+      "cacheRead": 3393405,
+      "cacheWrite": 169770
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**通过了。** 最后一次 `--draft` 草稿渲染，所有检查都过了：片长 13.0 秒，声画同步最大偏差 4 毫秒，响度 -14.1 LUFS，峰值 -1.5 dBFS，相邻两帧最大变化 5.2，没有突跳。色彩脚本那项是跳过的，因为 `expect.json` 里没写色彩脚本，不是判了通过。\n\n管线一共跑了 5 次，其中 2 次只出抽帧图，3 次草稿渲染：\n1. 第 1 次只出抽帧图，三个文件的初稿，自检通过。看图发现三个问题：街景房子是大块平涂、像矢量图，侧面跟拍里刺猬太小，整体偏灰。\n2. 第 2 次也只出抽帧图。把街景放大并做了虚化、加了笔触和暖光，刺猬放大到 1.7 倍，抬高路沿；又临时把时间往后挪、把画面放大，好看清面包飞在空中和角色近景。朝向检查报的那一处失败，是这个临时挪时间造成的，之后删掉了。\n3. 第 3 次是第一次草稿渲染。之前看图发现刺猬的嘴贴着车、手臂看不见，鸽子落地那一帧翅膀像一根棍，这一轮把推车往前挪、加宽了鸽子翅膀、柔化了天空。这次唯一没过的是鸽子落地的声音晚了 72 毫秒，问题在落地后的爪子声比第一下拍翅声还响。\n4. 第 4 次把落地第一下的声音加强、爪子声减弱，同步过了，但峰值到了 -0.5 dBFS，超过 -1 的上限。\n5. 第 5 次把车轮撞石、面包落地、鸽子落地三个声音调轻，全部通过。\n\n我自己看图觉得最弱的地方：\n- **远景太粗**：天上的云像一排小棉花团，房子还是方块加格子窗。\n- **整体发灰偏紫**：薄雾的感觉有了，但晨光的暖意不够。\n- **鸽子的飞行动作简单**：只有几个固定姿势轮换。\n- **物理上有夸张**：面包被一块小石头颠到高出车面约 17 厘米。轨迹是正经算的抛物线，落地弹一下再滚停，但起跳力度明显偏大。\n\n成片在 `task/out/film.mp4`，抽帧图在 `task/out/contact.jpg`。",
+  "outcome": "passed"
+}
