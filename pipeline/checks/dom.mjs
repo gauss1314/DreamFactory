@@ -491,12 +491,17 @@ export const landing = {
         const seq = frames.map((f) => ({ t: f.t, a: f.actors.find((a) => a.name === name), all: f.actors })).filter((p) => p.a);
         for (let i = 0; i < seq.length; i++) {
           if (!(seq[i].a.air > 0.5)) continue;
-          // one flight: the frames in the air, plus the last frame on the ground before and the first after
+          // One flight: the frames in the air, plus the last frame on the ground before and the first
+          // after. A bounce can touch down between two looks: a dip in height (lower than the frame
+          // before, no higher than the one after) ends one flight and starts the next.
           let j = i;
-          while (j + 1 < seq.length && seq[j + 1].a.air > 0.5) j++;
-          const take = seq[Math.max(0, i - 1)];
+          const dip = (k) => k > 0 && k + 1 < seq.length && seq[k].a.air < seq[k - 1].a.air && seq[k].a.air <= seq[k + 1].a.air;
+          while (j + 1 < seq.length && seq[j + 1].a.air > 0.5 && !dip(j + 1)) j++;
+          // a flight that starts at a dip took off from that bounce, not from the frame before it
+          const from = dip(i) ? i : Math.max(0, i - 1);
+          const take = seq[from];
           const land = seq[Math.min(seq.length - 1, j + 1)];
-          const span = seq.slice(Math.max(0, i - 1), Math.min(seq.length, j + 2));
+          const span = seq.slice(from, Math.min(seq.length, j + 2));
           i = j;
           flights++;
           const tol = 6 * Math.max(1, take.a.s ?? 1);
@@ -513,7 +518,7 @@ export const landing = {
           } else if (Math.abs(drift.dy) > tol) {
             problems.push(`${sc.id}：${name} 在空中时地面位置变了 ${Math.round(drift.dy)} 像素（${fmtT(drift.t)}），${drift.dy > 0 ? '往镜头这边' : '往远处'}掉；侧面看抛出去的东西应该落回它离开时的那条地面线`);
           }
-          if (land.a.air > 0.5) problems.push(`${sc.id}：${name} 到镜头结束还在空中`);
+          if (land.a.air > 0.5 && !dip(j + 1)) problems.push(`${sc.id}：${name} 到镜头结束还在空中`);
           const parent = take.a.from && take.all.find((a) => a.name === take.a.from);
           if (parent && Math.abs(parent.y - y0) > tol) {
             problems.push(`${sc.id}：${name} 从 ${take.a.from} 上飞出时，地面位置和 ${take.a.from} 差了 ${Math.round(y0 - parent.y)} 像素`);

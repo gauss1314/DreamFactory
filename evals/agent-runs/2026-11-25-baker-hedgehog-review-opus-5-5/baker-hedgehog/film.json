@@ -1,0 +1,58 @@
+{
+  "vertical": "narrative",
+  "lang": "zh",
+  "title": "清晨的面包师",
+  "tempo": 120,
+  "finish": { "vignette": 0.3, "halation": 0.2, "grain": 0.05, "warm": "#ffe2b0" },
+  "look": {
+    "sky": [[0, "#7d88ab"], [0.45, "#b3b2c6"], [0.78, "#e8cdb0"], [1, "#ffe0a6"]],
+    "cloud": { "light": "#fff0d6", "half": "#e2c2bc", "shadow": "#a9a3bf", "deep": "#8f8cae" },
+    "hills": "#a9a8c6",
+    "town": "#9796b8",
+    "bank": "#8e8db0",
+    "windows": "#ffd690",
+    "houseWalls": ["#9b9ab6", "#ae9ca6", "#8e9fb0", "#b5a594", "#a29cb8", "#a898a2"],
+    "roofShade": "#545476",
+    "windowsBright": "#fff0c8",
+    "cobble": { "gap": "#5d566e", "stone": "#958c9c", "dark": "#7f778c", "light": "#b8aab0", "sheen": "#f3d6b4" },
+    "lamp": { "iron": "#3a3448", "glass": "#7a7084", "lit": "#ffe9b8" },
+    "shadow": "rgba(80,62,112,0.4)"
+  },
+  "scenes": [
+    {
+      "id": "s1-town",
+      "type": "town",
+      "duration": 4.0,
+      "fadeIn": 0.6,
+      "contacts": [
+        ["刺猬.hand", "推车.handle"],
+        { "a": "刺猬.nose", "b": "推车.back", "min": 10 },
+        { "a": "刺猬.nose", "b": "推车.handle", "min": 18 }
+      ]
+    },
+    {
+      "id": "s2-track",
+      "type": "track",
+      "duration": 5.0,
+      "events": { "bump": 2.5, "land": 3.333 },
+      "contacts": [
+        ["刺猬.hand", "推车.handle"],
+        { "a": "刺猬.nose", "b": "推车.back", "min": 10 },
+        { "a": "刺猬.nose", "b": "推车.handle", "min": 18 }
+      ]
+    },
+    {
+      "id": "s3-pigeon",
+      "type": "pigeon",
+      "duration": 4.5,
+      "fadeOut": 1.0,
+      "events": { "land": 1.1, "peck": 1.84 },
+      "contacts": [
+        ["刺猬.hand", "推车.handle"],
+        { "a": "刺猬.nose", "b": "推车.back", "min": 10 },
+        { "a": "刺猬.nose", "b": "推车.handle", "min": 18 },
+        { "a": "鸽子.beak", "b": "面包.side", "from": 1.86, "to": 2.06 }
+      ]
+    }
+  ]
+}
