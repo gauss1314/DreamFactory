@@ -10,7 +10,7 @@ export const builtinScenes = [];
 export const fps = 24;
 export const needsData = false;
 /** The checks that mean something for a film with no on-screen text. */
-export const checks = ['spec', 'determinism', 'heading', 'video-stillness', 'pops', 'palette', 'audio-levels', 'cue-sync', 'asr'];
+export const checks = ['spec', 'determinism', 'heading', 'contact', 'landing', 'video-stillness', 'pops', 'palette', 'audio-levels', 'cue-sync', 'asr'];
 
 /** Every shot is cut to its stated length. */
 export function minDuration(scene) {

@@ -12,7 +12,17 @@
       "id": "s1-wide",
       "type": "wide",
       "duration": 4.8,
-      "fadeIn": 0.6
+      "fadeIn": 0.6,
+      "contacts": [
+        [
+          "鹈鹕.hand",
+          "鹈鹕.bar"
+        ],
+        [
+          "鹈鹕.foot",
+          "鹈鹕.pedal"
+        ]
+      ]
     },
     {
       "id": "s2-side",
@@ -20,7 +30,17 @@
       "duration": 5.4,
       "events": {
         "jolt": 3.0
-      }
+      },
+      "contacts": [
+        [
+          "鹈鹕.hand",
+          "鹈鹕.bar"
+        ],
+        [
+          "鹈鹕.foot",
+          "鹈鹕.pedal"
+        ]
+      ]
     },
     {
       "id": "s3-sunset",
@@ -33,7 +53,29 @@
           1.45
         ],
         "birds": 1.8
-      }
+      },
+      "contacts": [
+        {
+          "a": "鹈鹕.hand",
+          "b": "鹈鹕.bar",
+          "to": 0.9
+        },
+        {
+          "a": "鹈鹕.hand",
+          "b": "鹈鹕.bell",
+          "from": 1.2,
+          "to": 1.85
+        },
+        {
+          "a": "鹈鹕.hand",
+          "b": "鹈鹕.bar",
+          "from": 2.2
+        },
+        [
+          "鹈鹕.foot",
+          "鹈鹕.pedal"
+        ]
+      ]
     }
   ],
   "cadence": 1.2,

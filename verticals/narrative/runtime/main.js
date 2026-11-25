@@ -7,7 +7,21 @@ const shots = film.customScenes ? (await import('/film/scenes.js')).default : {}
 // Shots report each character every frame: its position on the ground plane (before any camera
 // move), its scale, and which way it faces. The checks use this to catch impossible motion.
 let frameActors = [];
-const kit = { ...engine, look: film.look || {}, actor: (name, info) => frameActors.push({ name, ...info }) };
+// Props report the same way (a cart, a thrown bun); they have no facing. Either may add named
+// points in drawing coordinates (a hand, a handle) for the contacts film.json declares, and things
+// in the air report how high above their ground point they are.
+const kit = {
+  ...engine,
+  look: film.look || {},
+  actor: (name, info) => frameActors.push({ name, ...info }),
+  prop: (name, info) => frameActors.push({ name, prop: true, ...info }),
+  // a point drawn at (x, y) under the context's current transform, in frame pixels: report contact
+  // points with this, so both ends are measured the same way whatever each was drawn under
+  at: (g, x, y) => {
+    const m = g.getTransform();
+    return [Math.round((m.a * x + m.c * y + m.e) * 10) / 10, Math.round((m.b * x + m.d * y + m.f) * 10) / 10];
+  },
+};
 engine.initGrain();
 
 const g = document.getElementById('frame').getContext('2d');
@@ -51,6 +65,20 @@ function seek(t) {
   }
 }
 
-window.DF = { duration: timeline.duration, fps: timeline.fps, seek, events, get actors() { return frameActors; } };
+// Where everyone is at time t, without finishing the frame: the checks call this a dozen times a
+// second of film, and only need the shot's own reports.
+function probe(t) {
+  const last = scenes.length - 1;
+  const i = scenes.findIndex((s, k) => t >= s.start && (t < s.end || k === last));
+  frameActors = [];
+  if (i < 0) return [];
+  const s = scenes[i];
+  g.save();
+  s.draw(g, t - s.start, s.end - s.start);
+  g.restore();
+  return JSON.parse(JSON.stringify(frameActors));
+}
+
+window.DF = { duration: timeline.duration, fps: timeline.fps, seek, probe, events, get actors() { return frameActors; } };
 seek(Number(new URLSearchParams(location.search).get('t') || 0));
 document.documentElement.dataset.ready = '1';

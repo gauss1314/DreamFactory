@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/9，缺陷检出 37/37。
+干净用例误报 0/10，缺陷检出 42/42。
 
 运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-25
 
@@ -11,6 +11,7 @@
 | 用例 | 结果 | 片长（秒） | 误报的检查 |
 | --- | --- | --- | --- |
 | asks-for-derived-number | 通过 | 26.6 |  |
+| baker-hedgehog | 通过 | 13.0 |  |
 | cost-per-minute | 通过 | 43.5 |  |
 | monthly-trend | 通过 | 27.4 |  |
 | pelican-embankment | 通过 | 15.0 |  |
@@ -63,6 +64,11 @@
 | riding-sideways | 侧面画的鹈鹕沿着通向纵深的路斜着往远处滑（这支片子第一版的真实错误） | heading | 抓到 |  |
 | music-too-loud | 配乐开得太响，盖住了旁白 | voice-over-music | 抓到 |  |
 | chime-late | 主角亮起时的钢片琴晚了 0.3 秒 | cue-sync | 抓到 |  |
+| hand-off-bar | 鹈鹕的手悬在车把上方，没有握住 | contact | 抓到 |  |
+| letter-misses-slot | 邮筒立得太高，乌龟投信时信封对不上投信口 | contact | 抓到 |  |
+| nose-in-cart | 刺猬的鼻子顶在车厢上，像是用脸推车（无人值守交付版的真实问题） | contact | 抓到 |  |
+| bun-wrong-perspective | 面包往镜头这边飞，大小却不变 | landing | 抓到 |  |
+| bun-floats | 面包匀速飘下来，没有受重力加速 | landing | 抓到 |  |
 
 ## 各项检查的覆盖
 
@@ -81,6 +87,8 @@
 | marks | 4 | 4 |  |
 | determinism | 1 | 1 |  |
 | heading | 1 | 1 | 本次运行跳过 |
+| contact | 3 | 3 | 本次运行跳过 |
+| landing | 2 | 2 | 本次运行跳过 |
 | fonts | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | video-stillness | 1 | 1 |  |
 | audio-levels | 0 | 0 | 没有缺陷样例，效果未经验证 |

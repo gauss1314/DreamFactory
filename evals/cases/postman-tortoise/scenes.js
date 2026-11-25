@@ -39,6 +39,7 @@ function leg(kit, g, hx, phase, walking, near, s) {
  */
 export function tortoise(kit, g, x, y, s, pose) {
   const { phase = 0, walking = false, bob = 0, neck = 0, push = 0, look = 0, leafLag = 0, letter = true, light = [-0.6, -0.8] } = pose;
+  const points = {};
   g.save();
   g.translate(x, y);
   g.scale(s, s);
@@ -67,6 +68,7 @@ export function tortoise(kit, g, x, y, s, pose) {
   line(kit, g, head.q, 2.4, 5);
   // beak line and a small smile
   kit.ink(g, [[18, 4, 1.2], [30, 6, 1.6], [38, 3, 1]], INK);
+  points.beak = kit.at(g, 38, 4);
   g.beginPath();
   g.ellipse(10, -9, 5, 6, 0, 0, Math.PI * 2);
   g.fillStyle = T.eye;
@@ -82,6 +84,9 @@ export function tortoise(kit, g, x, y, s, pose) {
     g.translate(42, 8);
     // tilted while carried, level when it goes into the slot
     g.rotate(0.18 * (1 - neck) - tilt);
+    // where the beak grips it, and its leading edge
+    points.letter = kit.at(g, -2, 2);
+    points.letterMid = kit.at(g, 30, 2);
     const env = path(kit, [[-6, -14], [46, -14], [46, 18], [-6, 18]]);
     cel(g, env.P, { base: T.letter, shade: T.letterShade, light: [-0.6, -0.8], sd: 5 });
     line(kit, g, env.q, 1.8, 6);
@@ -134,6 +139,7 @@ export function tortoise(kit, g, x, y, s, pose) {
   g.translate(0, bob);
   for (const [hx2, off] of near) leg(kit, g, hx2, phase + off, walking, true, s);
   g.restore();
+  return points;
 }
 
 /** Walking from x0 to x1 between t0 and t1, then standing. Footfalls are reported as cues. */
@@ -181,15 +187,18 @@ function mailbox(kit, g, x, ground, s) {
   line(kit, g, roof.q, 2.4, 23);
   // the brass slot on the face the tortoise walks up to
   g.fillStyle = T.brass;
-  g.fillRect(-54, -186, 8, 34);
+  // the opening is a little taller than the envelope, at the height the beak carries it
+  g.fillRect(-54, -182, 8, 48);
   g.fillStyle = '#2a1e24';
-  g.fillRect(-52, -182, 4, 26);
+  g.fillRect(-52, -178, 4, 40);
+  const slot = kit.at(g, -50, -158);
   // a painted envelope on the side instead of words
   kit.ink(g, [[-20, -170, 1.6], [0, -156, 1.8], [20, -170, 1.6]], '#f2e6cc');
   g.strokeStyle = '#f2e6cc';
   g.lineWidth = 2;
   g.strokeRect(-22, -172, 44, 28);
   g.restore();
+  return { slot };
 }
 
 // ---------- shots ----------
@@ -223,8 +232,8 @@ export default {
       const w = walk(kit, t, { x0: 300, x1: 420, t1: 3.9 });
       const y = 990;
       groundShadow(g2, w.x, y + 2, 0.42, 300, 'rgba(30,24,50,0.45)');
-      tortoise(kit, g2, w.x, y, 0.42, { ...w, letter: true });
-      kit.actor('乌龟', { x: w.x, y, s: 0.42, facing: 'right' });
+      const points = tortoise(kit, g2, w.x, y, 0.42, { ...w, letter: true });
+      kit.actor('乌龟', { x: w.x, y, s: 0.42, facing: 'right', points });
       rain(kit, g2, t, 0.8, 72);
     };
   },
@@ -256,10 +265,11 @@ export default {
       const neck = kit.smooth((d - 2.4) / 0.6) * (1 - kit.smooth((d - drop - 0.3) / 0.5));
       const push = kit.smooth((d - 3.0) / (drop - 3.0)) * (1 - kit.smooth((d - drop - 0.1) / 0.3));
       groundShadow(g2, w.x, ground + 2, s, 300, 'rgba(30,24,50,0.45)');
-      tortoise(kit, g2, w.x, ground, s, { ...w, neck, push, letter: d < drop });
+      const points = tortoise(kit, g2, w.x, ground, s, { ...w, neck, push, letter: d < drop });
       // the box is drawn after the tortoise, so the part of the letter inside the slot is hidden
-      mailbox(kit, g2, 1330, ground, s);
-      kit.actor('乌龟', { x: w.x, y: ground, s, facing: 'right' });
+      const box = mailbox(kit, g2, 1330, ground, s);
+      kit.actor('乌龟', { x: w.x, y: ground, s, facing: 'right', points });
+      kit.prop('邮筒', { x: 1330, y: ground, s, points: box });
       rain(kit, g2, t, 0.55, 88);
     };
   },

@@ -202,6 +202,8 @@ function cjkGlyphsDraw() {
 }
 
 export const SAMPLE_STEP = 0.25;
+// Characters are drawn on twos, so twelve looks a second see every drawing.
+export const TRACK_STEP = 1 / 12;
 
 /**
  * Walk the film once: read text on a fixed grid (plus the midpoint of every narration line and
@@ -284,6 +286,14 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
     const changed = first.equals(second) ? 0 : await stage.page.evaluate(pixelDifference, { a: first.toString('base64'), b: second.toString('base64') });
     repeat.push({ t, changed });
   }
+  // Pictures that report their characters and props get a denser track of them: a thrown bun is
+  // in the air for half a second, and the contact and landing checks need to see it there.
+  let track = null;
+  if (await stage.page.evaluate(() => typeof window.DF.probe === 'function')) {
+    const times = [];
+    for (let i = 0; i * TRACK_STEP < timeline.duration; i++) times.push(i * TRACK_STEP);
+    track = await stage.page.evaluate((ts) => ts.map((t) => ({ t, actors: window.DF.probe(t) })), times);
+  }
   const cjkOk = await stage.page.evaluate(cjkGlyphsDraw);
-  return { samples, repeat, cjkOk, sheetFrames, pageErrors: stage.errors };
+  return { samples, repeat, cjkOk, sheetFrames, track, pageErrors: stage.errors };
 }

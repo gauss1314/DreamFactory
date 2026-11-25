@@ -265,7 +265,14 @@ export function pelican(kit, g, x, y, s, pose) {
   // near leg on top
   g.translate(0, -lift - SIT);
   drawLeg(kit, g, hip, [p1[0], p1[1] - 6], false, 22);
+  // where the rider touches the bike, in frame pixels (for the contact check)
+  const at = (px, py) => kit.at(g, px, py);
+  const points = {
+    hand: at(gx, gy + lift + SIT), bar: at(60, -262), bell: at(80, -278),
+    foot: at(p1[0], p1[1] - 6), pedal: at(p1[0], p1[1]),
+  };
   g.restore();
+  return points;
 }
 
 /** The pose at time t: pedalling on twos, bob twice a revolution, pouch following behind. */
@@ -354,8 +361,8 @@ export default {
       const s = 0.25;
       const y = roadTop(px + pan) + 14;
       groundShadow(g, px - pan * 0 - 6, y + 2, s);
-      pelican(kit, g, px, y, s, { ...ride(kit, t, {}), light: -0.25 });
-      kit.actor('鹈鹕', { x: px + pan, y, s, facing: 'right' });
+      const points = pelican(kit, g, px, y, s, { ...ride(kit, t, {}), light: -0.25 });
+      kit.actor('鹈鹕', { x: px + pan, y, s, facing: 'right', points });
       reeds(kit, g, t, [[-20, 460, 1110, 140, 330, 70], [1700, 1960, 1110, 90, 220, 30]], 14);
     };
   },
@@ -377,6 +384,19 @@ export default {
     paintSlope(kit, near.g, SPAN * 2, () => 160, 200, 29, { lit: 0.4 });
     kit.tooth(far.g, SPAN, 760, 30, 0.05);
     const jolts = [scene.events.jolt];
+    // The verge repeats every 2400 px. Each blade is drawn twice, a period apart, so any slice of the
+    // strip the frame shows is whole. A filter on every stroke costs seconds a frame; on a layer, once.
+    const VERGE_TOP = 860;
+    const verge = kit.layer(480 + 4800 + 120, 280);
+    verge.g.filter = 'blur(6px)';
+    const vr = kit.rng(32);
+    for (let i = 0; i < 90; i++) {
+      const x = ((vr() * 6000) % 2400) + 480;
+      const hgt = 60 + vr() * 140;
+      const tip = 24 + vr() * 20;
+      const col = kit.css(kit.mix('#6f6a3c', '#a2914e', vr()));
+      for (const dx of [0, 2400]) kit.ink(verge.g, [[x + dx, 240, 9], [x + dx + 10, 240 - hgt * 0.6, 6], [x + dx + tip, 240 - hgt, 2]], col);
+    }
     return (g, t, dur) => {
       const farX = 600 + t * 40;
       g.drawImage(far.canvas, -farX, 0);
@@ -397,19 +417,11 @@ export default {
         g.strokeStyle = '#3b2a2e';
         g.stroke();
       }
-      pelican(kit, g, 780, 884, 1, { ...pose, light: -0.35 });
+      const points = pelican(kit, g, 780, 884, 1, { ...pose, light: -0.35 });
       // tracking shot: the camera follows, so on the ground the rider moves right as fast as the road scrolls
-      kit.actor('鹈鹕', { x: 780 + nearX, y: 884, s: 1, facing: 'right' });
-      // the near verge, blurred by speed
-      g.save();
-      g.filter = 'blur(6px)';
-      const r = kit.rng(32);
-      for (let i = 0; i < 90; i++) {
-        const x = ((r() * 6000 - t * 1100) % 2400 + 2400) % 2400 - 240;
-        const hgt = 60 + r() * 140;
-        kit.ink(g, [[x, 1100, 9], [x + 10, 1100 - hgt * 0.6, 6], [x + 24 + r() * 20, 1100 - hgt, 2]], kit.css(kit.mix('#6f6a3c', '#a2914e', r())));
-      }
-      g.restore();
+      kit.actor('鹈鹕', { x: 780 + nearX, y: 884, s: 1, facing: 'right', points });
+      // the near verge, blurred by speed: a repeating strip, blurred once, sliding past
+      g.drawImage(verge.canvas, -((t * 1100) % 2400) - 720, VERGE_TOP);
     };
   },
 
@@ -459,8 +471,8 @@ export default {
       const s = 0.5;
       // backlit: the shadow falls toward us and behind
       groundShadow(g2, x - 30 * s, y + 4, s);
-      pelican(kit, g2, x, y, s, { ...ride(kit, t, { bellAt: scene.events.bell }), light: -0.1 });
-      kit.actor('鹈鹕', { x, y, s, facing: 'right' });
+      const points = pelican(kit, g2, x, y, s, { ...ride(kit, t, { bellAt: scene.events.bell }), light: -0.1 });
+      kit.actor('鹈鹕', { x, y, s, facing: 'right', points });
       // the egrets lift at the event, toward the sun
       const d = kit.twos(t);
       for (const [i, b] of birds.entries()) {

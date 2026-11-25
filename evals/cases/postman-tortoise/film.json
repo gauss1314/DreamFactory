@@ -3,17 +3,88 @@
   "lang": "zh",
   "title": "雨后的邮差",
   "tempo": 90,
-  "finish": { "vignette": 0.38, "halation": 0.14, "grain": 0.06, "warm": "#ffcf96" },
+  "finish": {
+    "vignette": 0.38,
+    "halation": 0.14,
+    "grain": 0.06,
+    "warm": "#ffcf96"
+  },
   "look": {
-    "sky": [[0, "#3e4a6a"], [0.5, "#737c9c"], [0.82, "#c49e9a"], [1, "#e6bf9c"]],
-    "cloud": { "light": "#e3d3cc", "half": "#a49cb4", "shadow": "#6c6c8c", "deep": "#555878" },
-    "hills": "#6e7494", "town": "#4f5676", "bank": "#454b68", "windows": "#ffc874", "bridge": "#5a5a78",
-    "water": "#3a4464", "glint": "#ffd59a",
+    "sky": [
+      [
+        0,
+        "#3e4a6a"
+      ],
+      [
+        0.5,
+        "#737c9c"
+      ],
+      [
+        0.82,
+        "#c49e9a"
+      ],
+      [
+        1,
+        "#e6bf9c"
+      ]
+    ],
+    "cloud": {
+      "light": "#e3d3cc",
+      "half": "#a49cb4",
+      "shadow": "#6c6c8c",
+      "deep": "#555878"
+    },
+    "hills": "#6e7494",
+    "town": "#4f5676",
+    "bank": "#454b68",
+    "windows": "#ffc874",
+    "bridge": "#5a5a78",
+    "water": "#3a4464",
+    "glint": "#ffd59a",
     "shadow": "rgba(40,30,60,0.45)"
   },
   "scenes": [
-    { "id": "s1-canal", "type": "canal", "duration": 4.0, "fadeIn": 0.6 },
-    { "id": "s2-mailbox", "type": "mailbox", "duration": 4.0, "events": { "drop": 3.333 } },
-    { "id": "s3-lamp", "type": "lamp", "duration": 4.0, "fadeOut": 1.0, "events": { "lamp": 0.667 } }
+    {
+      "id": "s1-canal",
+      "type": "canal",
+      "duration": 4.0,
+      "fadeIn": 0.6,
+      "contacts": [
+        [
+          "乌龟.beak",
+          "乌龟.letter"
+        ]
+      ]
+    },
+    {
+      "id": "s2-mailbox",
+      "type": "mailbox",
+      "duration": 4.0,
+      "events": {
+        "drop": 3.333
+      },
+      "contacts": [
+        {
+          "a": "乌龟.beak",
+          "b": "乌龟.letter",
+          "to": 3.333
+        },
+        {
+          "a": "乌龟.letterMid",
+          "b": "邮筒.slot",
+          "from": 3.25,
+          "to": 3.333
+        }
+      ]
+    },
+    {
+      "id": "s3-lamp",
+      "type": "lamp",
+      "duration": 4.0,
+      "fadeOut": 1.0,
+      "events": {
+        "lamp": 0.667
+      }
+    }
   ]
 }

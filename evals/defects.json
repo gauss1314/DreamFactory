@@ -676,5 +676,80 @@
     "expectFail": [
       "cue-sync"
     ]
+  },
+  {
+    "id": "hand-off-bar",
+    "title": "鹈鹕的手悬在车把上方，没有握住",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const grip = lerpPt([60, -262 - lift - SIT]",
+        "with": "const grip = lerpPt([60, -292 - lift - SIT]"
+      }
+    ],
+    "expectFail": [
+      "contact"
+    ]
+  },
+  {
+    "id": "letter-misses-slot",
+    "title": "邮筒立得太高，乌龟投信时信封对不上投信口",
+    "base": "postman-tortoise",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const box = mailbox(kit, g2, 1330, ground, s);",
+        "with": "const box = mailbox(kit, g2, 1330, ground - 60, s);"
+      }
+    ],
+    "expectFail": [
+      "contact"
+    ]
+  },
+  {
+    "id": "nose-in-cart",
+    "title": "刺猬的鼻子顶在车厢上，像是用脸推车（无人值守交付版的真实问题）",
+    "base": "baker-hedgehog",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const CDX = 50;",
+        "with": "const CDX = 20;"
+      }
+    ],
+    "expectFail": [
+      "contact"
+    ]
+  },
+  {
+    "id": "bun-wrong-perspective",
+    "title": "面包往镜头这边飞，大小却不变",
+    "base": "baker-hedgehog",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "          sc = scaleAt(lane);",
+        "with": "          sc = S;"
+      }
+    ],
+    "expectFail": [
+      "landing"
+    ]
+  },
+  {
+    "id": "bun-floats",
+    "title": "面包匀速飘下来，没有受重力加速",
+    "base": "baker-hedgehog",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "          h = h0 + vh * u - 0.5 * G * u * u;",
+        "with": "          h = h0 + (vh - 0.5 * G * T) * u;"
+      }
+    ],
+    "expectFail": [
+      "landing"
+    ]
   }
 ]

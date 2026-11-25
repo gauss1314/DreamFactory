@@ -23,13 +23,13 @@ const value = (name) => {
 if (args.includes('--help')) {
   console.log(`用法：node evals/run.mjs [选项]
 
-  --only <id>        只跑一个用例或缺陷
+  --only <a,b>       只跑指定的用例或缺陷，逗号分隔
   --tts <后端>       auto（默认）| espeak | edge | silent
   --jobs <n>         同时跑几个，默认 3
   --save-baseline    把结果写入 evals/BASELINE.md`);
   process.exit(0);
 }
-const only = value('--only');
+const only = value('--only')?.split(',');
 const tts = value('--tts');
 const jobs = Number(value('--jobs') ?? 3);
 
@@ -62,8 +62,8 @@ const mediaIds = new Set(CHECKS.filter((c) => c.tier === 'media').map((c) => c.i
 const caseIds = fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'film.json'))).sort();
 const defects = readJson(path.join(here, 'defects.json'));
 
-const cleanRuns = caseIds.filter((id) => !only || only === id);
-const defectRuns = defects.filter((d) => !only || only === d.id);
+const cleanRuns = caseIds.filter((id) => !only || only.includes(id));
+const defectRuns = defects.filter((d) => !only || only.includes(d.id));
 fs.rmSync(tmpDir, { recursive: true, force: true });
 const started = Date.now();
 

@@ -422,6 +422,132 @@ export const heading = {
   },
 };
 
+// Where a character holds, pushes or rides something, the film declares the two points that must
+// touch, and the shot reports where it drew them. A hand that floats off the handle is caught here.
+export const contact = {
+  id: 'contact',
+  title: '接触：抓着、推着、骑着的地方，两个点真的碰在一起',
+  tier: 'dom',
+  run(ctx) {
+    const track = ctx.sampling.track;
+    const problems = new Map();
+    let judged = 0;
+    let declared = 0;
+    for (const [i, sc] of ctx.timeline.scenes.entries()) {
+      const specs = (ctx.resolved.scenes[i].contacts ?? []).map((c) => (Array.isArray(c) ? { a: c[0], b: c[1] } : c));
+      declared += specs.length;
+      for (const c of specs) {
+        // "min" asks the opposite: two things that must not touch (a nose and the cart it pushes)
+        const apart = c.min !== undefined && c.max === undefined;
+        const max = c.max ?? 12;
+        const from = sc.start + (c.from ?? 0);
+        const to = Math.min(sc.end, sc.start + (c.to ?? Infinity));
+        const point = (frame, ref) => {
+          const [name, key] = ref.split('.');
+          const p = frame.actors.find((a) => a.name === name)?.points?.[key];
+          return Array.isArray(p) ? p : null;
+        };
+        let worst = null;
+        let missing = null;
+        for (const f of track ?? []) {
+          if (f.t < from || f.t >= to) continue;
+          const [p, q] = [point(f, c.a), point(f, c.b)];
+          if (!p || !q) {
+            missing ??= { t: f.t, ref: p ? c.b : c.a };
+            continue;
+          }
+          judged++;
+          const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+          if (apart ? d < c.min && (!worst || d < worst.d) : d > max && (!worst || d > worst.d)) worst = { d, t: f.t };
+        }
+        const key = `${sc.id}|${c.a}|${c.b}`;
+        if (missing) problems.set(`${key}|missing`, `${sc.id}：声明了 ${c.a} 碰着 ${c.b}，但 ${fmtT(missing.t)} 这一帧没有报告 ${missing.ref} 的位置`);
+        if (worst && apart) problems.set(key, `${sc.id}：${c.a} 不该碰到 ${c.b}，${fmtT(worst.t)} 时两点只隔 ${Math.round(worst.d)} 像素，至少要 ${c.min}`);
+        else if (worst) problems.set(key, `${sc.id}：${c.a} 应该碰着 ${c.b}，${fmtT(worst.t)} 时两点相距 ${Math.round(worst.d)} 像素，上限 ${max}`);
+      }
+    }
+    if (!declared) return { status: 'skip', summary: 'film.json 没有声明接触点（contacts）', details: [] };
+    return result([...problems.values()], `${declared} 处接触，查了 ${judged} 帧，都符合声明`);
+  },
+};
+
+// Things that fly without power of their own (a thrown bun, a bounced stone) report how high above
+// the ground they are. In the air they follow a parabola, and stay on the ground line they left
+// from. They may fly toward the camera only in a shot that declares its horizon, and then their
+// size has to grow the way perspective says: scale in proportion to the distance below the horizon.
+export const landing = {
+  id: 'landing',
+  title: '落地：抛出去的东西走抛物线，落在它离开时的那条地面线上',
+  tier: 'dom',
+  run(ctx) {
+    const track = ctx.sampling.track ?? [];
+    const problems = [];
+    let flights = 0;
+    for (const [si, sc] of ctx.timeline.scenes.entries()) {
+      const horizon = ctx.resolved.scenes[si].horizon;
+      const frames = track.filter((f) => f.t >= sc.start && f.t < sc.end);
+      const names = new Set(frames.flatMap((f) => f.actors.filter((a) => a.ballistic).map((a) => a.name)));
+      for (const name of names) {
+        const seq = frames.map((f) => ({ t: f.t, a: f.actors.find((a) => a.name === name), all: f.actors })).filter((p) => p.a);
+        for (let i = 0; i < seq.length; i++) {
+          if (!(seq[i].a.air > 0.5)) continue;
+          // one flight: the frames in the air, plus the last frame on the ground before and the first after
+          let j = i;
+          while (j + 1 < seq.length && seq[j + 1].a.air > 0.5) j++;
+          const take = seq[Math.max(0, i - 1)];
+          const land = seq[Math.min(seq.length - 1, j + 1)];
+          const span = seq.slice(Math.max(0, i - 1), Math.min(seq.length, j + 2));
+          i = j;
+          flights++;
+          const tol = 6 * Math.max(1, take.a.s ?? 1);
+          const y0 = take.a.y;
+          const drift = span.reduce((m, p) => (Math.abs(p.a.y - y0) > Math.abs(m.dy) ? { dy: p.a.y - y0, t: p.t } : m), { dy: 0, t: take.t });
+          if (horizon !== undefined && Math.abs(drift.dy) > tol) {
+            // moving in depth is allowed here, but the size must follow: s / (y - horizon) stays put
+            const k0 = (take.a.s ?? 1) / (y0 - horizon);
+            const bad = span.find((p) => Math.abs((p.a.s ?? 1) / (p.a.y - horizon) / k0 - 1) > 0.08);
+            if (bad) {
+              const want = k0 * (bad.a.y - horizon);
+              problems.push(`${sc.id}：${name} 往${bad.a.y > y0 ? '镜头这边' : '远处'}飞了 ${Math.round(Math.abs(bad.a.y - y0))} 像素，按透视大小应该是 ${want.toFixed(2)}，画的是 ${(bad.a.s ?? 1).toFixed(2)}（${fmtT(bad.t)}）`);
+            }
+          } else if (Math.abs(drift.dy) > tol) {
+            problems.push(`${sc.id}：${name} 在空中时地面位置变了 ${Math.round(drift.dy)} 像素（${fmtT(drift.t)}），${drift.dy > 0 ? '往镜头这边' : '往远处'}掉；侧面看抛出去的东西应该落回它离开时的那条地面线`);
+          }
+          if (land.a.air > 0.5) problems.push(`${sc.id}：${name} 到镜头结束还在空中`);
+          const parent = take.a.from && take.all.find((a) => a.name === take.a.from);
+          if (parent && Math.abs(parent.y - y0) > tol) {
+            problems.push(`${sc.id}：${name} 从 ${take.a.from} 上飞出时，地面位置和 ${take.a.from} 差了 ${Math.round(y0 - parent.y)} 像素`);
+          }
+          // the height over time must be a parabola opening downward
+          const pts = span.map((p) => [p.t - span[0].t, p.a.air]);
+          if (pts.length >= 4) {
+            const fit = quadFit(pts);
+            const peak = Math.max(...pts.map((p) => p[1]));
+            const resid = Math.sqrt(pts.reduce((m, [x, y]) => m + (y - (fit.a * x * x + fit.b * x + fit.c)) ** 2, 0) / pts.length);
+            if (fit.a >= 0) problems.push(`${sc.id}：${name} 在空中没有往下加速，不像被抛出去的东西`);
+            else if (resid > Math.max(4, peak * 0.12)) problems.push(`${sc.id}：${name} 的高度变化不是抛物线（偏差 ${Math.round(resid)} 像素，最高 ${Math.round(peak)} 像素）`);
+          }
+        }
+      }
+    }
+    if (!flights) return { status: 'skip', summary: '没有报告抛出去的东西（ballistic）', details: [] };
+    return result(problems, `${flights} 次飞起，都走抛物线，落点合乎透视`);
+  },
+};
+
+function quadFit(pts) {
+  // least squares for y = a x^2 + b x + c
+  const S = (f) => pts.reduce((m, [x, y]) => m + f(x, y), 0);
+  const [s0, s1, s2, s3, s4] = [0, 1, 2, 3, 4].map((k) => S((x) => x ** k));
+  const [t0, t1, t2] = [0, 1, 2].map((k) => S((x, y) => y * x ** k));
+  const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const M = [[s4, s3, s2], [s3, s2, s1], [s2, s1, s0]];
+  const D = det(M) || 1e-9;
+  const col = (k, v) => M.map((r, i) => r.map((x, j) => (j === k ? v[i] : x)));
+  const v = [t2, t1, t0];
+  return { a: det(col(0, v)) / D, b: det(col(1, v)) / D, c: det(col(2, v)) / D };
+}
+
 export const fonts = {
   id: 'fonts',
   title: '字体：中文字形能正常显示',
