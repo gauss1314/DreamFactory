@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 // Checks that read the encoded film and its audio mix.
 import { LOUDNESS_TARGET, measureLevels } from '../lib/audio.mjs';
 import { asrAvailable, compareSpeech, transcribe } from '../lib/asr.mjs';
@@ -60,7 +61,8 @@ export const audioGaps = {
   async run(ctx) {
     if (!ctx.audio.voiced) return { status: 'skip', summary: '没有人声（静音语音后端）', details: [] };
     const limit = ctx.expect.maxSilenceSec ?? 3.5;
-    const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', ctx.audio.file,
+    // listen to the narration alone: music under a pause would hide it
+    const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', ctx.audio.voiceFile ?? ctx.audio.file,
       '-af', 'silencedetect=noise=-45dB:d=2', '-f', 'null', '-']);
     const starts = [...stderr.matchAll(/silence_start: (-?[\d.]+)/g)].map((m) => Math.max(0, Number(m[1])));
     const lengths = [...stderr.matchAll(/silence_duration: ([\d.]+)/g)].map((m) => Number(m[1]));
@@ -123,7 +125,7 @@ async function greyFrames(file, w = 128, h = 72) {
 
 export const pops = {
   id: 'pops',
-  title: '突跳：剪辑点以外，画面没有一帧突然跳变',
+  title: '突跳：剪辑点和声明过的画面事件以外，画面没有一帧突然跳变',
   tier: 'media',
   async run(ctx) {
     const frames = await greyFrames(ctx.video.file);
@@ -135,6 +137,9 @@ export const pops = {
       diff.push(s / frames[i].length);
     }
     const cuts = new Set(ctx.timeline.scenes.slice(1).map((sc) => Math.round(sc.start * fps)));
+    // a declared event (a lamp coming on, a jolt) is a change the film means to make
+    const declared = (ctx.audio.events ?? []).filter((e) => e.kind === 'declared').map((e) => e.t);
+    const atEvent = (t) => declared.some((e) => t >= e - 1 / fps && t <= e + 0.3);
     // fades are meant to change every frame
     const fading = (t) => ctx.resolved.scenes.some((scene, k) => {
       const sc = ctx.timeline.scenes[k];
@@ -143,7 +148,7 @@ export const pops = {
     const problems = [];
     let worst = 0;
     for (let i = 1; i < diff.length; i++) {
-      if ([i - 1, i, i + 1].some((k) => cuts.has(k)) || fading(i / fps)) continue;
+      if ([i - 1, i, i + 1].some((k) => cuts.has(k)) || fading(i / fps) || atEvent(i / fps)) continue;
       const around = diff.slice(Math.max(1, i - 12), i + 13).filter((_, k, a) => k !== Math.min(i - 1, 12)).sort((a, b) => a - b);
       const typical = around[around.length >> 1] ?? 0;
       const ratio = diff[i] / Math.max(1, typical);
@@ -204,8 +209,7 @@ export const cueSync = {
   title: '声画同步：每个画面事件都有声音，起点对准那一刻',
   tier: 'media',
   async run(ctx) {
-    const { eventTimes } = await import('../film.mjs');
-    const events = eventTimes(ctx.resolved, ctx.timeline);
+    const events = Object.fromEntries((ctx.audio.events ?? []).map((e) => [e.name, e.t]));
     const names = Object.keys(events);
     if (!names.length) return { status: 'skip', summary: '影片没有声明画面事件', details: [] };
     const { readWav } = await import('../lib/wav.mjs');
@@ -259,6 +263,49 @@ export const cueSync = {
       status: problems.length ? 'fail' : 'pass',
       summary: problems.length ? `${problems.length} 处问题` : `${names.length} 个事件都对准了，最大偏差 ${Math.round(Math.max(0, ...offsets) * 1000)} 毫秒`,
       details: problems,
+    };
+  },
+};
+
+export const voiceOverMusic = {
+  id: 'voice-over-music',
+  title: '人声清楚：旁白比配乐和音效至少响 10 dB',
+  tier: 'media',
+  async run(ctx) {
+    const lines = ctx.timeline.scenes.flatMap((sc) => sc.lines);
+    if (!lines.length) return { status: 'skip', summary: '影片没有旁白', details: [] };
+    if (!ctx.audio.stems?.music) return { status: 'skip', summary: '影片没有配乐和音效', details: [] };
+    const { readWav } = await import('../lib/wav.mjs');
+    const voice = readWav(ctx.audio.voiceFile).samples;
+    const bed = [ctx.audio.stems.music, ctx.audio.stems.sfx].filter((f) => f && fs.existsSync(f)).map((f) => readWav(f).samples);
+    const rms = (x, a, b) => {
+      let e = 0;
+      for (let i = a; i < b && i < x.length; i++) e += (x[i] / 32768) ** 2;
+      return Math.sqrt(e / Math.max(1, b - a));
+    };
+    const SR = 48000;
+    const problems = [];
+    let worst = Infinity;
+    for (const l of lines) {
+      const a = Math.round(l.start * SR);
+      const b = Math.round(l.end * SR);
+      const v = rms(voice, a, b);
+      // the bed is the music and effects summed
+      let e = 0;
+      for (let i = a; i < b; i++) {
+        let s = 0;
+        for (const x of bed) s += (x[i] ?? 0) / 32768;
+        e += s * s;
+      }
+      const m = Math.sqrt(e / Math.max(1, b - a));
+      const margin = 20 * Math.log10((v + 1e-9) / (m + 1e-9));
+      worst = Math.min(worst, margin);
+      if (margin < 10) problems.push(`${l.start.toFixed(1)}s「${l.display.slice(0, 16)}」旁白只比配乐响 ${margin.toFixed(1)} dB，至少要 10 dB`);
+    }
+    return {
+      status: problems.length ? 'fail' : 'pass',
+      summary: problems.length ? `${problems.length} 句旁白被配乐盖住` : `旁白比配乐至少响 ${worst.toFixed(1)} dB`,
+      details: problems.slice(0, 8),
     };
   },
 };

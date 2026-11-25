@@ -23,6 +23,7 @@ export const CHECKS = [
   media.pops,
   media.palette,
   media.cueSync,
+  media.voiceOverMusic,
 ];
 
 /** Run the checks that apply. Media checks need a rendered film; `only` narrows to given ids. */

@@ -86,10 +86,16 @@ const planted = await pool(defectRuns, async (d) => {
     data: optional('data.json', readJson) ?? {},
     expect: optional('expect.json', readJson) ?? {},
     scenes: optional('scenes.js', (f) => fs.readFileSync(f, 'utf8')) ?? null,
-    sound: optional('sound.js', (f) => fs.readFileSync(f, 'utf8')) ?? null,
+    // no sound.js of its own: leave it unset so the vertical's default score is used
+    sound: optional('sound.js', (f) => fs.readFileSync(f, 'utf8')),
   };
   try {
     for (const op of d.ops) {
+      if (op.file === 'sound' && files.sound === undefined) {
+        // a defect in the vertical's default score: edit a copy of it for this run
+        const v = files.film.vertical ?? 'data-story';
+        files.sound = fs.readFileSync(path.join(here, '..', 'verticals', v, 'sound.mjs'), 'utf8');
+      }
       if (op.file !== 'scenes' && op.file !== 'sound') applyOp(files[op.file], op);
       else if (!files[op.file]?.includes(op.replace)) throw new Error(`缺陷要替换的代码在 ${op.file}.js 里找不到`);
       else files[op.file] = files[op.file].replace(op.replace, op.with);

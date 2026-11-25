@@ -66,6 +66,7 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
 
 - `lang`：`zh` 或 `en`，决定语音和字幕长度上限。
 - `theme`：可选，可改 `bg`、`bg2`、`text`、`muted`、`bar`、`track`、`accent`、`accent2` 八个颜色，各自的分工见 `ART.md` 第二节。要换就整套换。
+- `music`：可选。不写就自动配上配乐和音效（见 `ART.md` 第六节）；写 `false` 关掉；写 `{ "gainDb": -3 }` 把配乐调轻或调响，单位是分贝。
 - `voice`：可选，整段都可以不写。`backend` 是 `auto`、`edge`、`espeak`、`silent` 之一，`auto` 会选已安装的最自然的一种。`name` 是声音，中文默认 `zh-CN-XiaoxiaoNeural`（女声），男声可用 `zh-CN-YunxiNeural`、`zh-CN-YunyangNeural`。`rate` 是语速，比如 `+10%`。
 
 每个场景都可以带这些字段：
@@ -181,5 +182,6 @@ export default {
 | `determinism` | 自定义场景用了随机数、时钟，或在两帧之间留了状态 | 改成只根据传入的时间计算 |
 | `video-stillness` | 一句旁白太长，画面一直不动 | 拆句，或把内容分到两个场景 |
 | `asr` | 语音没有念出字幕里的数字，或 `say` 写的和字幕不是一回事 | 检查 `say`；数字写成阿拉伯数字，单位写全 |
+| `voice-over-music` | 配乐或音效盖住了旁白 | 把 `music.gainDb` 调小 |
 | `audio-gaps` | 场景没有旁白，或 `minDuration` 远大于旁白 | 补旁白，或缩短 |
 | `spec` | 片长超出要求 | 增删场景或旁白 |

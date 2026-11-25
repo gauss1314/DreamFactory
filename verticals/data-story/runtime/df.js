@@ -80,8 +80,9 @@ function heroTime(lines, label, settled) {
 
 // Each builder creates a scene's DOM once and returns update(localTime, lines).
 const builders = {
-  title(scene, root) {
+  title(scene, root, kit) {
     root.classList.add('center');
+    if (scene.kicker) kit.cue('rule', 0.05, 'swish');
     glow(root, -160, -60);
     let kicker = null;
     let rule = null;
@@ -102,8 +103,9 @@ const builders = {
     };
   },
 
-  outro(scene, root) {
+  outro(scene, root, kit) {
     root.classList.add('middle');
+    kit.cue('underline', 0.75, 'chime');
     glow(root, 410, -40);
     const headline = h('h1', 'headline', scene.headline, root);
     const line = h('div', 'underline', null, root);
@@ -115,7 +117,7 @@ const builders = {
     };
   },
 
-  bignumber(scene, root) {
+  bignumber(scene, root, kit) {
     root.classList.add('center');
     glow(root, -120, -40);
     const label = h('div', 'bn-label', scene.label, root);
@@ -125,6 +127,8 @@ const builders = {
     const line = h('div', 'underline', null, root);
     const note = scene.note ? h('div', 'bn-note', scene.note, root) : null;
     const countable = Number.isInteger(scene.value) && Math.abs(scene.value) >= 10;
+    if (countable) kit.cue('count', 0.3, 'count', { minor: true, dur: 0.9 });
+    kit.cue('land', countable ? 1.2 : 0.3, 'hit');
     return (lt) => {
       reveal(label, (lt - 0.05) / 0.45);
       const p = clamp((lt - 0.3) / 0.9);
@@ -147,7 +151,7 @@ const builders = {
     };
   },
 
-  bars(scene, root) {
+  bars(scene, root, kit) {
     glow(root, 900, 60);
     const head = chartHead(scene, root);
     const list = h('div', 'rows', null, root);
@@ -169,10 +173,11 @@ const builders = {
     });
     const step = Math.min(0.09, 0.7 / Math.max(1, rows.length));
     const settled = 0.55 + step * rows.length + 0.55;
-    let lit = null;
-    return (lt, lines) => {
+    const lit = heroTime(kit.lines, scene.highlight, settled);
+    rows.forEach((r, i) => kit.cue(`bar${i + 1}`, 0.55 + i * step, 'tick', { minor: i > 0, rank: r.frac }));
+    if (scene.highlight) kit.cue('hero', lit, 'chime');
+    return (lt) => {
       head(lt);
-      lit ??= heroTime(lines, scene.highlight, settled);
       const on = lt >= lit;
       rows.forEach((r, i) => {
         const at = 0.55 + i * step;
@@ -186,7 +191,7 @@ const builders = {
     };
   },
 
-  ranges(scene, root) {
+  ranges(scene, root, kit) {
     root.classList.add('ranges');
     glow(root, 900, 60);
     const head = chartHead(scene, root);
@@ -216,10 +221,11 @@ const builders = {
     ticks.dataset.dfRole = 'tick';
     for (let v = lo; v <= hi * 1.0001; v *= 10) h('div', 'tick', fmt(Math.round(v)), ticks).style.left = `${100 * pos(v)}%`;
     const settled = 0.5 + 0.25 * rows.length + 0.6;
-    let lit = null;
-    return (lt, lines) => {
+    const lit = heroTime(kit.lines, scene.highlight, settled);
+    rows.forEach((r, i) => kit.cue(`range${i + 1}`, 0.5 + i * 0.25, 'tick', { minor: i > 0, rank: 0.3 + 0.7 * (i / Math.max(1, rows.length - 1)) }));
+    if (scene.highlight) kit.cue('hero', lit, 'chime');
+    return (lt) => {
       head(lt);
-      lit ??= heroTime(lines, scene.highlight, settled);
       const on = lt >= lit;
       axis.style.opacity = String(snap((lt - 0.3) / 0.4));
       rows.forEach((r, i) => {
@@ -235,7 +241,7 @@ const builders = {
     };
   },
 
-  bullets(scene, root) {
+  bullets(scene, root, kit) {
     root.classList.add('center');
     glow(root, -120, 80);
     const head = chartHead(scene, root);
@@ -246,10 +252,12 @@ const builders = {
       const words = h('span', '', text, li);
       return { li, mark, words };
     });
-    return (lt, lines) => {
+    // An item lands as its narration line starts, when there is one line per item.
+    const lines = kit.lines;
+    const starts = items.map((_, i) => (lines.length === items.length ? Math.max(0.6, lines[i].start - 0.15) : 0.7 + i * 0.9));
+    starts.forEach((at, i) => kit.cue(`point${i + 1}`, at, 'pop'));
+    return (lt) => {
       head(lt);
-      // An item lands as its narration line starts, when there is one line per item.
-      const starts = items.map((_, i) => (lines.length === items.length ? Math.max(0.6, lines[i].start - 0.15) : 0.7 + i * 0.9));
       items.forEach((it, i) => {
         const at = starts[i];
         it.mark.style.width = `${48 * snap((lt - at) / 0.3)}px`;
@@ -278,17 +286,21 @@ if (film.customScenes) {
 }
 
 const scenesEl = document.getElementById('scenes');
+// Every visual action that should be heard is reported here, in film time, with what kind of sound
+// it wants. The pipeline reads this list to place the sound effects, and checks them against it.
+const events = [];
 const scenes = film.scenes.map((scene, i) => {
   const span = timeline.scenes[i];
+  const lines = span.lines.map((l) => ({ ...l, start: l.start - span.start, end: l.end - span.start }));
+  const sceneKit = { ...kit, lines, cue: (name, at, kind, extra = {}) => events.push({ name: `${scene.id}.${name}`, t: span.start + at, kind, ...extra }) };
   const root = h('section', 'scene', null, scenesEl);
   root.dataset.scene = scene.id;
   root.dataset.dfBox = '';
   const build = builders[scene.type];
   if (!build) throw new Error(`unknown scene type "${scene.type}" in scene "${scene.id}"`);
-  const update = build(scene, root, kit);
+  const update = build(scene, root, sceneKit);
   if (typeof update !== 'function') throw new Error(`scene type "${scene.type}" must return an update function`);
   const head = heads.find((x) => x.root === root);
-  const lines = span.lines.map((l) => ({ ...l, start: l.start - span.start, end: l.end - span.start }));
   return { root, update, head, lines, start: span.start, end: span.end };
 });
 
@@ -352,7 +364,7 @@ function seek(t) {
   grainLayers.forEach((layer, k) => (layer.style.display = k === g ? 'block' : 'none'));
 }
 
-window.DF = { duration: timeline.duration, fps: timeline.fps, seek };
+window.DF = { duration: timeline.duration, fps: timeline.fps, seek, events };
 await document.fonts.ready;
 seek(Number(new URLSearchParams(location.search).get('t') || 0));
 document.documentElement.dataset.ready = '1';

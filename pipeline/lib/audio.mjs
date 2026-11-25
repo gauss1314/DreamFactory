@@ -31,6 +31,13 @@ export async function mixNarration({ timeline, outDir, stems = [] }) {
       clips++;
     }
   }
+  // the narration alone, for the checks that listen to the voice
+  const voiceFile = path.join(outDir, 'audio', 'voice.wav');
+  {
+    const v = new Int16Array(total);
+    for (let i = 0; i < total; i++) v[i] = Math.max(-32768, Math.min(32767, Math.round(mix[i] * 32767)));
+    writeWav(voiceFile, v);
+  }
   for (const stem of stems) for (let i = 0; i < Math.min(total, stem.length); i++) mix[i] += stem[i];
   const audible = clips > 0 || stems.length > 0;
   const file = path.join(outDir, 'audio', 'mix.wav');
@@ -68,5 +75,5 @@ export async function mixNarration({ timeline, outDir, stems = [] }) {
     fixed.set(samples.subarray(0, Math.min(total, samples.length)));
     writeWav(file, fixed);
   }
-  return { file, voiced: clips > 0 && timeline.backend !== 'silent', audible: true, gainDb: Math.round(gainDb * 10) / 10 };
+  return { file, voiceFile, voiced: clips > 0 && timeline.backend !== 'silent', audible: true, gainDb: Math.round(gainDb * 10) / 10 };
 }

@@ -7,16 +7,20 @@ const shots = film.customScenes ? (await import('/film/scenes.js')).default : {}
 // Shots report each character every frame: its position on the ground plane (before any camera
 // move), its scale, and which way it faces. The checks use this to catch impossible motion.
 let frameActors = [];
-const kit = { ...engine, actor: (name, info) => frameActors.push({ name, ...info }) };
+const kit = { ...engine, look: film.look || {}, actor: (name, info) => frameActors.push({ name, ...info }) };
 engine.initGrain();
 
 const g = document.getElementById('frame').getContext('2d');
+// Shots may report the moments that want a sound (a footstep, a door), in shot time; they reach the
+// pipeline as film-time events, next to the ones declared in film.json.
+const events = [];
 const scenes = [];
 for (const [i, scene] of film.scenes.entries()) {
   const build = shots[scene.type];
   if (!build) throw new Error(`unknown shot type "${scene.type}" in scene "${scene.id}"`);
   const span = timeline.scenes[i];
-  scenes.push({ scene, draw: await build(kit, scene), start: span.start, end: span.end });
+  const shotKit = { ...kit, cue: (name, at, kind, extra = {}) => events.push({ name: `${scene.id}.${name}`, t: span.start + at, kind, ...extra }) };
+  scenes.push({ scene, draw: await build(shotKit, scene), start: span.start, end: span.end });
 }
 
 function seek(t) {
@@ -47,6 +51,6 @@ function seek(t) {
   }
 }
 
-window.DF = { duration: timeline.duration, fps: timeline.fps, seek, get actors() { return frameActors; } };
+window.DF = { duration: timeline.duration, fps: timeline.fps, seek, events, get actors() { return frameActors; } };
 seek(Number(new URLSearchParams(location.search).get('t') || 0));
 document.documentElement.dataset.ready = '1';

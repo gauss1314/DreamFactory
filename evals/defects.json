@@ -569,9 +569,28 @@
     "base": "pelican-embankment",
     "ops": [
       {
-        "file": "scenes",
-        "replace": "const SKY = [[0, '#3d4f8a'], [0.42, '#8a86b8'], [0.75, '#f2b98a'], [1, '#ffd99a']];",
-        "with": "const SKY = [[0, '#2f6fd0'], [0.42, '#6aa8e8'], [0.75, '#a8d4f0'], [1, '#d8eef8']];"
+        "file": "film",
+        "set": "look",
+        "value": {
+          "sky": [
+            [
+              0,
+              "#2f6fd0"
+            ],
+            [
+              0.42,
+              "#6aa8e8"
+            ],
+            [
+              0.75,
+              "#a8d4f0"
+            ],
+            [
+              1,
+              "#d8eef8"
+            ]
+          ]
+        }
       }
     ],
     "expectFail": [
@@ -624,6 +643,38 @@
     ],
     "expectFail": [
       "heading"
+    ]
+  },
+  {
+    "id": "music-too-loud",
+    "title": "配乐开得太响，盖住了旁白",
+    "base": "works-by-category",
+    "ops": [
+      {
+        "file": "film",
+        "set": "music",
+        "value": {
+          "gainDb": 14
+        }
+      }
+    ],
+    "expectFail": [
+      "voice-over-music"
+    ]
+  },
+  {
+    "id": "chime-late",
+    "title": "主角亮起时的钢片琴晚了 0.3 秒",
+    "base": "works-by-category",
+    "ops": [
+      {
+        "file": "sound",
+        "replace": "S.place(sfx, S.glock(S.hz(nt), 0.55), t + k * 0.09, 0.7)",
+        "with": "S.place(sfx, S.glock(S.hz(nt), 0.55), t + 0.3 + k * 0.09, 0.7)"
+      }
+    ],
+    "expectFail": [
+      "cue-sync"
     ]
   }
 ]

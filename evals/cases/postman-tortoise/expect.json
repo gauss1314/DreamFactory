@@ -1,0 +1,9 @@
+{
+  "duration": [11, 13],
+  "palette": {
+    "s1-canal": "#7a7280",
+    "s2-mailbox": "#706876",
+    "s3-lamp": "#7c737b"
+  },
+  "paletteTolerance": 10
+}
