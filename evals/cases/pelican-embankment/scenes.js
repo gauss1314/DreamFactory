@@ -620,6 +620,7 @@ export default {
       const y = roadTop(px + pan) + 14;
       groundShadow(g, px - pan * 0 - 6, y + 2, s);
       pelican(kit, g, px, y, s, { ...ride(kit, t, {}), light: -0.25 });
+      kit.actor('鹈鹕', { x: px + pan, y, s, facing: 'right' });
       reeds(kit, g, t, [[-20, 460, 1110, 140, 330, 70], [1700, 1960, 1110, 90, 220, 30]], 14);
     };
   },
@@ -662,6 +663,8 @@ export default {
         g.stroke();
       }
       pelican(kit, g, 780, 884, 1, { ...pose, light: -0.35 });
+      // tracking shot: the camera follows, so on the ground the rider moves right as fast as the road scrolls
+      kit.actor('鹈鹕', { x: 780 + nearX, y: 884, s: 1, facing: 'right' });
       // the near verge, blurred by speed
       g.save();
       g.filter = 'blur(6px)';
@@ -675,120 +678,67 @@ export default {
     };
   },
 
-  /** Toward the sunset: the bell, the egrets lifting from the reeds, the rider getting small. */
+  /**
+   * Toward the sunset, seen from the side: the embankment runs across the frame and up toward the sun
+   * on the right; the rider goes the way it faces, rings the bell, and the egrets lift from the reeds.
+   */
   sunset(kit, scene) {
     const plate = kit.layer(1920, 1080);
-    const sun = [1210, 545];
-    paintSky(kit, plate.g, 1920, 610, sun, 41);
-    paintClouds(kit, plate.g, [[320, 220, 760, 240], [960, 130, 520, 150], [1620, 250, 640, 200], [1280, 420, 420, 90]], sun);
-    paintFarBank(kit, plate.g, 1920, 600, 45);
-    paintRiver(kit, plate.g, 1920, 612, 1080, sun[0], 46);
+    const sun = [1500, 560];
+    paintSky(kit, plate.g, 1920, 620, sun, 41);
+    paintClouds(kit, plate.g, [[320, 210, 760, 240], [960, 130, 520, 150], [1640, 260, 640, 190], [1260, 430, 420, 90]], sun);
+    paintFarBank(kit, plate.g, 1920, 610, 45);
+    paintRiver(kit, plate.g, 1920, 622, 860, sun[0], 46);
     const g = plate.g;
-    // land on the near side: the embankment and the fields below it, a wedge from the left edge to the sun
-    const crest = (u) => [lerp(-60, 1150, u), lerp(1180, 640, u)];
-    g.beginPath();
-    g.moveTo(-10, 612);
-    g.lineTo(1140, 612);
-    g.lineTo(1160, 642);
-    g.lineTo(1150, 1090);
-    g.lineTo(-10, 1090);
-    g.closePath();
-    const land = g.createLinearGradient(0, 1080, 900, 620);
-    land.addColorStop(0, '#6e6170');
-    land.addColorStop(0.5, '#a08a68');
-    land.addColorStop(1, '#d9b47a');
-    g.fillStyle = land;
-    g.fill();
-    // the far side of the embankment drops to the water, catching the low sun
-    g.beginPath();
-    g.moveTo(1160, 642);
-    g.lineTo(1150, 1090);
-    g.lineTo(1330, 1090);
-    g.lineTo(1172, 640);
-    g.closePath();
-    g.fillStyle = kit.css('#d9b27a');
-    g.fill();
-    {
-      const tr = kit.rng(54);
-      for (let x = -20; x < 1130; x += 14 + tr() * 22) {
-        const hgt = 10 + tr() * 26 * (x < 700 ? 1 : 0.5);
-        const w = 14 + tr() * 22;
-        g.beginPath();
-        g.ellipse(x, 616 - hgt * 0.5, w * 0.5, hgt * 0.55, 0, 0, Math.PI * 2);
-        g.fillStyle = kit.css(kit.jit('#7a6f92', tr, 10));
-        g.fill();
-      }
-      g.fillStyle = kit.css('#857a8e');
-      g.fillRect(0, 612, 1140, 8);
+    // the road climbs gently toward the sun, like the first shot, so the rider rides the way it faces
+    const roadTop = (x) => 842 - x * 0.05;
+    // the river side of the embankment, catching the low sun
+    paintSlope(kit, g, 1920, (x) => roadTop(x) - 60, 60, 47, { lit: 0.9 });
+    paintRoad(kit, g, 1920, roadTop, () => 30, 48);
+    // the near slope, backlit: warm at the crest, violet below
+    for (let x = 0; x < 1920; x += 3) {
+      const y0 = roadTop(x) + 30;
+      const grd = g.createLinearGradient(0, y0, 0, 1080);
+      grd.addColorStop(0, kit.css('#c9a46a'));
+      grd.addColorStop(0.35, kit.css('#8c7a6a'));
+      grd.addColorStop(1, kit.css('#5e5468'));
+      g.fillStyle = grd;
+      g.fillRect(x, y0, 3, 1080 - y0);
     }
-    kit.mottle(g, 0, 620, 1150, 470, (x, y) => kit.mix(kit.mix('#b8996a', '#7a6a72', kit.clamp((y - 640) / 440)), '#d0a86a', kit.clamp(x / 1400) * 0.4), { n: 500, size: 90, alpha: 0.14, r: kit.rng(52), angle: -0.4 });
-    // road on the crest
-    g.beginPath();
-    g.moveTo(600, 1090);
-    g.lineTo(1150, 642);
-    g.lineTo(1166, 642);
-    g.lineTo(900, 1090);
-    g.closePath();
-    const rd = g.createLinearGradient(0, 1080, 1150, 640);
-    rd.addColorStop(0, '#b89a86');
-    rd.addColorStop(1, '#ffe2b0');
-    g.fillStyle = rd;
-    g.fill();
-    const r = kit.rng(47);
-    for (let i = 0; i < 1800; i++) {
-      const u = r();
-      const y = 1080 - u * 440;
-      const xl = 600 + u * 550;
-      const xr = 900 + u * 266;
-      const x = xl + r() * (xr - xl);
-      g.fillStyle = kit.css(kit.jit(r() < 0.5 ? '#e3c9a1' : '#9e8478', r, 18), 0.6);
-      g.fillRect(x, y, (1 - u) * 4 + 1, (1 - u) * 2 + 0.6);
-    }
-    // grass on the near slope, lit along the crest
-    {
-      const gr = kit.rng(53);
-      const roadLeft = (y) => 600 + ((1090 - y) / 448) * 550;
-      const roadRight = (y) => 900 + ((1090 - y) / 448) * 266;
-      const landRight = (y) => 1160 - ((y - 642) / 448) * 10;
-      for (let i = 0; i < 900; i++) {
-        const y = 650 + gr() * 440;
-        const x = gr() * landRight(y);
-        if (x > roadLeft(y) - 6 && x < roadRight(y) + 6) continue;
-        const u = (y - 640) / 440;
-        kit.grass(g, [x, x + 1], y, { n: 1, len: 8 + 26 * u, colors: ['#9a8c5a', '#7d765a', '#b8a06a', '#8a7a86'], lean: 0.2, r: gr, width: 1 + u * 1.4 });
-      }
-    }
-    kit.tooth(g, 1920, 1080, 48, 0.05);
-    const roadAt = (u) => [lerp(750, 1158, u), lerp(1080, 642, u)];
+    kit.mottle(g, 0, 780, 1920, 300, (x, y) => kit.mix('#a08a68', '#6a5f70', kit.clamp((y - roadTop(x)) / 260)), { n: 380, size: 110, alpha: 0.13, r: kit.rng(52), angle: -0.1 });
+    kit.grass(g, [0, 1920], (x) => roadTop(x) + 34, { n: 900, len: 18, colors: ['#e0b878', '#b89a6a', '#9a8a7a'], lean: 0.2, r: kit.rng(53), width: 1.6 });
+    kit.tooth(g, 1920, 1080, 49, 0.05);
     const birds = Array.from({ length: 8 }, (_, i) => {
       const br = kit.rng(60 + i);
       // the first egret goes on the event itself, the rest follow within a third of a second
-      return { x: 1420 + i * 58 + br() * 30, y: 800 + (i % 3) * 26 + br() * 20, vx: 90 + br() * 90, vy: -(120 + br() * 80), delay: i === 0 ? 0 : 0.05 + br() * 0.3, ph: br(), s: 0.65 + br() * 0.35 };
+      return { x: 1240 + i * 62 + br() * 30, y: 690 + (i % 3) * 20 + br() * 16, vx: 70 + br() * 90, vy: -(130 + br() * 80), delay: i === 0 ? 0 : 0.05 + br() * 0.3, ph: br(), s: 0.65 + br() * 0.35 };
     });
     return (g2, t, dur) => {
       g2.drawImage(plate.canvas, 0, 0);
-      glitter(kit, g2, t, sun[0] + 40, 626, 1060, 160, 49, 0, (x) => Infinity, (x, y) => x > 1172 + ((y - 640) / 450) * 160);
-      // reeds on the river side, where the egrets hide
-      reeds(kit, g2, t, [[1430, 1900, 880, 70, 170, 70]], 50, { backlit: true });
-      // the rider moves up the road toward the sun, getting smaller
-      const u = 0.12 + (t / dur) * 0.34;
-      const [x, y] = roadAt(u);
-      const s = lerp(0.6, 0.3, (u - 0.12) / 0.34);
-      groundShadow(g2, x - 10 * s, y + 2, s);
-      pelican(kit, g2, x, y, s, { ...ride(kit, t, { bellAt: scene.events.bell }), light: -0.2 });
-      // the egrets lift at 1.8 s into the shot
+      glitter(kit, g2, t, sun[0], 640, 840, 170, 50, 0, (x) => roadTop(x) - 66);
+      // reeds on the river side of the embankment, where the egrets hide
+      reeds(kit, g2, t, [[1180, 1760, 790, 60, 150, 70]], 51, { backlit: true });
+      // the rider follows the road to the right, toward the sun
+      const x = 240 + t * 150;
+      const y = roadTop(x) + 16;
+      const s = 0.5;
+      // backlit: the shadow falls toward us and behind
+      groundShadow(g2, x - 30 * s, y + 4, s);
+      pelican(kit, g2, x, y, s, { ...ride(kit, t, { bellAt: scene.events.bell }), light: -0.1 });
+      kit.actor('鹈鹕', { x, y, s, facing: 'right' });
+      // the egrets lift at the event, toward the sun
       const d = kit.twos(t);
       for (const [i, b] of birds.entries()) {
         const k = d - scene.events.birds - b.delay;
         if (k < 0) continue;
         const bx = b.x + b.vx * k + 40 * k * k;
-        const by = b.y + b.vy * k + 30 * k * k * -0.5;
+        const by = b.y + b.vy * k - 15 * k * k;
         // a wingbeat about three times a second, drawn on twos
         const phase = 0.5 + 0.5 * Math.sin((k * 3.2 + b.ph) * Math.PI * 2);
-        egret(kit, g2, bx, by, b.s * 1.15 * (1 - k * 0.07), phase, 70 + i);
+        egret(kit, g2, bx, by, b.s * 1.1 * (1 - k * 0.07), phase, 70 + i);
       }
-      // foreground reeds, backlit, on the left
-      reeds(kit, g2, t, [[-30, 380, 1110, 160, 420, 60]], 51, { backlit: true });
+      // foreground reeds, backlit, at both corners
+      reeds(kit, g2, t, [[-30, 300, 1110, 160, 400, 50], [1720, 1960, 1110, 120, 300, 30]], 54, { backlit: true });
     };
   },
 };

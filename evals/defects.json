@@ -610,5 +610,20 @@
     "expectFail": [
       "cue-sync"
     ]
+  },
+  {
+    "id": "riding-sideways",
+    "title": "侧面画的鹈鹕沿着通向纵深的路斜着往远处滑（这支片子第一版的真实错误）",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "      const x = 240 + t * 150;\n      const y = roadTop(x) + 16;\n      const s = 0.5;",
+        "with": "      const u = 0.12 + (t / dur) * 0.34;\n      const x = 750 + 408 * u;\n      const y = 1080 - 438 * u;\n      const s = 0.6 - 0.3 * ((u - 0.12) / 0.34);"
+      }
+    ],
+    "expectFail": [
+      "heading"
+    ]
   }
 ]

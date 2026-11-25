@@ -259,7 +259,8 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
         sheetFrames++;
       }
     }
-    samples.push({ t, grid: meta.grid, texts, marks: meta.marks ? await stage.page.evaluate(readMarks) : null });
+    const actors = meta.grid ? await stage.page.evaluate(() => (window.DF.actors ? window.DF.actors.map((a) => ({ ...a })) : null)) : null;
+    samples.push({ t, grid: meta.grid, texts, actors, marks: meta.marks ? await stage.page.evaluate(readMarks) : null });
   }
   if (sheet) {
     await new Promise((resolve) => {

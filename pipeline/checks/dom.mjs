@@ -380,6 +380,48 @@ export const determinism = {
   },
 };
 
+export const heading = {
+  id: 'heading',
+  title: '朝向：角色往哪儿走，就朝哪儿；侧面画的角色不往纵深里走',
+  tier: 'dom',
+  run(ctx) {
+    const FACING = { right: 0, left: 180 };
+    const problems = new Map();
+    let judged = 0;
+    for (const sc of ctx.timeline.scenes) {
+      const grid = ctx.sampling.samples.filter((s) => s.grid && s.actors && s.t >= sc.start + 0.2 && s.t <= sc.end - 0.2);
+      const names = new Set(grid.flatMap((s) => s.actors.map((a) => a.name)));
+      for (const name of names) {
+        const track = grid.map((s) => ({ t: s.t, a: s.actors.find((a) => a.name === name) })).filter((p) => p.a);
+        for (let i = 0; i < track.length; i++) {
+          const j = track.findIndex((p) => p.t >= track[i].t + 0.5 - 1e-6);
+          if (j < 0) break;
+          const [p, q] = [track[i], track[j]];
+          const dt = q.t - p.t;
+          const dx = q.a.x - p.a.x;
+          const dy = q.a.y - p.a.y;
+          const speed = Math.hypot(dx, dy) / dt;
+          const depth = Math.abs(Math.log(q.a.s / p.a.s)) / dt;
+          if (speed < 20 && depth < 0.02) continue;
+          judged++;
+          const face = FACING[p.a.facing];
+          if (face === undefined) continue;
+          if (depth > 0.1) {
+            problems.set(`${sc.id}|${name}|depth`, `${sc.id}：${name} 画的是侧面，却在往纵深里走（大小每秒变化 ${Math.round(depth * 100)}%）`);
+          }
+          if (speed >= 20) {
+            const ang = (Math.atan2(-dy, dx) * 180) / Math.PI;
+            const off = Math.abs(((ang - face + 540) % 360) - 180);
+            if (off > 20) problems.set(`${sc.id}|${name}|dir`, `${sc.id}：${name} 朝${p.a.facing === 'right' ? '右' : '左'}，却在往 ${Math.round(ang)}° 方向移动，偏了 ${Math.round(off)}°，上限 20°`);
+          }
+        }
+      }
+    }
+    if (!judged) return { status: 'skip', summary: '没有角色报告位置', details: [] };
+    return result([...problems.values()], `检查了 ${judged} 段移动，方向都和朝向一致`);
+  },
+};
+
 export const fonts = {
   id: 'fonts',
   title: '字体：中文字形能正常显示',

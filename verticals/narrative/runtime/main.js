@@ -4,7 +4,10 @@ import * as engine from './engine.js';
 const film = await (await fetch('/film/film.resolved.json')).json();
 const timeline = film.timeline;
 const shots = film.customScenes ? (await import('/film/scenes.js')).default : {};
-const kit = { ...engine };
+// Shots report each character every frame: its position on the ground plane (before any camera
+// move), its scale, and which way it faces. The checks use this to catch impossible motion.
+let frameActors = [];
+const kit = { ...engine, actor: (name, info) => frameActors.push({ name, ...info }) };
 engine.initGrain();
 
 const g = document.getElementById('frame').getContext('2d');
@@ -27,6 +30,7 @@ function seek(t) {
   const i = scenes.findIndex((s, k) => t >= s.start && (t < s.end || k === last));
   if (i < 0) return;
   const s = scenes[i];
+  frameActors = [];
   const lt = t - s.start;
   const dur = s.end - s.start;
   g.save();
@@ -43,6 +47,6 @@ function seek(t) {
   }
 }
 
-window.DF = { duration: timeline.duration, fps: timeline.fps, seek };
+window.DF = { duration: timeline.duration, fps: timeline.fps, seek, get actors() { return frameActors; } };
 seek(Number(new URLSearchParams(location.search).get('t') || 0));
 document.documentElement.dataset.ready = '1';
