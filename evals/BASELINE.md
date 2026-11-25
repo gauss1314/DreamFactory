@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/7，缺陷检出 30/30。
+干净用例误报 0/8，缺陷检出 34/34。
 
 运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-25
 
@@ -13,6 +13,7 @@
 | asks-for-derived-number | 通过 | 26.6 |  |
 | cost-per-minute | 通过 | 43.5 |  |
 | monthly-trend | 通过 | 27.4 |  |
+| pelican-embankment | 通过 | 15.0 |  |
 | top-of-long-list | 通过 | 22.0 |  |
 | twenty-seconds | 通过 | 14.1 |  |
 | works-by-category | 通过 | 52.6 |  |
@@ -54,6 +55,10 @@
 | chart-lags-narration | 折线图画得太晚，旁白念完数字画面才出现 | sync | 抓到 |  |
 | voice-says-something-else | 字幕是一句话，语音念的是另一句话 | asr | 抓到 |  |
 | voice-says-wrong-number | 字幕写 483，语音念成 438 | data-accuracy、asr | 抓到 |  |
+| background-jump | 跟拍镜头的远景在半途跳了一截 | pops | 抓到 |  |
+| wrong-time-of-day | 天空画成了正午的蓝，偏离傍晚的色彩脚本 | palette | 抓到 |  |
+| bell-late | 车铃声比画面晚了四分之一秒 | cue-sync | 抓到 |  |
+| event-without-sound | 分镜里声明了一个画面事件，却没有配声音 | cue-sync | 抓到 |  |
 
 ## 各项检查的覆盖
 
@@ -75,4 +80,7 @@
 | video-stillness | 1 | 1 |  |
 | audio-levels | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | audio-gaps | 1 | 1 |  |
-| asr | 2 | 2 |  |
+| asr | 2 | 2 | 本次运行跳过 |
+| pops | 1 | 1 |  |
+| palette | 1 | 1 | 本次运行跳过 |
+| cue-sync | 2 | 2 | 本次运行跳过 |
