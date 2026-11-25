@@ -2,7 +2,7 @@
 
 干净用例误报 0/7，缺陷检出 30/30。
 
-运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-14
+运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-25
 
 ## 干净用例
 
@@ -42,7 +42,7 @@
 | dead-air | 结尾画面静止且无声地停了十秒 | video-stillness、audio-gaps | 抓到 |  |
 | year-with-separator | 年份当成普通数字，显示成 2,026 年 | typography | 抓到 |  |
 | share-of-subset | 只展示前 6 名却显示占比，占比是按这 6 个算的 | data-accuracy | 抓到 |  |
-| long-list-overflow | 把 24 个品类全部塞进一张图 | layout | 抓到 |  |
+| long-list-overflow | 把 24 个品类全部塞进一张图 | layout | 抓到 | contrast |
 | over-the-time-limit | 20 秒的片子讲了太多，超出时长上限 | spec | 抓到 |  |
 | built-in-instead-of-line-chart | 任务要求折线图，却用内置柱状图交差 | spec | 抓到 | layout |
 | chart-points-misplaced | 折线图上的点画在了别的月份的高度上 | marks | 抓到 |  |

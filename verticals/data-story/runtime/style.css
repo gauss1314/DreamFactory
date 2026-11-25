@@ -1,19 +1,24 @@
-/* 1920 x 1080 stage. Scenes use the top 880 px; subtitles, source and progress sit below. */
+/* Data-story look. The rules behind every value here are in ../ART.md. */
 #stage {
-  --bg: #10141b;
-  --text: #f3f5f8;
-  --muted: #a3adba;
-  --accent: #62c6ff;
-  --bar: #46556b;
-  --track: #1c2430;
+  --bg: #141a2b;
+  --bg2: #1d2540;
+  --text: #f2ece0;
+  --muted: #aab2c5;
+  --bar: #4a5878;
+  --track: #242d45;
+  --accent: #f0b45a;
+  --accent2: #b9772f;
+
+  --sans: 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'WenQuanYi Zen Hei', sans-serif;
+  --serif: 'Noto Serif CJK SC', 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
 
   position: relative;
   width: 1920px;
   height: 1080px;
   overflow: hidden;
-  background: var(--bg);
+  background: linear-gradient(35deg, var(--bg) 0%, var(--bg) 35%, var(--bg2) 100%);
   color: var(--text);
-  font-family: 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'WenQuanYi Zen Hei', sans-serif;
+  font-family: var(--sans);
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
 }
@@ -21,19 +26,56 @@
 html,
 body {
   margin: 0;
-  background: #10141b;
+  background: #141a2b;
 }
 
+/* ---------- finish: paper, vignette, grain (ART.md section 5) ---------- */
+.fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#paper {
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+}
+
+#vignette {
+  background: radial-gradient(ellipse 75% 70% at 50% 46%, rgba(0, 0, 0, 0) 55%, rgba(4, 6, 14, 0.38) 100%);
+}
+
+#grain {
+  opacity: 0.07;
+  mix-blend-mode: screen;
+  background-repeat: repeat;
+}
+
+/* ---------- scenes ---------- */
 .scene {
   position: absolute;
   left: 0;
   top: 0;
   width: 1920px;
-  height: 880px;
-  padding: 88px 140px 0;
+  height: 900px;
+  padding: 96px 160px 0;
   box-sizing: border-box;
   display: none;
   flex-direction: column;
+  transform-origin: 160px 50%;
+}
+
+/* The light behind the subject: a faint warm pool, placed per scene type. */
+.glow {
+  position: absolute;
+  width: 1100px;
+  height: 900px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 35%, var(--text)) 0%, transparent 100%);
+  opacity: 0.09;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .scene.center {
@@ -41,67 +83,108 @@ body {
   padding-top: 0;
 }
 
+.scene.middle {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-top: 0;
+  transform-origin: 50% 50%;
+}
+
 /* title, outro */
 .kicker {
+  display: flex;
+  align-items: center;
+  gap: 22px;
   font-size: 30px;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.32em;
   color: var(--accent);
-  margin-bottom: 28px;
+  margin-bottom: 30px;
+}
+
+.rule {
+  display: inline-block;
+  height: 4px;
+  width: 56px;
+  background: var(--accent);
+  flex: none;
 }
 
 .headline {
-  font-size: 88px;
+  font-family: var(--serif);
+  font-size: 84px;
   font-weight: 700;
-  line-height: 1.22;
+  line-height: 1.24;
   margin: 0;
-  max-width: 1500px;
+  max-width: 1440px;
   overflow-wrap: anywhere;
 }
 
-.outro .headline {
+.middle .headline {
   font-size: 76px;
+  max-width: 1500px;
 }
 
 .sub {
-  font-size: 38px;
+  font-size: 34px;
   color: var(--muted);
-  margin: 32px 0 0;
-  max-width: 1400px;
+  margin: 34px 0 0;
+  max-width: 1300px;
+}
+
+.underline {
+  height: 5px;
+  width: 0;
+  background: var(--accent);
+  margin-top: 40px;
+}
+
+.middle .underline {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* bignumber */
 .bn-label {
-  font-size: 44px;
+  font-size: 40px;
   color: var(--muted);
 }
 
 .bn-row {
   display: flex;
   align-items: baseline;
-  gap: 24px;
-  margin: 8px 0 12px;
+  gap: 26px;
+  margin: 6px 0 4px;
 }
 
 .bn-value {
-  font-size: 260px;
+  font-size: 280px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
   color: var(--accent);
 }
 
 .bn-unit {
-  font-size: 76px;
+  font-family: var(--serif);
+  font-size: 84px;
   font-weight: 700;
 }
 
+.bn-row + .underline {
+  margin-top: 30px;
+}
+
 .bn-note {
-  font-size: 38px;
+  font-size: 34px;
   color: var(--muted);
+  margin-top: 18px;
 }
 
 /* charts */
 .chart-title {
-  font-size: 54px;
+  font-family: var(--serif);
+  font-size: 56px;
   font-weight: 700;
   margin: 0;
 }
@@ -109,23 +192,23 @@ body {
 .chart-sub {
   font-size: 30px;
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 .rows {
-  margin-top: 30px;
+  margin-top: 34px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 520px 1fr;
-  column-gap: 28px;
+  grid-template-columns: 460px 1fr;
+  column-gap: 30px;
   align-items: center;
-  height: 70px;
+  height: 76px;
 }
 
 .row-label {
-  font-size: 34px;
+  font-size: 36px;
   text-align: right;
   white-space: nowrap;
 }
@@ -134,30 +217,30 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 48px;
 }
 
 .bar-fill {
-  height: 40px;
-  border-radius: 6px;
+  position: relative;
+  height: 48px;
+  border-radius: 3px;
   background: var(--bar);
   flex: none;
+  overflow: hidden;
 }
 
-.hl .bar-fill,
-.hl .range-pill {
-  background: var(--accent);
-}
-
-.hl .row-label {
-  color: var(--accent);
-  font-weight: 700;
+/* The accent sweeps into the hero bar after the others have settled. */
+.bar-hot {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
 }
 
 .bar-value {
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 700;
-  margin-left: 18px;
+  margin-left: 20px;
   white-space: nowrap;
 }
 
@@ -169,21 +252,21 @@ body {
 
 /* ranges: a log axis, one pill per item */
 .ranges .row {
-  grid-template-columns: 420px 1fr 320px;
+  grid-template-columns: 400px 1fr 330px;
   height: 104px;
 }
 
 .ranges .row-track {
   background: var(--track);
-  border-radius: 20px;
+  border-radius: 21px;
 }
 
 .range-pill {
   position: absolute;
   top: 0;
-  height: 40px;
-  min-width: 10px;
-  border-radius: 20px;
+  height: 42px;
+  min-width: 12px;
+  border-radius: 21px;
   background: var(--bar);
 }
 
@@ -195,9 +278,9 @@ body {
 
 .axis {
   display: grid;
-  grid-template-columns: 420px 1fr 320px;
-  column-gap: 28px;
-  margin-top: 6px;
+  grid-template-columns: 400px 1fr 330px;
+  column-gap: 30px;
+  margin-top: 8px;
 }
 
 .axis-ticks {
@@ -210,7 +293,7 @@ body {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  font-size: 24px;
+  font-size: 22px;
   color: var(--muted);
   white-space: nowrap;
 }
@@ -219,46 +302,45 @@ body {
 .bullets {
   list-style: none;
   padding: 0;
-  margin: 44px 0 0;
+  margin: 64px 0 0;
 }
 
 .bullets li {
   position: relative;
-  font-size: 46px;
-  padding-left: 52px;
-  margin-bottom: 40px;
-  max-width: 1500px;
+  font-size: 52px;
+  padding-left: 76px;
+  margin-bottom: 52px;
+  max-width: 1440px;
 }
 
-.bullets li::before {
-  content: '';
+.bullets .mark {
   position: absolute;
-  left: 4px;
-  top: 22px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  left: 0;
+  top: 36px;
+  height: 6px;
+  width: 0;
   background: var(--accent);
 }
 
-/* always on */
+/* ---------- always on ---------- */
 #subtitle {
   position: absolute;
   left: 160px;
   right: 160px;
-  top: 892px;
-  height: 108px;
+  top: 900px;
+  height: 104px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   font-size: 40px;
   line-height: 52px;
+  text-shadow: 0 2px 10px rgba(6, 8, 16, 0.7);
 }
 
 #source {
   position: absolute;
-  left: 140px;
+  left: 160px;
   top: 1022px;
   font-size: 22px;
   color: var(--muted);
@@ -269,8 +351,8 @@ body {
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 4px;
+  height: 3px;
   width: 0;
   background: var(--accent);
-  opacity: 0.6;
+  opacity: 0.55;
 }

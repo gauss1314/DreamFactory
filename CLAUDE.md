@@ -19,7 +19,7 @@ node evals/agent-run.mjs                          # 让模型无人值守做完�
 
 - `pipeline/`：管线本体。`film.mjs` 是一次运行的全流程，`lib/` 是各个环节，`checks/` 是自检，`tools/asr.py` 是语音识别的 Python 小工具。
 - `.cache/tts/`：合成过的语音和听写结果的缓存，不入库，删掉只会让下次运行慢一些。
-- `verticals/data-story/`：数据短片的画面。`runtime/df.js` 里每种场景是一个函数。影片目录里的 `scenes.js` 可以为那一支片子增加场景。
+- `verticals/data-story/`：数据短片的画面。`ART.md` 是视觉规范，`runtime/` 按它实现，`runtime/df.js` 里每种场景是一个函数。影片目录里的 `scenes.js` 可以为那一支片子增加场景。
 - `evals/cases/`：评测用例，每个目录有简报、数据、要求和一支参考影片，个别带参考的 `scenes.js`。
 - `evals/defects.json`：缺陷注入集，每条在参考影片上改一处，并写明哪项检查必须失败。
 - `evals/BASELINE.md`：上一次评测的结果。
@@ -28,6 +28,7 @@ node evals/agent-run.mjs                          # 让模型无人值守做完�
 
 ## 约定
 
+- 改画面之前先改 `ART.md`，再改运行时。改完按 `ART.md` 第六节看抽帧图，并跑评测。
 - 画面必须只由时间决定。`seek(t)` 里不能用时钟、随机数、CSS 动画，也不能依赖上一帧。
 - 新增或修改一项检查，必须同时在 `evals/defects.json` 里加一条它应该抓到的缺陷，然后跑评测。没有缺陷样例的检查等于没有验证过。
 - 改了管线或画面之后跑 `node evals/run.mjs`。干净用例出现失败是误报，要修检查或修参考影片，不能放宽到看不见为止。

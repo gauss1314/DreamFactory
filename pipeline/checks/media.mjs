@@ -12,7 +12,9 @@ export const videoStillness = {
   async run(ctx) {
     const limit = ctx.expect.maxFrozenSec ?? 6;
     const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', ctx.video.file,
-      '-vf', 'blackdetect=d=0.5:pix_th=0.03,freezedetect=n=0.001:d=2', '-an', '-f', 'null', '-']);
+      // Judge stillness on a 64x36 copy: film grain and the slow push-in average away there,
+      // while a subtitle changing or a chart growing still shows.
+      '-vf', 'blackdetect=d=0.5:pix_th=0.03,scale=64:36:flags=area,freezedetect=n=0.0015:d=2', '-an', '-f', 'null', '-']);
     const problems = [];
     for (const m of stderr.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)) {
       problems.push(`${fmtT(Number(m[1]))}–${fmtT(Number(m[2]))} 是黑屏`);

@@ -69,6 +69,12 @@ node evals/run.mjs
 
 写 `film.json` 的规则和字段见 [DIRECTOR.md](DIRECTOR.md)。
 
+片子长什么样、怎么动，由视觉规范 [verticals/data-story/ART.md](verticals/data-story/ART.md) 决定：一套色彩、一套字号阶梯、“快进、过冲、落定、停住”的动作规矩，以及纸纹、颗粒、暗角的统一质感。它参考了 [The Last Page](https://github.com/ChetasLua/the-last-page) 先写美术规范、再动手的做法。
+
+改版前后的同一支片子（左旧右新）：
+
+![改版前后对比](docs/images/data-story-before-after.jpg)
+
 ## 自检项
 
 | 检查 | 查什么 |
@@ -86,7 +92,7 @@ node evals/run.mjs
 | `determinism` | 同一时刻重画，画面一致，没有用随机数、时钟或上一帧的状态 |
 | `fonts` | 中文没有显示成方框 |
 | `spec` | 片长、分辨率、帧率、编码、音画等长 |
-| `video-stillness` | 没有黑屏，画面静止不超过 6 秒 |
+| `video-stillness` | 没有黑屏，画面静止不超过 6 秒；在缩小的画面上判断，胶片颗粒和镜头慢推不算动 |
 | `audio-levels` | 响度在 -14 LUFS 上下，峰值不过载 |
 | `audio-gaps` | 旁白之间没有过长的无声 |
 | `asr` | 语音识别逐句听旁白：字幕里的数字必须都听到，措辞不能是另一句话 |

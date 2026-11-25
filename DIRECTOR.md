@@ -4,7 +4,7 @@
 
 ## 流程
 
-1. 读影片目录里的 `brief.md`、`data.json`、`expect.json`。
+1. 读影片目录里的 `brief.md`、`data.json`、`expect.json`，再读视觉规范 `verticals/data-story/ART.md`。它规定了片子长什么样、怎么动，分镜要按它来安排：每个画面一个主角，重点在旁白念到它时出现。
 2. 写 `film.json`（字段见下文）。内置场景做不出简报要求的画面时，再写 `scenes.js`（见“自定义场景”）。
 3. 跑文字层检查，十几秒出结果：
 
@@ -12,7 +12,7 @@
    node pipeline/cli.mjs run <影片目录> --no-video
    ```
 
-4. 读终端里的报告，再看 `out/contact.jpg` 抽帧图。报告只查得出能量化的问题，构图和节奏要靠看图。
+4. 读终端里的报告，再按 `ART.md` 第六节看 `out/contact.jpg` 抽帧图：每个画面能不能一眼看出主角，写下全片最弱的三处并改掉。报告只查得出能量化的问题，构图和节奏要靠看图。
 5. 修 `film.json`，重跑。检查都通过后，渲染草稿并查画面和声音：
 
    ```bash
@@ -58,14 +58,14 @@ node pipeline/cli.mjs run <影片目录> --draft --cost-usd 1.25
   "lang": "zh",
   "title": "片名，只用于报告",
   "source": "数据来源：{{source.name}}（截至 {{source.asOf}}）",
-  "theme": { "accent": "#62c6ff" },
+  "theme": { "accent": "#f0b45a" },
   "voice": { "backend": "auto", "name": "zh-CN-XiaoxiaoNeural", "rate": "+0%" },
   "scenes": []
 }
 ```
 
 - `lang`：`zh` 或 `en`，决定语音和字幕长度上限。
-- `theme`：可选，可改 `bg`、`text`、`muted`、`accent`、`bar`、`track` 六个颜色。
+- `theme`：可选，可改 `bg`、`bg2`、`text`、`muted`、`bar`、`track`、`accent`、`accent2` 八个颜色，各自的分工见 `ART.md` 第二节。要换就整套换。
 - `voice`：可选，整段都可以不写。`backend` 是 `auto`、`edge`、`espeak`、`silent` 之一，`auto` 会选已安装的最自然的一种。`name` 是声音，中文默认 `zh-CN-XiaoxiaoNeural`（女声），男声可用 `zh-CN-YunxiNeural`、`zh-CN-YunyangNeural`。`rate` 是语速，比如 `+10%`。
 
 每个场景都可以带这些字段：
@@ -109,8 +109,8 @@ export default {
   line(scene, root, kit) {
     // 这里只运行一次，用来搭好画面。
     // scene 是 film.json 里这个场景的内容，数据引用已经填好；root 是这个场景的容器。
-    const { h, svg, ease, clamp, rise, fmt, chartHead } = kit;
-    chartHead(scene, root); // 画 scene.title 和 scene.sub
+    const { h, svg, reveal, pop, snap, clamp, fmt, chartHead } = kit;
+    chartHead(scene, root); // 画 scene.title 和 scene.sub，入场动作由运行时负责
     const chart = svg('svg', { width: 1640, height: 560, viewBox: '0 0 1640 560' }, root);
     // ……创建图形和文字……
 
@@ -129,12 +129,16 @@ export default {
 | --- | --- |
 | `h(标签, 类名, 文字, 父元素)` | 创建 HTML 元素 |
 | `svg(标签, 属性对象, 父元素)` | 创建 SVG 元素；颜色和字号写在 `style` 属性里 |
-| `ease(x)`、`clamp(x)` | 把进度压到 0–1，`ease` 带缓出 |
-| `rise(元素, 进度)` | 淡入并上移 |
+| `pop(x)` | 快进、过冲约 4%、落定的进度曲线，用于图形长出来 |
+| `snap(x)` | 快进、不过冲的进度曲线 |
+| `clamp(x)` | 把进度压到 0–1 |
+| `reveal(元素, 进度)` | 从左往右揭开文字，同时轻微上移落定 |
+| `palette` | 当前片子的整套颜色值，比如 `palette.accent` |
 | `fmt(数字)` | 加千分位 |
-| `chartHead(scene, root)` | 画标题和副标题 |
+| `chartHead(scene, root)` | 画标题和副标题，并让它们按规范入场 |
 
-- 颜色用主题变量：`var(--text)`、`var(--muted)`、`var(--accent)`、`var(--bar)`、`var(--track)`。
+- 颜色用主题变量：`var(--text)`、`var(--muted)`、`var(--accent)`、`var(--accent2)`、`var(--bar)`、`var(--track)`。强调色一个画面只给一样东西。
+- 动作遵守 `ART.md` 第四节：快进、过冲、落定，然后停住；不要用均匀的淡入。旧的 `ease` 和 `rise` 还能用，但不符合规范。
 - 场景可用的区域宽 1640 像素，标题以下高约 640 像素。
 
 自定义场景的规则，每条都有检查：
