@@ -1,0 +1,9 @@
+{
+  "duration": [14, 16],
+  "palette": {
+    "s1-wide": "#af9b84",
+    "s2-side": "#ad988b",
+    "s3-sunset": "#b39b8e"
+  },
+  "paletteTolerance": 10
+}

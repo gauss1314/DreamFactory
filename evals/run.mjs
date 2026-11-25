@@ -80,18 +80,19 @@ const clean = await pool(cleanRuns, async (id) => {
 
 const planted = await pool(defectRuns, async (d) => {
   const dir = path.join(casesDir, d.base);
-  const scenesFile = path.join(dir, 'scenes.js');
+  const optional = (f, read) => (fs.existsSync(path.join(dir, f)) ? read(path.join(dir, f)) : undefined);
   const files = {
     film: readJson(path.join(dir, 'film.json')),
-    data: readJson(path.join(dir, 'data.json')),
-    expect: readJson(path.join(dir, 'expect.json')),
-    scenes: fs.existsSync(scenesFile) ? fs.readFileSync(scenesFile, 'utf8') : null,
+    data: optional('data.json', readJson) ?? {},
+    expect: optional('expect.json', readJson) ?? {},
+    scenes: optional('scenes.js', (f) => fs.readFileSync(f, 'utf8')) ?? null,
+    sound: optional('sound.js', (f) => fs.readFileSync(f, 'utf8')) ?? null,
   };
   try {
     for (const op of d.ops) {
-      if (op.file !== 'scenes') applyOp(files[op.file], op);
-      else if (!files.scenes?.includes(op.replace)) throw new Error('缺陷要替换的代码在 scenes.js 里找不到');
-      else files.scenes = files.scenes.replace(op.replace, op.with);
+      if (op.file !== 'scenes' && op.file !== 'sound') applyOp(files[op.file], op);
+      else if (!files[op.file]?.includes(op.replace)) throw new Error(`缺陷要替换的代码在 ${op.file}.js 里找不到`);
+      else files[op.file] = files[op.file].replace(op.replace, op.with);
     }
     const r = await runFilm(dir, {
       ...files, draft: true, tts, log: false,

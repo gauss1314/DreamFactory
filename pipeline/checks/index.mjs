@@ -19,6 +19,9 @@ export const CHECKS = [
   media.audioLevels,
   media.audioGaps,
   media.asr,
+  media.pops,
+  media.palette,
+  media.cueSync,
 ];
 
 /** Run the checks that apply. Media checks need a rendered film; `only` narrows to given ids. */

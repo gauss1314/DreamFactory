@@ -1,0 +1,41 @@
+{
+  "vertical": "narrative",
+  "lang": "zh",
+  "title": "河堤上的鹈鹕",
+  "finish": {
+    "vignette": 0.34,
+    "halation": 0.16,
+    "grain": 0.06
+  },
+  "scenes": [
+    {
+      "id": "s1-wide",
+      "type": "wide",
+      "duration": 4.8,
+      "fadeIn": 0.6
+    },
+    {
+      "id": "s2-side",
+      "type": "side",
+      "duration": 5.4,
+      "events": {
+        "jolt": 3.0
+      }
+    },
+    {
+      "id": "s3-sunset",
+      "type": "sunset",
+      "duration": 4.8,
+      "fadeOut": 1.0,
+      "events": {
+        "bell": [
+          1.2,
+          1.45
+        ],
+        "birds": 1.8
+      }
+    }
+  ],
+  "cadence": 1.2,
+  "tempo": 100
+}

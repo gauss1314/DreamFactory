@@ -547,5 +547,68 @@
       "data-accuracy",
       "asr"
     ]
+  },
+  {
+    "id": "background-jump",
+    "title": "跟拍镜头的远景在半途跳了一截",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const farX = 600 + t * 40;",
+        "with": "const farX = 600 + t * 40 + (t > 2.5 ? 300 : 0);"
+      }
+    ],
+    "expectFail": [
+      "pops"
+    ]
+  },
+  {
+    "id": "wrong-time-of-day",
+    "title": "天空画成了正午的蓝，偏离傍晚的色彩脚本",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "const SKY = [[0, '#3d4f8a'], [0.42, '#8a86b8'], [0.75, '#f2b98a'], [1, '#ffd99a']];",
+        "with": "const SKY = [[0, '#2f6fd0'], [0.42, '#6aa8e8'], [0.75, '#a8d4f0'], [1, '#d8eef8']];"
+      }
+    ],
+    "expectFail": [
+      "palette"
+    ]
+  },
+  {
+    "id": "bell-late",
+    "title": "车铃声比画面晚了四分之一秒",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "sound",
+        "replace": "      S.place(sfx, ring, t, 1.2);",
+        "with": "      S.place(sfx, ring, t + 0.25, 1.2);"
+      }
+    ],
+    "expectFail": [
+      "cue-sync"
+    ]
+  },
+  {
+    "id": "event-without-sound",
+    "title": "分镜里声明了一个画面事件，却没有配声音",
+    "base": "pelican-embankment",
+    "ops": [
+      {
+        "file": "film",
+        "set": "scenes[1].events",
+        "value": {
+          "jolt": 3.0,
+          "bump": 4.6
+        }
+      }
+    ],
+    "expectFail": [
+      "cue-sync"
+    ]
   }
 ]

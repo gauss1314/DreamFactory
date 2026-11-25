@@ -17,7 +17,8 @@ export async function measureLevels(file) {
   return { lufs, peak };
 }
 
-export async function mixNarration({ timeline, outDir }) {
+/** Narration clips at their timeline positions, plus any music and effect stems, to the loudness target. */
+export async function mixNarration({ timeline, outDir, stems = [] }) {
   const total = Math.round(timeline.duration * RATE);
   const mix = new Float32Array(total);
   let clips = 0;
@@ -30,6 +31,8 @@ export async function mixNarration({ timeline, outDir }) {
       clips++;
     }
   }
+  for (const stem of stems) for (let i = 0; i < Math.min(total, stem.length); i++) mix[i] += stem[i];
+  const audible = clips > 0 || stems.length > 0;
   const file = path.join(outDir, 'audio', 'mix.wav');
   const save = (target, floats) => {
     const out = new Int16Array(total);
@@ -37,10 +40,10 @@ export async function mixNarration({ timeline, outDir }) {
     writeWav(target, out);
   };
   save(file, mix);
-  if (timeline.backend === 'silent' || clips === 0) return { file, voiced: false };
+  if (!audible || (stems.length === 0 && timeline.backend === 'silent')) return { file, voiced: false, audible: false };
 
   const before = await measureLevels(file);
-  if (!Number.isFinite(before.lufs)) return { file, voiced: false };
+  if (!Number.isFinite(before.lufs)) return { file, voiced: false, audible: false };
 
   // Raise the voice to the target through a limiter: speech peaks sit far above its average level,
   // so plain gain would stop short. The limiter trims loudness a little, hence the second pass.
@@ -65,5 +68,5 @@ export async function mixNarration({ timeline, outDir }) {
     fixed.set(samples.subarray(0, Math.min(total, samples.length)));
     writeWav(file, fixed);
   }
-  return { file, voiced: true, gainDb: Math.round(gainDb * 10) / 10 };
+  return { file, voiced: clips > 0 && timeline.backend !== 'silent', audible: true, gainDb: Math.round(gainDb * 10) / 10 };
 }

@@ -41,7 +41,7 @@ export const spec = {
         if (Math.abs(v.fps - ctx.render.fps) > 0.01) problems.push(`帧率 ${v.fps}，应为 ${ctx.render.fps}`);
         if (Math.abs(v.duration - d) > 0.15) problems.push(`视频长 ${v.duration.toFixed(2)} 秒，时间轴为 ${d.toFixed(2)} 秒`);
       }
-      if (ctx.audio.voiced) {
+      if (ctx.audio.audible) {
         if (!m.audio) problems.push('成片里没有音轨');
         else if (v && Math.abs(m.audio.duration - v.duration) > 0.15) {
           problems.push(`音轨长 ${m.audio.duration.toFixed(2)} 秒，视频长 ${v.duration.toFixed(2)} 秒`);
