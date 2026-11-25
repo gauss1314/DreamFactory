@@ -27,6 +27,7 @@ if (args.includes('--help')) {
   需要已登录的 Claude Code 命令行（claude）。
 
   --only <a,b>      只跑指定的用例
+  --brief <目录>    不跑评测用例，改跑一份没有参考影片的简报（如 evals/briefs/ 下的目录）
   --model <名称>    指定模型，默认用命令行当前配置的模型
   --jobs <n>        同时跑几个，默认 3
   --budget <美元>   每个用例的费用上限，默认 8
@@ -163,21 +164,26 @@ function outcomeOf(r) {
   return r.roundLog.some((x) => x.passed && x.rendered) ? 'passed' : 'unchecked';
 }
 
+const briefDir = value('--brief') ? path.resolve(value('--brief')) : null;
+
 async function runCase(id) {
-  const src = path.join(casesDir, id);
+  const src = briefDir ?? path.join(casesDir, id);
   const ws = path.join(workRoot, id);
   const task = path.join(ws, 'task');
   fs.rmSync(ws, { recursive: true, force: true });
   fs.mkdirSync(task, { recursive: true });
   for (const d of ['pipeline', 'verticals']) fs.cpSync(path.join(repo, d), path.join(ws, d), { recursive: true });
   // The reference film says which vertical the case belongs to; the model never sees the film itself.
-  const vertical = JSON.parse(fs.readFileSync(path.join(src, 'film.json'), 'utf8')).vertical ?? 'data-story';
+  // A new brief has no reference film; it names its vertical in expect.json instead.
+  const expect = JSON.parse(fs.readFileSync(path.join(src, 'expect.json'), 'utf8'));
+  const refFilm = path.join(src, 'film.json');
+  const vertical = (fs.existsSync(refFilm) ? JSON.parse(fs.readFileSync(refFilm, 'utf8')).vertical : expect.vertical) ?? 'data-story';
+  delete expect.vertical;
   const narrative = vertical === 'narrative';
   for (const f of narrative ? ['package.json'] : ['DIRECTOR.md', 'package.json']) fs.copyFileSync(path.join(repo, f), path.join(ws, f));
   const inputs = narrative ? ['brief.md', 'expect.json'] : ['brief.md', 'data.json', 'expect.json'];
   // A narrative case's colour script is the reference film's own, keyed by its shot ids: the model
   // writes its own shots and its own colour script, so that part of the requirements is left out.
-  const expect = JSON.parse(fs.readFileSync(path.join(src, 'expect.json'), 'utf8'));
   if (narrative) {
     delete expect.palette;
     delete expect.paletteTolerance;
@@ -259,7 +265,7 @@ async function runCase(id) {
 }
 
 const summarizeOnly = value('--summarize');
-const ids = summarizeOnly ? [] : fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || only.includes(d));
+const ids = summarizeOnly ? [] : briefDir ? [path.basename(briefDir)] : fs.readdirSync(casesDir).filter((d) => fs.existsSync(path.join(casesDir, d, 'brief.md'))).sort().filter((d) => !only || only.includes(d));
 const records = new Array(ids.length);
 let next = 0;
 await Promise.all(
