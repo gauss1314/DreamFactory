@@ -1,6 +1,6 @@
 # 评测基线
 
-干净用例误报 0/8，缺陷检出 34/34。
+干净用例误报 0/8，缺陷检出 35/35。
 
 运行环境：Node v22.23.4 · 语音后端 edge · 草稿画质 · 2026-11-25
 
@@ -59,6 +59,7 @@
 | wrong-time-of-day | 天空画成了正午的蓝，偏离傍晚的色彩脚本 | palette | 抓到 |  |
 | bell-late | 车铃声比画面晚了四分之一秒 | cue-sync | 抓到 |  |
 | event-without-sound | 分镜里声明了一个画面事件，却没有配声音 | cue-sync | 抓到 |  |
+| riding-sideways | 侧面画的鹈鹕沿着通向纵深的路斜着往远处滑（这支片子第一版的真实错误） | heading | 抓到 |  |
 
 ## 各项检查的覆盖
 
@@ -76,6 +77,7 @@
 | empty-frames | 1 | 1 |  |
 | marks | 4 | 4 |  |
 | determinism | 1 | 1 |  |
+| heading | 1 | 1 | 本次运行跳过 |
 | fonts | 0 | 0 | 没有缺陷样例，效果未经验证 |
 | video-stillness | 1 | 1 |  |
 | audio-levels | 0 | 0 | 没有缺陷样例，效果未经验证 |
