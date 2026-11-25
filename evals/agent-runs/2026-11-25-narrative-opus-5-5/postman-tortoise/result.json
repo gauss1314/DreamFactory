@@ -1,0 +1,67 @@
+{
+  "case": "postman-tortoise",
+  "model": "claude-opus-5-5",
+  "vertical": "narrative",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 12
+  },
+  "pipelineRuns": 4,
+  "failedRuns": 0,
+  "filmVersions": 4,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "d321006e1f35"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "e46208ff7d60"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "322b3af49392"
+    },
+    {
+      "round": 4,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "962354cf2fc2"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 47,
+    "toolUses": 46,
+    "wallSec": 724,
+    "costUsd": 2.84,
+    "tokens": {
+      "input": 50,
+      "output": 58951,
+      "cacheRead": 2722594,
+      "cacheWrite": 139562
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "**通过了。** 草稿渲染（--draft）的所有自检都过了：片长 12.0 秒，响度 -14.3 LUFS，相邻两帧最大变化 0.8，没有突跳；投信和路灯两个事件声画对齐，最大偏差 6 毫秒。色彩脚本检查和听写核对被跳过，因为 expect.json 没写色彩脚本，片子也没有旁白。\n\n管线一共跑了 4 次，一次都没失败：\n- **第 1 次**（--no-video）：写好 film.json、scenes.js、sound.js 后的首跑，直接通过，看抽帧图确认构图。\n- **第 2 次**（--no-video）：临时把镜头放大对准乌龟，并缩短第一个镜头，让抽帧刚好落在投信和亮灯的时刻，好看清细节。同时把收尾镜头里的乌龟挪近路灯。\n- **第 3 次**（--no-video）：放大后发现两处问题，改完复查。一是邮筒的直边被曲线圆化，屋顶像个兜帽，改用直边画法；二是伸脖子投信时脖子又长又细，像长颈鹿，于是减小伸展幅度、加粗脖子，并把邮筒放低。\n- **第 4 次**（--draft）：撤掉临时改动后正式渲染，全部通过。\n\n我自己看图觉得最弱的有三处：\n- **远景**：乌龟太小，前景大片空石板显得空；石拱桥平贴在对岸上，空间感弱。\n- **云**：用的是引擎现成的云，在这个雨天傍晚里偏平、偏块状。\n- **收尾镜头**：对岸房子是整排一样高的一溜，有点重复。叶子滴水、溅起水花这个小细节在原尺寸下几乎看不出来。\n\n成片在 `task/out/film.mp4`，抽帧图在 `task/out/contact.jpg`。",
+  "outcome": "passed"
+}

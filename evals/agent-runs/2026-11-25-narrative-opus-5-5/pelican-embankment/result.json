@@ -1,0 +1,60 @@
+{
+  "case": "pelican-embankment",
+  "model": "claude-opus-5-5",
+  "vertical": "narrative",
+  "delivered": true,
+  "customScene": true,
+  "verified": {
+    "passed": true,
+    "failed": [],
+    "durationSec": 15
+  },
+  "pipelineRuns": 3,
+  "failedRuns": 0,
+  "filmVersions": 3,
+  "roundLog": [
+    {
+      "round": 1,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "9dcde3c2550d"
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "failed": [],
+      "rendered": false,
+      "filmVersion": "637fad8a554b"
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "failed": [],
+      "rendered": true,
+      "filmVersion": "722fd85053ae"
+    }
+  ],
+  "agent": {
+    "finished": true,
+    "stopReason": "完成",
+    "turns": 44,
+    "toolUses": 43,
+    "wallSec": 1141,
+    "costUsd": 2.51,
+    "tokens": {
+      "input": 48,
+      "output": 50068,
+      "cacheRead": 2463371,
+      "cacheWrite": 126980
+    },
+    "refusedActions": []
+  },
+  "integrity": {
+    "rulesUntouched": true,
+    "inputsUntouched": true,
+    "readsOutsideWorkspace": []
+  },
+  "report": "草稿渲染（--draft）的自检全部通过：9 项检查里 7 项通过，2 项跳过。跳过的是听写核对和色彩脚本，因为片子没有旁白，`expect.json` 里也没有写色彩脚本。片长 15.0 秒，5 个声画事件都对准了，最大偏差 8 毫秒；没有突跳，响度 -14.2 LUFS。\n\n管线一共跑了 3 次，第一次草稿渲染就通过了，没有用到返工轮次：\n- **第 1 次（--no-video）：** 写好三个文件后先跑一遍，结果通过，看了抽帧图。\n- **第 2 次（--no-video）：** 在 `scenes.js` 里临时把每个镜头放大到角色身上，抽帧图上能按近 1:1 看局部。看完改了两处：一是影子原来落在车的前方，可太阳在前方低处，影子应该拖在车后面，就把它挪到车后并拉长；二是近处的堤坡背对太阳，原来是平的黄绿色，压上了偏紫的暗面。之后去掉了放大，也删了 `sound.js` 里一段没用的代码。\n- **第 3 次（--draft）：** 全部通过。\n\n我看图觉得最弱的地方：\n- **远景：** 鹈鹕很小，近处堤坡占了将近一半画面，细节少，有点空。\n- **芦苇：** 逆光的芦苇几乎都是直立的深色细杆，排得像条形码，有点僵。\n- **白鹭：** 站在芦苇里的白鹭在全画面里只是几个小白点。\n- **车轮：** 辐条转得太快看不清，我把它画成了不动的淡圆盘，只让反光片和气门芯跟着转来表现转动。这样避免了倒转的错觉，但不算真正的动画处理。\n\n文件在 `task/` 里：`film.json`、`scenes.js`、`sound.js`。",
+  "outcome": "passed"
+}

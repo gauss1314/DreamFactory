@@ -1,0 +1,18 @@
+{
+  "vertical": "narrative",
+  "lang": "zh",
+  "title": "雨后的邮差",
+  "tempo": 135,
+  "finish": { "vignette": 0.36, "halation": 0.16, "grain": 0.06, "warm": "#ffd9a0" },
+  "look": {
+    "sky": [[0, "#3a4372"], [0.45, "#76769f"], [0.8, "#d3a08f"], [1, "#f4c99a"]],
+    "cloud": { "light": "#f2cfb0", "half": "#b18a98", "shadow": "#6e6890", "deep": "#55507a" },
+    "water": "#3f4670",
+    "glint": "#ffd9a0"
+  },
+  "scenes": [
+    { "id": "s1-wide", "type": "wide", "duration": 4.0, "fadeIn": 0.5 },
+    { "id": "s2-side", "type": "side", "duration": 4.0, "events": { "post": 3.0 } },
+    { "id": "s3-lamp", "type": "lamp", "duration": 4.0, "fadeOut": 1.0, "events": { "lamp": 0.8 } }
+  ]
+}

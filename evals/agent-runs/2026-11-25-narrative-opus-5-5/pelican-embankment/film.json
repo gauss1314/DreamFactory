@@ -1,0 +1,21 @@
+{
+  "vertical": "narrative",
+  "lang": "zh",
+  "title": "河堤上的鹈鹕",
+  "tempo": 96,
+  "finish": { "vignette": 0.34, "halation": 0.16, "grain": 0.06, "warm": "#ffd9a0" },
+  "look": {
+    "sky": [[0, "#3d4f8a"], [0.42, "#8a86b8"], [0.78, "#f2b98a"], [1, "#ffd99a"]],
+    "cloud": { "light": "#ffe2b8", "half": "#e6a58f", "shadow": "#8f7aa6", "deep": "#6d6194" },
+    "hills": "#7f7fae",
+    "bank": "#5f6595",
+    "glint": "#ffd58a",
+    "grass": { "lit": "#c9b45e", "mid": "#8f8c4d", "base": "#a3964f", "dark": "#8f8c4d", "foot": "#5c6845", "stroke": "#d8c878", "strokeDark": "#8f8c4d", "cool": "#8a7aa0", "patch": "#c9b45e", "patchDark": "#8f8c4d", "shade": "#7d6d98" },
+    "road": { "light": "#e3c9a1", "dark": "#9e8478", "base": "#b89a86", "verge": "rgba(255,226,170,0.5)" }
+  },
+  "scenes": [
+    { "id": "s1-wide", "type": "wide", "duration": 5.0, "fadeIn": 0.6 },
+    { "id": "s2-side", "type": "side", "duration": 5.0, "events": { "bump": [2.5, 3.024] } },
+    { "id": "s3-end", "type": "end", "duration": 5.0, "fadeOut": 1.2, "events": { "bell": [0.9, 1.25], "egrets": 1.6 } }
+  ]
+}
