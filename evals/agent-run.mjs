@@ -43,7 +43,8 @@ const budget = Number(value('--budget') ?? 8);
 const timeoutMin = Number(value('--timeout') ?? 30);
 const workRoot = value('--summarize') ? null : path.resolve(value('--work') ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dreamfactory-agent-')));
 
-const PROMPT = `你在一条做数据短片的管线里工作。这次没有人值守，没有人可以提问，全程自己完成。
+const PROMPTS = {};
+PROMPTS['data-story'] = `你在一条做数据短片的管线里工作。这次没有人值守，没有人可以提问，全程自己完成。
 
 工作目录里有 DIRECTOR.md（导演规范）、pipeline/（管线）和 task/（任务）。
 task/ 里有 brief.md（简报）、data.json（数据）、expect.json（要求）。
@@ -60,6 +61,25 @@ task/ 里有 brief.md（简报）、data.json（数据）、expect.json（要求
 按 DIRECTOR.md 的规定最多返工 3 轮；仍不通过就停下，说明卡在哪里。
 
 结束时用三五句话报告：是否通过、管线跑了几次、每次改了什么。`;
+
+PROMPTS.narrative = `你在一条做手绘风动画短片的管线里工作。这次没有人值守，没有人可以提问，全程自己完成。
+
+工作目录里有 pipeline/（管线）、verticals/narrative/（画面引擎、美术规范 ART.md、导演规范 DIRECTOR.md）和 task/（任务）。
+task/ 里有 brief.md（简报）和 expect.json（要求）。
+先读 verticals/narrative/DIRECTOR.md 和 ART.md，按规范写出 task/film.json、task/scenes.js 和 task/sound.js，直到草稿渲染（--draft）的自检全部通过。
+画面要好看、动作要合乎物理，这两点检查只能抓到一部分，要靠你自己看抽帧图把关。
+
+这次运行的权限如下。超出范围的操作会被直接拒绝，不会有人来批准：
+- 读文件：只能读工作目录里的文件，用读取工具，图片也可以读。
+- 写文件：只能用写入、编辑工具新建和修改 task/ 里的 film.json、scenes.js、sound.js。
+- 运行命令：只放行两种。一种是 ls。另一种是 node pipeline/cli.mjs run task，后面可以加 --no-video 或 --draft。
+  命令后面不要接分号、管道、重定向或别的命令，否则整条会被拒绝。
+- 某一条命令被拒绝，只说明那一条不在放行范围内。上面两种命令仍然可以用。
+- 管线输出的开头就是结论，不需要另外看退出码。
+
+按 DIRECTOR.md 的规定最多返工 4 轮；仍不通过就停下，说明卡在哪里。
+
+结束时用三五句话报告：是否通过、管线跑了几次、每次改了什么，以及你自己看图觉得最弱的地方。`;
 
 // What the director is allowed to touch: write only inside task/, run only the pipeline on the task.
 // Reading needs no rule inside the working directory and is refused outside it; the one exception
@@ -83,8 +103,8 @@ function treeHash(dir, skip = []) {
 }
 const fileHash = (files) => files.reduce((h, f) => h.update(fs.readFileSync(f)), createHash('sha256')).digest('hex');
 
-function runCli(ws, transcriptFile) {
-  const cliArgs = ['-p', PROMPT, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
+function runCli(ws, transcriptFile, prompt) {
+  const cliArgs = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
     '--permission-mode', 'dontAsk', '--max-budget-usd', String(budget)];
   if (model) cliArgs.push('--model', model);
   cliArgs.push('--allowedTools', ...TOOLS);
@@ -150,21 +170,36 @@ async function runCase(id) {
   fs.rmSync(ws, { recursive: true, force: true });
   fs.mkdirSync(task, { recursive: true });
   for (const d of ['pipeline', 'verticals']) fs.cpSync(path.join(repo, d), path.join(ws, d), { recursive: true });
-  for (const f of ['DIRECTOR.md', 'package.json']) fs.copyFileSync(path.join(repo, f), path.join(ws, f));
-  const inputs = ['brief.md', 'data.json', 'expect.json'];
-  for (const f of inputs) fs.copyFileSync(path.join(src, f), path.join(task, f));
+  // The reference film says which vertical the case belongs to; the model never sees the film itself.
+  const vertical = JSON.parse(fs.readFileSync(path.join(src, 'film.json'), 'utf8')).vertical ?? 'data-story';
+  const narrative = vertical === 'narrative';
+  for (const f of narrative ? ['package.json'] : ['DIRECTOR.md', 'package.json']) fs.copyFileSync(path.join(repo, f), path.join(ws, f));
+  const inputs = narrative ? ['brief.md', 'expect.json'] : ['brief.md', 'data.json', 'expect.json'];
+  // A narrative case's colour script is the reference film's own, keyed by its shot ids: the model
+  // writes its own shots and its own colour script, so that part of the requirements is left out.
+  const expect = JSON.parse(fs.readFileSync(path.join(src, 'expect.json'), 'utf8'));
+  if (narrative) {
+    delete expect.palette;
+    delete expect.paletteTolerance;
+  }
+  for (const f of inputs) {
+    if (f === 'expect.json') fs.writeFileSync(path.join(task, f), JSON.stringify(expect, null, 2) + '\n');
+    else fs.copyFileSync(path.join(src, f), path.join(task, f));
+  }
   if (fs.existsSync(path.join(repo, 'node_modules'))) fs.symlinkSync(path.join(repo, 'node_modules'), path.join(ws, 'node_modules'), 'dir');
   const before = { rules: treeHash(ws, ['task', 'node_modules', '.cache']), inputs: fileHash(inputs.map((f) => path.join(task, f))) };
 
   console.log(`开始   ${id}`);
   const transcript = path.join(workRoot, `${id}.transcript.jsonl`);
-  const cli = await runCli(ws, transcript);
+  const cli = await runCli(ws, transcript, PROMPTS[vertical]);
   const { result, toolUses, readsOutsideWorkspace } = readTranscript(transcript, ws);
 
   const filmFile = path.join(task, 'film.json');
   const scenesFile = path.join(task, 'scenes.js');
   const delivered = fs.existsSync(filmFile);
   const scenes = fs.existsSync(scenesFile) ? fs.readFileSync(scenesFile, 'utf8') : null;
+  const soundFile = path.join(task, 'sound.js');
+  const sound = fs.existsSync(soundFile) ? fs.readFileSync(soundFile, 'utf8') : undefined;
   const logFile = path.join(task, 'out', 'runs.jsonl');
   const roundLog = fs.existsSync(logFile)
     ? fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
@@ -175,7 +210,7 @@ async function runCase(id) {
   let verified = { passed: false, failed: ['(没有交付 film.json)'], durationSec: null };
   if (delivered) {
     try {
-      const r = await runFilm(src, { film: JSON.parse(fs.readFileSync(filmFile, 'utf8')), scenes, draft: true, log: false, outDir: path.join(workRoot, `${id}.verify`) });
+      const r = await runFilm(src, { film: JSON.parse(fs.readFileSync(filmFile, 'utf8')), scenes, sound: narrative ? sound ?? null : sound, expect, draft: true, log: false, outDir: path.join(workRoot, `${id}.verify`) });
       verified = { passed: r.passed, failed: r.failed, durationSec: r.durationSec };
     } catch (e) {
       verified = { passed: false, failed: [`(运行出错：${e.message.split('\n')[0]})`], durationSec: null };
@@ -188,6 +223,7 @@ async function runCase(id) {
   const record = {
     case: id,
     model: mainModel,
+    vertical,
     delivered,
     customScene: Boolean(scenes),
     verified,
@@ -215,7 +251,7 @@ async function runCase(id) {
       readsOutsideWorkspace,
     },
     report: result?.result ?? cli.stderr.slice(-600),
-    files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, runs: fs.existsSync(logFile) ? logFile : null },
+    files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, sound: sound ? soundFile : null, runs: fs.existsSync(logFile) ? logFile : null },
   };
   record.outcome = outcomeOf(record);
   console.log(`${{ passed: '通过  ', failed: '未通过', interrupted: '中断  ', unchecked: '未自检' }[record.outcome]} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
@@ -249,6 +285,7 @@ for (const r of records) {
   fs.mkdirSync(dir, { recursive: true });
   if (r.files.film) fs.copyFileSync(r.files.film, path.join(dir, 'film.json'));
   if (r.files.scenes) fs.copyFileSync(r.files.scenes, path.join(dir, 'scenes.js'));
+  if (r.files.sound) fs.copyFileSync(r.files.sound, path.join(dir, 'sound.js'));
   if (r.files.runs) fs.copyFileSync(r.files.runs, path.join(dir, 'runs.jsonl'));
   const { files, ...rest } = r;
   fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(rest, null, 2) + '\n');
@@ -266,7 +303,7 @@ const verdict = (r) =>
 const md = [
   `# 无人值守运行：${label}`,
   '',
-  `${count('passed')}/${all.length} 个用例由模型自己跑通自检，并通过复验${count('unchecked') ? `；${count('unchecked')} 个交付的影片能通过复验，但模型自己没有跑通自检` : ''}${count('failed') ? `；${count('failed')} 个未通过复验` : ''}${count('interrupted') ? `；${count('interrupted')} 个中途被打断，不计入结果` : ''}。模型只拿到简报、数据、要求和导演规范，看不到参考影片，全程没有人介入。`,
+  `${count('passed')}/${all.length} 个用例由模型自己跑通自检，并通过复验${count('unchecked') ? `；${count('unchecked')} 个交付的影片能通过复验，但模型自己没有跑通自检` : ''}${count('failed') ? `；${count('failed')} 个未通过复验` : ''}${count('interrupted') ? `；${count('interrupted')} 个中途被打断，不计入结果` : ''}。模型只拿到简报、数据（叙事片没有）、要求和导演规范，看不到参考影片，全程没有人介入。`,
   '',
   `模型 ${all[0]?.model} · ${date} · 每个用例费用上限 ${budget} 美元`,
   '',

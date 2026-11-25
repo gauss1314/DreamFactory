@@ -13,7 +13,7 @@ node evals/run.mjs --only <用例或缺陷的 id>
 node evals/agent-run.mjs                          # 让模型无人值守做完每个用例，要花模型费用
 ```
 
-做片子之前先读 `DIRECTOR.md`。
+做数据短片之前先读 `DIRECTOR.md`，做叙事短片之前先读 `verticals/narrative/DIRECTOR.md`。
 
 ## 结构
 
