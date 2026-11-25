@@ -25,6 +25,23 @@ const VERTICALS = {
  *                          scenes (source of custom scene code; null = none; default: scenes.js in filmDir),
  *                          sound (source of the score and effects; null = none; default: sound.js in filmDir)
  */
+// Everything the picture depends on: the resolved film (its sound settings aside), the film's scene
+// code, the vertical's runtime and the renderer itself. Same key, same frames.
+function pictureKey(resolved, scenesSource, vertical) {
+  const { music, ...picture } = resolved;
+  const files = [];
+  const walk = (d) => {
+    for (const name of fs.readdirSync(d).sort()) {
+      const p = path.join(d, name);
+      if (fs.statSync(p).isDirectory()) walk(p);
+      else files.push(name, fs.readFileSync(p, 'utf8'));
+    }
+  };
+  walk(vertical.runtimeDir);
+  const renderer = fs.readFileSync(new URL('./lib/render.mjs', import.meta.url), 'utf8');
+  return hash(JSON.stringify([picture, scenesSource ?? '', files, renderer]));
+}
+
 export async function runFilm(filmDir, opts = {}) {
   const started = Date.now();
   const film = opts.film ?? readJson(path.join(filmDir, 'film.json'));
@@ -38,6 +55,12 @@ export async function runFilm(filmDir, opts = {}) {
   const loadVertical = VERTICALS[film.vertical ?? 'data-story'];
   if (!loadVertical) throw new Error(`unknown vertical "${film.vertical}"`);
   const vertical = await loadVertical();
+  // DF_TIMING=1 prints how long each stage took, to stderr
+  let lap = Date.now();
+  const timing = (stage) => {
+    if (process.env.DF_TIMING) process.stderr.write(`[timing] ${path.basename(opts.outDir ?? filmDir)} ${stage} ${((Date.now() - lap) / 1000).toFixed(1)}s\n`);
+    lap = Date.now();
+  };
 
   // Script -> timeline. Narration is synthesized here; its length sets the pace.
   const resolved = resolveFilm(film, data);
@@ -48,6 +71,7 @@ export async function runFilm(filmDir, opts = {}) {
   const backend = pickBackend(opts.tts ?? film.voice?.backend);
   const timeline = await buildTimeline({ resolved, outDir, backend, vertical, fps: vertical.fps ?? 30 });
   resolved.timeline = timeline;
+  timing('timeline');
   writeJson(path.join(outDir, 'build', 'film.resolved.json'), resolved);
   let soundHash = '';
   const builtScenes = path.join(outDir, 'build', 'scenes.js');
@@ -80,11 +104,16 @@ export async function runFilm(filmDir, opts = {}) {
     audio = await mixNarration({ timeline, outDir, stems: sound ? [sound.music, sound.sfx].filter(Boolean) : [] });
     audio.cues = sound?.cues ?? [];
     audio.events = eventList.filter((e) => !e.minor);
+    timing('open+sound+mix');
     audio.stems = sound ? { music: path.join(outDir, 'audio', 'music.wav'), sfx: path.join(outDir, 'audio', 'sfx.wav') } : {};
 
     // Picture: read the text back from the live page, then render if asked.
     sampling = await sampleFilm(stage, timeline, { contactFile });
-    if (opts.video !== false) video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null });
+    timing('sample');
+    if (opts.video !== false) {
+      video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null, cacheKey: pictureKey(resolved, scenesSource, vertical) });
+    }
+    timing('render');
   } finally {
     await stage.close();
   }
@@ -94,7 +123,8 @@ export async function runFilm(filmDir, opts = {}) {
     render: video && { width: video.width, height: video.height, fps: video.fps },
     media: video ? await probe(video.file) : null,
   };
-  const checks = await runChecks(ctx, { only: opts.only ?? vertical.checks });
+  const checks = await runChecks(ctx, { only: opts.only ?? vertical.checks, timing: process.env.DF_TIMING ? timing : null });
+  timing('checks');
   const failed = checks.filter((c) => c.status === 'fail').map((c) => c.id);
 
   const report = {

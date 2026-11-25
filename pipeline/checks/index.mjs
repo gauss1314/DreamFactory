@@ -29,7 +29,7 @@ export const CHECKS = [
 ];
 
 /** Run the checks that apply. Media checks need a rendered film; `only` narrows to given ids. */
-export async function runChecks(ctx, { only } = {}) {
+export async function runChecks(ctx, { only, timing } = {}) {
   const results = [];
   for (const check of CHECKS) {
     if (only && !only.includes(check.id)) continue;
@@ -41,6 +41,7 @@ export async function runChecks(ctx, { only } = {}) {
       r = { status: 'fail', summary: `检查本身出错：${String(e.message || e).split('\n')[0]}`, details: [] };
     }
     results.push({ id: check.id, title: check.title, tier: check.tier, ...r });
+    timing?.(`check ${check.id}`);
   }
   return results;
 }

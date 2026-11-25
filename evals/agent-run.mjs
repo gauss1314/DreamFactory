@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFilm } from '../pipeline/film.mjs';
+import { reviewFilm } from './review.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.dirname(here);
@@ -34,6 +35,8 @@ if (args.includes('--help')) {
   --timeout <分钟>  每个用例的时间上限，默认 30
   --work <目录>     工作区位置，默认在系统临时目录
   --label <名称>    结果目录名，默认是 日期-模型
+  --review <n>      叙事片交付后请审片人看图提意见，导演再改，重复 n 轮，默认 0
+  --review-model <名称> 审片人用的模型，默认和导演相同
   --summarize <名称> 不运行，只按已有记录重新生成该结果目录的汇总`);
   process.exit(0);
 }
@@ -42,6 +45,8 @@ const model = value('--model');
 const jobs = Number(value('--jobs') ?? 3);
 const budget = Number(value('--budget') ?? 8);
 const timeoutMin = Number(value('--timeout') ?? 30);
+const reviewRounds = Number(value('--review') ?? 0);
+const reviewModel = value('--review-model');
 const workRoot = value('--summarize') ? null : path.resolve(value('--work') ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dreamfactory-agent-')));
 
 const PROMPTS = {};
@@ -196,9 +201,37 @@ async function runCase(id) {
   const before = { rules: treeHash(ws, ['task', 'node_modules', '.cache']), inputs: fileHash(inputs.map((f) => path.join(task, f))) };
 
   console.log(`开始   ${id}`);
-  const transcript = path.join(workRoot, `${id}.transcript.jsonl`);
-  const cli = await runCli(ws, transcript, PROMPTS[vertical]);
-  const { result, toolUses, readsOutsideWorkspace } = readTranscript(transcript, ws);
+  // The director works; with --review, a reviewer then looks at the frames and the director gets
+  // one more session to act on what it said. Each session starts fresh in the same workspace.
+  const sessions = [];
+  const reviews = [];
+  let prompt = PROMPTS[vertical];
+  for (let round = 0; ; round++) {
+    const transcript = path.join(workRoot, `${id}.transcript${round ? `-${round + 1}` : ''}.jsonl`);
+    const cli = await runCli(ws, transcript, prompt);
+    sessions.push({ cli, ...readTranscript(transcript, ws) });
+    if (round >= reviewRounds || !narrative || !fs.existsSync(path.join(task, 'film.json'))) break;
+    console.log(`审片   ${id}  第 ${round + 1} 轮`);
+    const rv = await reviewFilm(task, { workDir: path.join(workRoot, `${id}.review-${round + 1}`), model: reviewModel ?? model, filmOpts: { draft: true } });
+    reviews.push({ round: round + 1, issues: rv.issues, costUsd: rv.costUsd, text: rv.text });
+    const must = (rv.issues ?? []).filter((x) => x.severity === 'must');
+    if (!rv.issues?.length) break;
+    console.log(`       ${id}  审片意见 ${rv.issues.length} 条，其中必须改的 ${must.length} 条`);
+    prompt = `${PROMPTS[vertical]}
+
+task/ 里已经有你上一轮交付的 film.json、scenes.js 和 sound.js，自检也通过了。之后另一位审片人只看了画面（看不到代码），提出下面这些意见。
+按意见修改：必须改（must）的全部要改；应该改（should）的尽量改。改完重新跑通草稿自检。改不了的，在汇报里说明原因。
+
+${rv.issues.map((x, i) => `${i + 1}. [${x.severity}] ${x.t != null ? `${Number(x.t).toFixed(2)} 秒，` : ''}${x.problem}${x.fix ? `\n   建议：${x.fix}` : ''}`).join('\n')}
+
+结束时的汇报里，逐条说明每条意见改了没有、怎么改的。`;
+  }
+  const last = sessions.at(-1);
+  const result = last.result;
+  const cli = last.cli;
+  const toolUses = sessions.reduce((a, x) => a + x.toolUses, 0);
+  const readsOutsideWorkspace = sessions.flatMap((x) => x.readsOutsideWorkspace);
+  const total = (f) => sessions.reduce((a, x) => a + (x.result ? f(x.result) : 0), 0);
 
   const filmFile = path.join(task, 'film.json');
   const scenesFile = path.join(task, 'scenes.js');
@@ -223,7 +256,11 @@ async function runCase(id) {
     }
   }
 
-  const usage = result?.modelUsage ?? {};
+  const usage = {};
+  for (const x of sessions) for (const [m, u] of Object.entries(x.result?.modelUsage ?? {})) {
+    usage[m] ??= {};
+    for (const [k, v] of Object.entries(u)) if (typeof v === 'number') usage[m][k] = (usage[m][k] ?? 0) + v;
+  }
   const mainModel = Object.entries(usage).sort((a, b) => b[1].costUSD - a[1].costUSD)[0]?.[0] ?? model ?? 'unknown';
   const sum = (k) => Object.values(usage).reduce((a, u) => a + (u[k] ?? 0), 0);
   const record = {
@@ -244,20 +281,22 @@ async function runCase(id) {
         : !result.is_error
           ? '完成'
           : `${result.terminal_reason ?? result.subtype}${result.api_error_status ? ` ${result.api_error_status}` : ''}：${String(result.result ?? '').split('\n')[0].slice(0, 80)}`,
-      turns: result?.num_turns ?? null,
+      turns: result ? total((r) => r.num_turns ?? 0) : null,
       toolUses,
-      wallSec: result ? Math.round(result.duration_ms / 1000) : null,
-      costUsd: result ? Math.round(result.total_cost_usd * 100) / 100 : null,
+      wallSec: result ? Math.round(total((r) => r.duration_ms) / 1000) : null,
+      costUsd: result ? Math.round((total((r) => r.total_cost_usd) + reviews.reduce((a, r) => a + (r.costUsd ?? 0), 0)) * 100) / 100 : null,
+      sessions: sessions.length,
       tokens: { input: sum('inputTokens'), output: sum('outputTokens'), cacheRead: sum('cacheReadInputTokens'), cacheWrite: sum('cacheCreationInputTokens') },
-      refusedActions: (result?.permission_denials ?? []).map((d) => `${d.tool_name}: ${JSON.stringify(d.tool_input).slice(0, 120)}`),
+      refusedActions: sessions.flatMap((x) => x.result?.permission_denials ?? []).map((d) => `${d.tool_name}: ${JSON.stringify(d.tool_input).slice(0, 120)}`),
     },
     integrity: {
       rulesUntouched: treeHash(ws, ['task', 'node_modules', '.cache']) === before.rules,
       inputsUntouched: fileHash(inputs.map((f) => path.join(task, f))) === before.inputs,
       readsOutsideWorkspace,
     },
-    report: result?.result ?? cli.stderr.slice(-600),
-    files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, sound: sound ? soundFile : null, runs: fs.existsSync(logFile) ? logFile : null },
+    reviews: reviews.map(({ text, ...r }) => r),
+    report: sessions.map((x, i) => (sessions.length > 1 ? `【第 ${i + 1} 次】\n` : '') + (x.result?.result ?? x.cli.stderr.slice(-600))).join('\n\n'),
+    files: { film: delivered ? filmFile : null, scenes: scenes ? scenesFile : null, sound: sound ? soundFile : null, runs: fs.existsSync(logFile) ? logFile : null, reviews: reviews.map((r) => path.join(workRoot, `${id}.review-${r.round}`, 'review.md')) },
   };
   record.outcome = outcomeOf(record);
   console.log(`${{ passed: '通过  ', failed: '未通过', interrupted: '中断  ', unchecked: '未自检' }[record.outcome]} ${id}  管线 ${record.pipelineRuns} 次，${record.agent.costUsd ?? '?'} 美元`);
@@ -292,6 +331,7 @@ for (const r of records) {
   if (r.files.film) fs.copyFileSync(r.files.film, path.join(dir, 'film.json'));
   if (r.files.scenes) fs.copyFileSync(r.files.scenes, path.join(dir, 'scenes.js'));
   if (r.files.sound) fs.copyFileSync(r.files.sound, path.join(dir, 'sound.js'));
+  r.files.reviews?.forEach((f, i) => fs.existsSync(f) && fs.copyFileSync(f, path.join(dir, `review-${i + 1}.md`)));
   if (r.files.runs) fs.copyFileSync(r.files.runs, path.join(dir, 'runs.jsonl'));
   const { files, ...rest } = r;
   fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(rest, null, 2) + '\n');
