@@ -18,7 +18,7 @@ try:
 except Exception:                       # the sea lane's boat; a stand-in is drawn if it is missing
     boat = None
 
-VER = 'v6'
+VER = 'v7'
 AT = (0., 0., 5.6)
 ZD = AT[2] + lh.Z_DECK
 EAZ, YAW = -120., 22.                    # camera azimuth round the tower, view heading (deg, world)
@@ -123,12 +123,13 @@ class Shot:
             g = cv2.GaussianBlur(cv2.dilate(m['glass'], np.ones((5, 5), np.uint8)), (0, 0), 1.2)
             on, off = _wall_light(on, g), _wall_light(off, g)
             deck, edge = gallery(cam, light)
-            rail = railing(cam, light)
+            rail = railing(cam, light); lean = railing(cam, light, 'lean')
             sh = post_shadows(cam, sd)
-            return np.dstack([on, off, g, deck, rail, sh, edge])
+            return np.dstack([on, off, g, deck, rail, sh, edge, lean])
         F = cached('fore', fore)
         self.on, self.off, self.glass = F[..., 0:4].copy(), F[..., 4:8].copy(), F[..., 8].copy()
         self.deck, self.rail, self.shadow, self.edge = F[..., 9:13].copy(), F[..., 13:17].copy(), F[..., 17].copy(), F[..., 18].copy()
+        self.lean = F[..., 19:23].copy()
         del F
         self.gl = glitter_set(cam, sd)
         self.thrift_at = self._clumps()
@@ -197,6 +198,7 @@ class Shot:
             img = img + (self._warp(self.glass, zn, dn) * .10 * fl)[..., None] * rgb('#ffb458')
             img = img + (self._warp(self.spill, zn, dn) * .07 * fl)[..., None] * rgb('#ffb458')
         img = self._thrift(img, f)
+        img = comp.over(img, self._warp(self.lean, zn, dn))         # the rail it leans on lies under its forearms
         img = otteract.draw(img, 's9', f, self.marks(f))
         img = comp.over(img, self._warp(self.rail, zn, dn))
         return img
@@ -443,8 +445,9 @@ def plants_pick(pal, v):
     return plants.pick(pal, np.array([float(np.clip(v, 0, 1))]))[0]
 
 
-def railing(cam, light):
-    """the iron railing: round posts with ball finials and four rails, drawn as steady ink with a sunlit edge"""
+def railing(cam, light, part='rest'):
+    """the iron railing: round posts with ball finials and four rails, drawn as steady ink with a sunlit edge.
+    part='lean': only the low rail in front of the otter (drawn under its forearms); 'rest': everything else"""
     pal = lh.PAL['dawn']
     iron, hi = rgb(pal['iron']), mix(rgb(pal['iron_hi']), rgb('#ffe2b8'), .35)
     c = Cel(W, H)
@@ -461,10 +464,12 @@ def railing(cam, light):
         dd = np.linalg.norm(P - cam.eye, axis=-1)
         o = np.argsort(-dd[:-1])
         for i in o:
+            near_otter = zr == lh.Z_RAIL[1] and abs(((az[i] + .75 - OAZ + 180) % 360) - 180) < 14
+            if near_otter != (part == 'lean'): continue
             wm = .035 if zr == lh.Z_RAIL[-1] else .022
             seg(P[i], P[i + 1], wm, iron)
             if zr == lh.Z_RAIL[-1]: seg(P[i] + [0, 0, .012], P[i + 1] + [0, 0, .012], .012, hi, .8)
-    for az in np.arange(-180, 180, 10) + 5:
+    for az in (np.arange(-180, 180, 10) + 5 if part != 'lean' else []):
         b = _ring(az, lh.R_RAIL, ZD)[0]; t = _ring(az, lh.R_RAIL, AT[2] + lh.Z_RAIL[-1] + .06)[0]
         seg(b, t, .032, iron)
         lv = np.array([math.cos(math.radians(az)), math.sin(math.radians(az)), 0]) @ (light / np.linalg.norm(light))
