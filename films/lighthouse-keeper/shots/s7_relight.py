@@ -57,7 +57,7 @@ class Shot:
     def theta(self, f):
         fs = self.f_shut
         if f >= fs: return 0.0
-        bang = 1.55 + .22 * math.sin(f * .55) + .08 * math.sin(f * 1.3)
+        bang = 1.20 + .22 * math.sin(f * .55) + .08 * math.sin(f * 1.3)
         a = fs - 16
         if f < a: return bang
         u = (f - a) / 16.

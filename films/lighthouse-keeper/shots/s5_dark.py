@@ -57,13 +57,13 @@ class Shot:
             th = .004 * math.sin(f * 1.9) + .003 * math.sin(f * 3.1)
             for k0 in (fo - 14, fo - 7):                  # it shivers twice against the latch
                 u = f - k0
-                if 0 <= u < 5: th += .045 * math.sin(u / 5 * math.pi) * (1 if k0 == fo - 7 else .7)
+                if 0 <= u < 5: th += .10 * math.sin(u / 5 * math.pi) * (1 if k0 == fo - 7 else .7)
             return th
         u = f - fo
         # slams open past the stop, bounces, and is then worried by the wind
-        if u < 4: return [.35, .95, 1.55, 1.95][u]
+        if u < 4: return [.30, .80, 1.30, 1.62][u]
         tt = u - 4
-        base = 1.62 + .30 * math.exp(-tt / 5.) * math.cos(tt * .9)
+        base = 1.22 + .40 * math.exp(-tt / 5.) * math.cos(tt * .9)
         return base + .06 * math.sin(f * .35) + .03 * math.sin(f * .83)
 
     def flash(self, f):
@@ -85,12 +85,12 @@ class Shot:
         if f >= fx: return 0.0, 0.0
         u = (f - fo) / float(fx - fo)
         d = f // 2
-        lean = .9 + .35 * math.sin(d * 1.3) + .2 * r(d)
+        lean = .55 + .25 * math.sin(d * 1.3) + .12 * r(d)
         size = (1 - .55 * u) * (1 + .25 * math.sin(d * 1.7) + .12 * r(d + 50))
         # it nearly goes twice and comes back
         for c in (.45, .78):
             size *= 1 - .5 * math.exp(-((u - c) / .09) ** 2)
-        return max(.12, size), lean
+        return max(.35, size), lean
 
     def lamp_amt(self, f):
         s, _ = self.flame(f)
@@ -107,7 +107,7 @@ class Shot:
         dark = 1.0 if t >= fx else 0.0
         amb_col = mix(rgb('#22223c'), rgb('#141a2a'), dark)
         win = .35 + (.55 if t >= fo else 0) + .25 * dark
-        Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .55)
+        Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .9)
         sky = R.sky * (1 + .9 * fl) + rgb('#c8d4f0') * fl * .18
         sky = sky + (np.roll(R.sky, int(t * 2), axis=1) - R.sky) * .0     # clouds held: they move with the rain
         img = R.render(Lt, sky)

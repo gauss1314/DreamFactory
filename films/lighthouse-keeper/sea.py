@@ -494,7 +494,7 @@ def crest_spray(cv_img, foam, G, f, wind=(1., -.1), n=260, seed=0, scale=1.0, ym
     r = np.random.default_rng(seed + d * 31)
     sub = foam[::4, ::4]
     pz = cv2.resize(G['pz'], (w, h))[::4, ::4] if G['pz'].shape != foam.shape else G['pz'][::4, ::4]
-    wgt = sub * np.clip(pz, 0, None)
+    wgt = (sub > .5) * np.clip(pz - np.percentile(pz, 85), 0, None)
     if ymax is not None: wgt[int(ymax / 4):] = 0
     s = wgt.sum()
     if s <= 1e-3: return cv_img

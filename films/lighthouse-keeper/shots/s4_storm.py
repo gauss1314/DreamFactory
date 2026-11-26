@@ -174,7 +174,7 @@ class Shot:
             X0, Y0, L, rd = R; hh, ww = L.shape[:2]; zr = zfull[Y0:Y0 + hh, X0:X0 + ww]
             vis = ((zr <= 0) | (zr > rd - 2.0)).astype(f32)
             sub = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L * vis[..., None])
-            img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, L[..., 3], vis, f, seed=2)
+            img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, L[..., 3], vis, f, seed=2, up=3, down=5, amt=.75)
         # the lamp in the air and the beam in the rain
         lx, ly = self.lh.lamp_px(cam, self.at)
         zl = zfull[int(np.clip(ly + 3, 0, H - 1)), int(np.clip(lx, 0, W - 1))]
@@ -196,7 +196,7 @@ class Shot:
             img[Y0:Y0 + hh, X0:X0 + ww] = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
             rka[Y0:Y0 + hh, X0:X0 + ww] = L[..., 3]
         cvs = Canvas(H, W, layer=True)
-        SEA.crest_spray(cvs, info['foam'] * (rka < .3), G, f, wind=(1., -.12), n=220, seed=4, ymax=None)
+        SEA.crest_spray(cvs, info['foam'] * (rka < .3), G, f, wind=(1., -.12), n=110, seed=4, ymax=None)
         age = ((f // 2) * 2) / 24. - self.t_crash
         hp = cam.project(np.array([HIT[0] - .5, HIT[1], 2.0]))[0]
         mist = np.zeros((H, W), f32)
