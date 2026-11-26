@@ -193,9 +193,9 @@ def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, w
                 xs, ys = scatter_mask(am, n, rr)
                 ix, iy = np.clip(xs.astype(int), 0, am.shape[1] - 1), np.clip(ys.astype(int), 0, am.shape[0] - 1)
                 cvt = Canvas(img=gd, h=gd.shape[0], w=gd.shape[1])
-                c0 = gd[iy, ix] * (1 + rr.normal(0, .09 + .14 * dabs, (n, 1))).astype(f32)
+                c0 = gd[iy, ix] * (1 + rr.normal(0, .06 + .05 * dabs, (n, 1))).astype(f32)
                 c0 = c0 + (rr.random((n, 1)) < .18) * (rgb(pal['lichen']) - c0) * .5
-                ang = p.ang[sl][iy, ix] + rr.normal(0, .35, n)
+                ang = p.ang[sl][iy, ix] + rr.normal(.5, .45, n)
                 P = arcs(xs, ys, ang, sizes[0] * rr.uniform(1.2, 3.2, n), rr.normal(0, .4, n))
                 cvt.strokes(P, sizes[0] * rr.uniform(.25, .6, n), np.clip(c0, 0, 1), op=rr.uniform(.4, .85, n), dry=rr.uniform(0, .5, n), seed=seed + 5,
                             lab=p.lab[sl], LAB=p.lab[sl][iy, ix], bristle=.08)

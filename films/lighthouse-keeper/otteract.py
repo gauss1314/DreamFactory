@@ -918,9 +918,10 @@ def act_s7(f, M):
                 hold = np.array([11.0, 44.0, -3.0])
                 q = hold * (1 - reach) + pb * reach
                 q = q * (1 - back) + np.array([8.0, 42.0, -6.0]) * back
-                P['pawL'] = tuple(q)
-                P['pawR'] = (14.5 + 3 * reach, 47.0 + 2 * reach, 4.0)
                 P = lean(P, (.26 * (1 - reach) + .12 * reach) * (1 - back))
+                P['pawL'] = tuple(q)
+                P['armxL'] = 1.0 + .2 * reach * (1 - back)        # the last little stretch to the wick
+                P['pawR'] = (14.5 + 3 * reach, 47.0 + 2 * reach, 4.0)
                 P['hpitch'] = .05 * reach; P['look'] = (.6, .1)
                 P['ears'] = .2
                 lit = 1.0 if d < T['back'] + 8 else 0.0
@@ -1003,7 +1004,7 @@ def act_s9(f, M):
         sw = math.sin((d - (h2 + 8)) / 10.0 * 2 * math.pi) if d >= h2 + 8 else 0.0
         keepL = P['pawL']
         P = stretch(P, 5.0 * wv)
-        P['pawL'] = keepL                                  # the other forearm stays on the bar
+        P['pawL'] = (keepL[0], keepL[1] - 2.0 * wv, keepL[2])   # the other forearm stays on the bar
         P['shrugR'] = 7.0 * wv
         P['armxR'] = 1.0 + .38 * wv
         up_ = _shoulder(P, 1) + np.array([-3.0 + 7.0 * sw, 24.0 - 2.0 * abs(sw), 8.0])

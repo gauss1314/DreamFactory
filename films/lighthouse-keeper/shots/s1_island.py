@@ -9,7 +9,7 @@ from lp.cam import Camera3D
 import lighthouse as lh
 import island
 
-VER = 'v6'
+VER = 'v7'
 HZ = 690.
 EYE = 1.7
 FOCAL = 2400.
@@ -243,7 +243,7 @@ class Shot:
         M = cached('mid', mid)
         self.mid, self.glass, self.foam, self.towa = M[..., :4].copy(), M[..., 4].copy(), M[..., 5].copy(), M[..., 6].copy()
         del M
-        self.fg = cached('fg', lambda: island.paint_rocks(cam, fg_rocks(cam), 'night', light=self.md + np.array([0, 0, .2]), seed=8, sizes=(16, 8, 4), tex=.10, dabs=1.0)[0])
+        self.fg = cached('fg', lambda: island.paint_rocks(cam, fg_rocks(cam), 'night', light=self.md + np.array([0, 0, .2]), seed=8, sizes=(18, 9, 4.5), tex=.10, dabs=1.2)[0])
         self.gl = glitter_set(cam)
         self.lr = lamp_reflection(cam)
         self.seam = smooth(HZ - .5, HZ + 1.0, np.arange(H, dtype=f32))[:, None] * np.ones((1, W), f32)

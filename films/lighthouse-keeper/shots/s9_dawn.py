@@ -271,7 +271,7 @@ class Shot:
             for i, a in enumerate(ages):
                 X, Y = _boat_path(t - a)
                 X -= dx * 4.2; Y -= dy * 4.2
-                off = s * (.8 + a * v * .34)
+                off = s * (.8 + a * v * .42)
                 cx, cy = X + px * off, Y + py * off
                 # a crest: short, slanted back from the arm, longer and fainter with age
                 L = .9 + a * .35
@@ -281,8 +281,8 @@ class Shot:
                 if (z < 2).any() or (S[:, 1] < HZ + 2).any(): continue
                 lift = .55 + .45 * math.sin(2 * math.pi * (t * .7 - a * .55) + jit[2, i])
                 P.append(np.vstack([S[0], (S[0] + S[1]) / 2, S[1], (S[1] + S[2]) / 2, S[2]]))
-                WD.append(max(.6, float(CAM.f / z[1]) * (.09 + .02 * a)))
-                OP.append(float(np.exp(-a / 3.6) * .8 * lift))
+                WD.append(max(.8, float(CAM.f / z[1]) * (.14 + .03 * a)))
+                OP.append(float(np.exp(-a / 4.2) * .9 * lift))
         # the churned trail
         for i, a in enumerate(ages[:40]):
             X, Y = _boat_path(t - a); X -= dx * 4.6; Y -= dy * 4.6
