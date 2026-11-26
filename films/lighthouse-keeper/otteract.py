@@ -867,7 +867,7 @@ def act_s7(f, M):
         hold_t = np.array([13.0, 44.0, -3.0])                    # the far paw, holding the match out
         ps = Vt.p(hold_t)[:2]
         wick_paw = np.array([wkx, wky]) - md * 7.1 * k           # paw position that puts the head on the wick
-        x_st = float(np.clip(wick_paw[0] - ps[0], lg_x0 + 10, lg_x1 - 10))
+        x_st = float(np.clip(wick_paw[0] - 15.0 * k, lg_x0 + 10, lg_x1 - 10))   # the wick an easy forearm's reach away
         if d < T['top']:
             facing = 'right'
             if d < T['climb']:
@@ -1001,7 +1001,9 @@ def act_s9(f, M):
     if wv > 0:
         # a clear wave: the paw goes up over the head and swings twice
         sw = math.sin((d - (h2 + 8)) / 10.0 * 2 * math.pi) if d >= h2 + 8 else 0.0
+        keepL = P['pawL']
         P = stretch(P, 5.0 * wv)
+        P['pawL'] = keepL                                  # the other forearm stays on the bar
         P['shrugR'] = 7.0 * wv
         P['armxR'] = 1.0 + .38 * wv
         up_ = _shoulder(P, 1) + np.array([-3.0 + 7.0 * sw, 24.0 - 2.0 * abs(sw), 8.0])

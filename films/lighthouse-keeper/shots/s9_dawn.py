@@ -108,7 +108,7 @@ class Shot:
             return a.astype(f32)
         self.sky = cached('sky', sky_plate)
         sea = cached('sea', lambda: np.dstack(sea_plate(cam, sd)))
-        self.sea, self.Y, self.sheen = sea[..., :3].copy(), sea[..., 3].copy(), sea[..., 4].copy()
+        self.sea, self.Y, self.sheen = sea[..., :3].copy(), np.nan_to_num(sea[..., 3], nan=1e4, posinf=1e4, neginf=1e4), sea[..., 4].copy()
         del sea
         def reef():
             L, info = island.paint_rocks(cam, reef_rocks(), 'dawn', light=light, seed=12, sizes=(5, 2.5, 1.3), tex=.06, dabs=.6, rim=.2, wet=.45)
@@ -557,7 +557,7 @@ def sky_plate():
 def sea_plate(cam, sd):
     fh = cam.R[2][:2] / np.linalg.norm(cam.R[2][:2])
     u, v, t = cam.uv((0, 0, 0), (fh[1], -fh[0], 0), (fh[0], fh[1], 0))
-    Y = np.where(t > 0, v, 1e4).astype(f32)
+    Y = np.where((t > 0) & np.isfinite(v), np.clip(v, -1e4, 1e4), 1e4).astype(f32)
     x, y = grid()
     q = np.clip((y - HZ) / (H - HZ), 0, 1)
     base = ramp(q, [(0, '#e6c8c6'), (.04, '#c7b6c4'), (.25, '#aeb0c8'), (.6, '#9aa8c8'), (1, '#8a9ac0')])
