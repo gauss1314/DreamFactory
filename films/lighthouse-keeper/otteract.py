@@ -308,7 +308,9 @@ def act_s2(f, M):
     q = np.asarray(M.get('hatch_quad', ((hx - 240, hy + 100), (hx + 200, hy + 60), (hx + 180, hy - 60), (hx - 160, hy - 40))), float)
     rim_x = q[1][0] * .55 + q[2][0] * .45                # the right edge of the opening, at the floor
     stx, sty = M['step']
-    lamp = np.asarray(M.get('filler', M['lamp']), float)
+    funnel = np.asarray(M.get('filler', M['lamp']), float)
+    lamp = np.asarray(M['lamp'], float)                     # where the spout hovers while pouring
+    if lamp[1] > funnel[1] - 25: lamp = funnel - [0, 34.0]   # high enough above the funnel for the oil to show
     can_c = (10.5, 46.0)
     props, pts, facing, clip = [], {}, None, None
     # ---------------- where it stands to pour: spout on the filler cap
@@ -498,7 +500,7 @@ def act_s2(f, M):
         pts['can'] = _closest(cp['grip'], pts['paw'], k * 4.2)
         if T['pour'] <= d < T['pour_end']:
             pts['spout'] = cp['spout']
-            props.append(('front', oil_stream(V, cp['spout'], lamp, d, envd, k)))
+            props.append(('front', oil_stream(V, cp['spout'], funnel, d, envd, k)))
     else:
         # standing on the plinth behind it, where it was put down
         Vc = O.View(x_pl, plinth_y, k, yaw=0.0, tilt=.08)
@@ -806,7 +808,12 @@ def act_s7(f, M):
         strain = 1.0 if d < T['shut'] else 1 - seg(d, T['shut'] + 2, T['latch'] + 6)
         E, _ = _casement_edge(M, f, push)
         P = lean(P, .48 * strain + .06)
-        P['footL'] = (-9.0 * strain, 2.8, -8.5); P['footR'] = (-16.0 * strain, 2.8 + 1.2 * strain, 8.5); P['fpR'] = -.45 * strain
+        # braced shuffle: as the casement gives, the feet take short pushing steps (planted while in stance)
+        E0, _ = _casement_edge(M, 0, .15)
+        moved = max(0.0, (E0[0] - E[0]) / k)
+        W_ = _walk(moved / 16.0, step=8.0, lift=2.5)
+        P['footL'] = (W_['footL'][0] - 10.0 * strain, W_['footL'][1], -8.5); P['footR'] = (W_['footR'][0] - 15.0 * strain, W_['footR'][1], 8.5)
+        P['fpL'] = W_['fpL'] - .2 * strain; P['fpR'] = W_['fpR'] - .45 * strain
         P['shrugL'] = P['shrugR'] = 3.0 * strain
         P['elbL'] = (0, -1, -1); P['elbR'] = (0, -1, 1)
         y = sy
@@ -823,7 +830,7 @@ def act_s7(f, M):
         if d >= T['shut']:
             # the latch: the near paw slides down the frame and presses it home
             l_ = seg(d, T['shut'], T['latch'])
-            tR = _screen_to_body(V0, E + [0, 5.0 * k * l_], depth_r=6.0)
+            tR = _screen_to_body(V0, E + [0, 2.5 * k * l_], depth_r=6.0)
         P['pawR'] = tuple(_reach(P, 'R', tR)); P['pawL'] = tuple(_reach(P, 'L', tL))
         P['squint'] = .7 * strain; P['ears'] = .9 * strain
         P['mouth'] = (.25 if (d // 4) % 2 else .1) * strain
