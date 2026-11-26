@@ -198,8 +198,11 @@ class Shot:
             img = img + (self._warp(self.glass, zn, dn) * .10 * fl)[..., None] * rgb('#ffb458')
             img = img + (self._warp(self.spill, zn, dn) * .07 * fl)[..., None] * rgb('#ffb458')
         img = self._thrift(img, f)
-        img = comp.over(img, self._warp(self.lean, zn, dn))         # the rail it leans on lies under its forearms
-        img = otteract.draw(img, 's9', f, self.marks(f))
+        # the low rail it leans on goes between its body and its forearms: the otter draws its body,
+        # hands the picture back for the rail, then draws the forearms resting on it
+        M = self.marks(f)
+        M['between'] = lambda im, _f: comp.over(im, self._warp(self.lean, zn, dn))
+        img = otteract.draw(img, 's9', f, M)
         img = comp.over(img, self._warp(self.rail, zn, dn))
         return img
 
