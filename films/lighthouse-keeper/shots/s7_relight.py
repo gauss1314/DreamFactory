@@ -15,6 +15,29 @@ import lamproom as LR
 cv2.setNumThreads(2)
 
 
+import json, os
+_EV = {s_['id']: s_.get('events', {}) for s_ in json.load(open(os.path.join(os.path.dirname(__file__), '..', 'film.json')))['scenes']}
+F_SHUT = int(round(_EV['s7'].get('shut', 1.5) * 24))
+TH_MAX = 1.25
+_CAM = LR.camera('s7')
+
+
+def theta(f):
+    """the casement, banging open in the wind, shouldered shut by the otter: home and latched at shut"""
+    if f >= F_SHUT: return 0.0
+    bang = 1.02 + .14 * math.sin(f * .55) + .06 * math.sin(f * 1.3)
+    a = F_SHUT - 18
+    if f < a: return bang
+    u = (f - a) / 18.
+    k = u ** 1.8                                      # slow against the wind, then home
+    return bang * (1 - k)
+
+
+def casement(f):
+    """marks of the casement for the otter: hinge, free edge (mid height, frame px), angle, open 0..1"""
+    return LR.casement(_CAM, theta(f), TH_MAX)
+
+
 def _e(t, k):
     return 1 - math.exp(-max(0., t) / k)
 
@@ -27,10 +50,12 @@ class Shot:
     # Report the match head as points['match'] in otteract.actors('s7', f, M): its light is drawn here.
     # run_y: floor y of the way round behind the hatch (over the lid lying open there).
     # lamp is the wick here (nothing is poured in s7): where the match goes.
-    M = dict(ground=900, x0=600, x1=1450, scale=290, run_y=850,
+    # ledge: the brass service ring round the tank (x0, x1, y of its standing surface, front edge);
+    # standing on it the paws reach the wick.  casement(f): hinge / free edge of the casement it shuts.
+    M = dict(ground=900, x0=600, x1=1450, scale=290, run_y=850, ledge=(1260, 1610, 680), casement=casement,
              light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.55),
              lamp_light=dict(dir=(.6, -.8), color='#ffb458', amt=.9),
-             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1431, 492), filler=(1463, 607), wick=(1431, 492), lens=(1432, 526))
+             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1431, 492), filler=(1497, 618), wick=(1431, 492), lens=(1432, 526))
 
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}
@@ -55,14 +80,7 @@ class Shot:
 
     # ---------------------------------------------------------------- timing
     def theta(self, f):
-        fs = self.f_shut
-        if f >= fs: return 0.0
-        bang = 1.20 + .22 * math.sin(f * .55) + .08 * math.sin(f * 1.3)
-        a = fs - 16
-        if f < a: return bang
-        u = (f - a) / 16.
-        k = u ** 2.2                                      # slow against the wind, then home
-        return bang * (1 - k)
+        return theta(f)
 
     def match(self, f):
         """screen position of the match head and its brightness"""
@@ -111,7 +129,8 @@ class Shot:
         if m is not None:
             Lt = Lt + self.match_light(m[0], m[1])
         sky = R.sky * (1 - .25 * warm)
-        img = R.render(Lt, sky)
+        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3), wet=1.0,
+                       sheen=rgb('#3a3c5a') * .10 + rgb('#ffb458') * .06 * min(1.2, lamp))
         img = LR.rain(img, f, R.glass, n=320, ang=1.30, speed=70, length=40, col='#a8b6c4', amt=.26, seed=5)
         lit_s = rgb('#3a3c5a') * (1 + .4 * warm) + rgb('#ffb458') * lamp * .35 * (f >= self.f_catch)
         img = LR.draw_sash(img, R.cam, self.theta(f), f, lit_s, seed=8)

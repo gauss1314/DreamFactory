@@ -236,7 +236,7 @@ def env_from(M, **kw):
 # ================================================================== s2: the lamp room
 # 1.0 s up out of the hatch with the can hugged to the chest; walk to the lamp; hop on the plinth;
 # 4.0 s pour; set the can down; 6.0 s wipe the lens with the end of the scarf, two pats; pleased.
-S2 = dict(rise=16, slap=24, heave=28, knee=38, up=44, turn=50, walk=52, hop=86, land=92, lift=93, pour=96, pour_end=120,
+S2 = dict(rise=16, slap=24, heave=28, knee=38, up=44, turn=52, walk=56, hop=86, land=92, lift=93, pour=96, pour_end=120,
           down=128, set=134, reach=138, wipe=144, pat1=166, pat2=174, done=182)
 
 
@@ -265,6 +265,15 @@ def _walk(ph, step=9.0, lift=3.4):
     P['scarf'] = (-1.4 - .6 * math.sin(4 * math.pi * ph - 1.0), .6 * math.cos(4 * math.pi * ph - 1.0))
     P['whisk'] = 1.0
     return P
+
+
+def _lip_clip(L0, L1):
+    """hide what is below the near lip of the opening: it is inside the well"""
+    def clip(ox, oy, w, h):
+        yy, xx = np.mgrid[oy:oy + h, ox:ox + w].astype(f32)
+        yl = L0[1] + (xx - L0[0]) * (L1[1] - L0[1]) / (L1[0] - L0[0])
+        return np.clip(yl - yy + .5, 0, 1)
+    return clip
 
 
 def _hatch_clip(M):
@@ -299,7 +308,7 @@ def act_s2(f, M):
     q = np.asarray(M.get('hatch_quad', ((hx - 240, hy + 100), (hx + 200, hy + 60), (hx + 180, hy - 60), (hx - 160, hy - 40))), float)
     rim_x = q[1][0] * .55 + q[2][0] * .45                # the right edge of the opening, at the floor
     stx, sty = M['step']
-    lamp = np.asarray(M['lamp'], float)
+    lamp = np.asarray(M.get('filler', M['lamp']), float)
     can_c = (10.5, 46.0)
     props, pts, facing, clip = [], {}, None, None
     # ---------------- where it stands to pour: spout on the filler cap
@@ -315,46 +324,80 @@ def act_s2(f, M):
     x_pl = ox_pour
     x_floor_end = min(x_pl - 70, stx - 90)
     walk_x0 = rim_x + 30
-    if d < T['up']:
-        # ---------------- climbing out of the hatch, 3/4 toward the right
-        clip = _hatch_clip(M)
-        dep = keys(d, [(0, 150.0), (T['rise'], 118.0), (T['slap'] - 2, 60.0), (T['heave'], 58.0), (T['knee'] - 2, 24.0), (T['knee'], 20.0), (T['up'], (G - hy) / k)],
+    lip = np.asarray(M.get('hatch_lip', (q[0], q[1])), float)
+    L0_, L1_ = lip[0], lip[-1]
+    lip_y = lambda xx: L0_[1] + (xx - L0_[0]) * (L1_[1] - L0_[1]) / (L1_[0] - L0_[0])
+    x_c = L0_[0] + .66 * (L1_[0] - L0_[0])                 # climbs up inside the opening, toward its right side
+    y_front = lip_y(x_c + 10) + 30.0                        # on the boards just in front of the lip
+    can_floor = np.array([x_c + 62.0, lip_y(x_c + 40) + 24.0])
+    walk_x0 = x_c + 14.0
+    can_state = 'hug'
+    if d < T['up'] + 6:
+        # ---------------- up the ladder inside the opening, paws over the near lip, out onto the boards
+        yaw = keys(d, [(0, 1.15), (T['knee'], 1.05), (T['up'] + 4, .9)])
+        dep = keys(d, [(0, 140.0), (T['rise'], 108.0), (T['slap'] - 2, 60.0), (T['heave'], 58.0), (T['knee'] - 2, 26.0), (T['knee'], 20.0)],
                    e=lambda t: out_(t, 1.6))
-        x = keys(d, [(0, rim_x - 42.0), (T['heave'], rim_x - 36.0), (T['knee'], rim_x - 14.0), (T['up'], walk_x0 - 6.0)])
-        y = hy + dep * k                                   # on the ladder: straight down below the hatch floor
-        yaw = .75
-        P = _hug(O.pose(), can_c)
-        P = lean(P, keys(d, [(0, .05), (T['slap'], .12), (T['heave'] + 4, .38), (T['knee'], .30), (T['up'], .12)]))
-        # right paw: reaches up, slaps on the floor at the rim, hauls; planted in screen space
+        inside = d < T['knee'] + 2
+        x = x_c if inside else x_c + 10.0 * seg(d, T['knee'], T['up'])
+        y = (lip_y(x_c) - 22.0 + dep * k) if inside else y_front
+        clip = _lip_clip(L0_, L1_) if inside else None
+        P = O.pose()
         V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
-        rim_pt = np.array([rim_x + 12.0, G - 4.0])
-        if d >= T['slap']:
-            # body space point under the planted paw
-            pb = _screen_to_body(V0, rim_pt, depth_r=4.0)
-            P['pawR'] = tuple(pb)
-            P['elbR'] = (0, 1, .6)
-        elif d >= T['rise']:
-            t = seg(d, T['rise'], T['slap'])
-            P['pawR'] = (12 + 6 * t, 70 + 26 * math.sin(math.pi * t * .8), 8.0)
-            P['elbR'] = (0, -1, .5)
+        if d < T['rise'] + 2:
+            P = _hug(P, can_c)
+        elif d < T['slap']:
+            # the right paw lifts the can over the lip and sets it on the boards; the left reaches up
+            t = seg(d, T['rise'] + 2, T['slap'] - 2)
+            cs = np.array([x_c + 20.0, lip_y(x_c) - 60.0]) * (1 - t) + can_floor * t
+            P['pawR'] = tuple(_reach(P, 'R', _screen_to_body(V0, cs + [0, -4.0 * k], depth_r=5.0)))
+            P['pawL'] = (10.0, 70.0, -7.0); P['elbL'] = (0, -1, -1)
+            pr = V0.p(P['pawR'])[:2]                               # the can hangs from the paw that really holds it
+            can_state = ('air', pr + [0, 4.0 * k]) if t < 1 else 'floor'
+        if d >= T['slap'] and inside:
+            # both paws over the lip, planted; the body hauls up between them
+            for kk, dx_, r_ in (('L', -18.0, -6.0), ('R', 20.0, 6.0)):
+                tgt = _screen_to_body(V0, np.array([x_c + dx_, lip_y(x_c + dx_) - 3.0]), depth_r=r_)
+                P['paw' + kk] = tuple(_reach(P, kk, tgt))
+            P['elbL'] = (0, .6, -1); P['elbR'] = (0, .6, 1)
+            P = lean(P, keys(d, [(T['slap'], .08), (T['heave'] + 4, .34), (T['knee'], .28)]))
+            for kk, dx_, r_ in (('L', -18.0, -6.0), ('R', 20.0, 6.0)):      # keep the paws on the lip after the lean
+                tgt = _screen_to_body(V0, np.array([x_c + dx_, lip_y(x_c + dx_) - 3.0]), depth_r=r_)
+                P['paw' + kk] = tuple(_reach(P, kk, tgt))
+            can_state = 'floor'
+            if d >= T['knee'] - 2:
+                fb = _screen_to_body(V0, np.array([x_c + 14.0, lip_y(x_c + 14.0) - 2.0]), depth_r=8.5)
+                t = seg(d, T['knee'] - 2, T['knee'] + 2)
+                P['footR'] = tuple(np.asarray(O.STAND['footR']) * (1 - t) + fb * t)
+        elif not inside:
+            # out: straighten up, then bend for the can
+            can_state = 'floor'
+            up_ = seg(d, T['knee'] + 2, T['up'])
+            P = shift(P, du=-5.0 * (1 - up_))
+            P = lean(P, .25 * (1 - up_))
+            if d >= T['up']:
+                # squat for the can, then come up with it
+                bend = keys(d, [(T['up'], .6), (T['up'] + 2, 1.0), (T['up'] + 4, .45)])
+                P = lean(P, .55 * bend); P = shift(P, du=-13.0 * bend)
+                P['footL'] = (5.0, 2.8, -9.5); P['footR'] = (5.0, 2.8, 9.5)
+                lift_ = seg(d, T['up'] + 2, T['up'] + 4)
+                at_ = can_floor * (1 - lift_) + (can_floor + [-6.0, -40.0]) * lift_
+                cb = _screen_to_body(V0, at_ + [0, -5.0 * k], depth_r=0.0)
+                P['pawL'] = tuple(_reach(P, 'L', cb + [-1.0, 0.0, -3.5])); P['pawR'] = tuple(_reach(P, 'R', cb + [1.0, 0.0, 3.5]))
+                pr = (V0.p(P['pawL'])[:2] + V0.p(P['pawR'])[:2]) / 2
+                can_state = ('air', pr + [0, 5.0 * k])
         P['ears'] = keys(d, [(T['rise'], .3), (T['slap'], 0.0)])
-        P['hyaw'] = keys(d, [(T['rise'], -.35), (T['slap'] + 2, .15), (T['heave'], .05)])
-        P['hpitch'] = keys(d, [(T['rise'], .25), (T['slap'], .05), (T['heave'] + 4, -.2), (T['up'], -.05)])
+        P['hyaw'] = keys(d, [(T['rise'], -.3), (T['slap'] + 2, .1), (T['heave'], 0.0)])
+        P['hpitch'] = keys(d, [(T['rise'], .2), (T['slap'], .05), (T['heave'] + 4, -.2), (T['up'], -.05)])
         P['blink'] = blink_at(d, [T['slap'] + 2], 2, 2, 2)
-        # feet: on the ladder, then a knee and a foot up onto the boards
-        if d >= T['knee'] - 2:
-            fb = _screen_to_body(V0, np.array([rim_x + 18.0, G]), depth_r=8.5)
-            t = seg(d, T['knee'] - 2, T['knee'] + 2)
-            P['footR'] = tuple(np.asarray(O.STAND['footR']) * (1 - t) + fb * t)
         P['tail'] = tail_curve(ang=-.9, curl=.1, ln=34)
         P['scarf'] = (keys(d, [(T['slap'], 0.0), (T['heave'] + 4, -1.0), (T['up'], .6)]), keys(d, [(T['slap'], -1.0), (T['heave'] + 4, 1.0), (T['up'], 0.0)]))
         P['whisk'] = 1.0
         tilt_can = 0.0
     elif d < T['hop']:
         # ---------------- the turn to profile, then a brisk waddle to the plinth
-        yaw = keys(d, [(T['up'], .75), (T['turn'], 0.0)])
+        yaw = keys(d, [(T['up'] + 6, .9), (T['turn'] + 2, 0.0)])
         if d < T['walk']:
-            x = walk_x0 - 6.0 + 6.0 * seg(d, T['up'], T['walk'])
+            x = walk_x0
             P = _hug(O.pose(), can_c)
             P = shift(P, du=keys(d, [(T['up'], -2.5), (T['up'] + 2, -3.0), (T['turn'], -1.0), (T['walk'], 0.0)]))
             P['tail'] = tail_curve(ang=-.6, curl=.2)
@@ -373,7 +416,7 @@ def act_s2(f, M):
             P['pawR'] = (P['chest'][0] + 2.0 + 6.0 * sw, P['chest'][1] - 14.0 + 1.5 * abs(sw), 10.5)
             P['elbR'] = (-.4, -.2, 1)
             P['blink'] = blink_at(d, [T['walk'] + 16], 2, 2, 2)
-        y = G
+        y = y_front + (G - y_front) * (0.0 if d < T['walk'] else (d - T['walk']) / float(T['hop'] - T['walk']))
         facing = 'right' if yaw < .05 else None
         tilt_can = 0.0
     elif d < T['land'] + 2:
@@ -413,6 +456,15 @@ def act_s2(f, M):
         else:
             P = _wipe_pose(d, toe)
             tilt_can = None
+            # the scarf corner goes onto the glass ring: aim the paw so the cloth lands on M['lens']
+            if P['_up'] > 0 and 'lens' in M:
+                Vw = O.View(x, y, k, yaw=yaw, tilt=.08)
+                tgt_s = np.asarray(M['lens'], float) + np.array([P['_rub'][0], -P['_rub'][1]]) * k - [P['_pat'] * k, 0]
+                tb = _screen_to_body(Vw, tgt_s, depth_r=6.0) - [1.8, 2.4, 0]
+                cur = np.asarray(P['pawR'], float)
+                w = min(1.0, P['_up'])
+                P['pawR'] = tuple(_reach(P, 'R', cur * (1 - w) + tb * w))
+                if P.get('scarf_to') is not None: P['scarf_to'] = P['pawR']
             # turned three-quarters away, toward the glass, so the stretched paw is on the lens
             if d >= T['done']:
                 # pleased: the head comes round toward us with a squint
@@ -420,7 +472,14 @@ def act_s2(f, M):
     V = O.View(x, y, k, yaw=yaw, tilt=.08)
     envd = env_from(M)
     # the can: hugged while climbing and walking, poured, then left on the plinth
-    if tilt_can is not None:
+    if can_state == 'floor' or (isinstance(can_state, tuple) and can_state[0] == 'air'):
+        at = can_floor if can_state == 'floor' else can_state[1]
+        Vc = O.View(at[0], at[1], k, yaw=.3, tilt=.08)
+        fn, cp = oil_can(Vc, (0.0, 4.8, 0.0), 0.0, envd, k, seed=3)
+        props.append((-1e9 if can_state == 'floor' else 1e9, fn))
+        if can_state != 'floor':
+            pts['paw'] = V.p(P['pawR'])[:2]; pts['can'] = _closest(cp['grip'], pts['paw'], k * 4.6)
+    elif tilt_can is not None:
         cc = P.get('_can')
         if cc is None:
             cc = np.array([P['pawL'][0] + 1.0, P['pawL'][1] - 2.5, 2.5])
@@ -476,15 +535,15 @@ def _screen_to_body(V, p, depth_r=0.0):
 
 def _pour_pose(t, toe=0.0):
     """t 0 hugging .. 1 can raised to the filler and tipped"""
-    can0, can1 = np.array([12.0, 46.0, 0]), np.array([19.5, 61.0, 0])
+    can0, can1 = np.array([12.0, 46.0, 0]), np.array([21.5, 60.0, 0])
     c = can0 * (1 - t) + can1 * t
     P = O.pose(pawL=(c[0] - 2.5, c[1] + 2.0, -4.5), pawR=(c[0] + 1.5, c[1] - 1.5, 4.8), elbL=(0, -1, -1), elbR=(0, -1, 1))
     P = shift(P, du=toe * t, names=('pelvis', 'chest', 'neck', 'head', 'pawL', 'pawR'))
     P['footL'] = (2.5, 2.8 + toe * t * .6, -8.5); P['footR'] = (2.5, 2.8 + toe * t * .6, 8.5)
     P['fpL'] = P['fpR'] = -.35 * toe * t / 4
-    P['hpitch'] = .42 * t; P['hyaw'] = 0.0
-    P['head'] = (P['head'][0] - 4.0 * t, P['head'][1] + .5 * t, 0.0)
-    P['neck'] = (P['neck'][0] - 2.0 * t, P['neck'][1], 0.0)
+    P['hpitch'] = .55 * t; P['hyaw'] = -.25 * t
+    P['head'] = (P['head'][0] - 6.5 * t, P['head'][1] + .5 * t, 0.0)
+    P['neck'] = (P['neck'][0] - 3.0 * t, P['neck'][1], 0.0)
     P['look'] = (0.0, .6 * t)
     P['tail'] = tail_curve(ang=-.5 + .1 * t, curl=.25)
     P['_can'] = c + [0, toe * t, 0]
@@ -513,6 +572,7 @@ def _wipe_pose(d, toe):
     P['hpitch'] = .62 * up; P['look'] = (.3, .9 * up)
     P['head'] = (P['head'][0] - 5.0 * up, P['head'][1] - 1.0 * up, 0.0)
     P['neck'] = (P['neck'][0] - 2.5 * up, P['neck'][1], 0.0)
+    P['_up'], P['_rub'], P['_pat'] = up, rub, pat
     P['scarf_to'] = P['pawR'] if d >= T['reach'] else None
     P['tail'] = tail_curve(ang=-.5 + .25 * math.sin((d - T['set']) / 10.0), curl=.25 + .1 * up)
     P['whisk'] = 1.0
@@ -545,15 +605,17 @@ def mixlight(a, b, t):
 # from the window side, the ears go down.
 def act_s3(f, M):
     k = M['scale'] / CROWN
-    ff = M.get('flash', {}).get('f', 67)
+    ff = int(M['flash']['f']) if 'flash' in M else 67
     d = tw(f)
     P = O.pose()
     br = .45 * math.sin(2 * math.pi * f / 46.0)                     # breathing (on ones: tiny)
     P = shift(P, du=br * .5, names=('chest', 'neck', 'head', 'pawL', 'pawR'))
-    P['hyaw'] = keys(d, [(0, .05), (44, .05), (48, -.06), (58, -.66), (62, -.60)], e=ease)
+    # the eyes go first, the head leads, the body follows round to three-quarters toward the window
+    P['hyaw'] = keys(d, [(0, .05), (44, .05), (48, -.25), (54, -.55), (62, -.12), (66, -.16)], e=ease)
+    byaw = keys(d, [(0, .72), (48, .72), (62, 2.30), (66, 2.26)], e=ease)
     P['hroll'] = keys(d, [(0, 0.0), (32, 0.0), (38, .08), (46, .04), (58, -.04)])
     P['hpitch'] = keys(d, [(0, .02), (44, .02), (56, .08), (ff, .06), (ff + 4, -.04)])
-    lx = keys(f, [(0, .25), (42, .25), (44, -.6), (46, -1.0)], e=lambda t: t) if f < ff else -.8
+    lx = keys(f, [(0, .25), (42, .25), (44, -.6), (46, -1.0), (56, -.4), (62, .35)], e=lambda t: t)
     P['look'] = (lx, keys(d, [(0, .1), (44, .1), (50, .25)]))
     # the blink is on ones: two frames closing, three shut, three opening
     fb = int(round(M.get('blink', 1.0) * 24)) if isinstance(M.get('blink', None), (int, float)) else 24
@@ -569,11 +631,21 @@ def act_s3(f, M):
     P['pawL'] = (9.0, 38.0, -6.0); P['pawR'] = (9.0, 38.0, 6.0)
     # light: the lamp from the right; the flash from the window side, then falling back
     L0 = M['light']; Lf = M.get('flash', dict(dir=(-1, -.3), color='#c8d4f0', amt=1.0))
+    # the flash: full for two frames, then gone in about 0.3 s; a hard cold key from the window side
     t = 0.0
-    if f >= ff: t = 1.0 if f < ff + 3 else max(0.0, 1 - (f - ff - 3) / 9.0) * .85
-    L = mixlight(L0, Lf, t) if 0 < t < 1 else (Lf if t >= 1 else L0)
-    env = O.Env(L, amb='#2c2a48' if t < .5 else '#3a4466', rim=1.0)
-    return Perf(M['x0'], M['ground'], k, .72, P, tilt=.03, env=env, parts=('torso', 'head', 'scarf', 'armL', 'armR'))
+    if f >= ff: t = 1.0 if f < ff + 2 else math.exp(-(f - ff - 1) / 3.0)
+    fx = M.get('flash')
+    if callable(fx):
+        r_ = fx(f)
+        t = float(r_['amt']) if isinstance(r_, dict) else float(r_)
+    if t > .22:
+        L = dict(dir=Lf['dir'], color=Lf['color'], amt=Lf.get('amt', 1.0) * min(1.0, .35 + t))
+        env = O.Env(L, amb='#1c2238', rim=.6, thr=.18, front=.35, glint='#f4f8ff')
+    else:
+        # once turned to the window the lamp is behind it: the face sits in shadow with a warm rim
+        fr = .55 - .5 * seg(byaw, .9, 2.2, e=lambda u: u)
+        env = O.Env(L0, amb='#2c2a48', rim=1.0 + .4 * (.55 - fr), front=fr)
+    return Perf(M['x0'], M['ground'], k, byaw, P, tilt=.03, env=env, parts=('torso', 'head', 'scarf', 'armL', 'armR'))
 
 
 # ================================================================== s5: the light goes out
@@ -686,6 +758,29 @@ def act_s5(f, M):
 S7 = dict(shut=36, latch=42, jump=48, land=56, run=58, hop=76, climb=82, top=92, strike=96, catch=132, back=142, bloom=168)
 
 
+def _casement_edge(M, f, push):
+    """the casement's free edge in frame px: from the set if it gives one, else a stand-in swing"""
+    c = M.get('casement')
+    if callable(c):
+        e = c(f)
+        if isinstance(e, dict) and e.get('edge') is not None: return np.asarray(e['edge'], float), True
+    wx, wy = M['window']
+    return np.array([wx + 75.0 + 95.0 * (1 - push), wy + 25.0]), False
+
+
+def _shoulder(P, side):
+    ch = np.asarray(P['chest'], float)
+    return ch + [1.0, 3.5, side * 10.0] + np.array([.6, 1.0, -side * .3]) * P.get('shrug' + ('L' if side < 0 else 'R'), 0.0)
+
+
+def _reach(P, key, target, V=None):
+    """where a paw really ends up (arm length clamps it), body space"""
+    side = -1 if key == 'L' else 1
+    ax = P.get('armx' + key, 1.0)
+    _, pw = O.ik2(_shoulder(P, side), target, 9.4 * ax, 8.8 * ax, P['elb' + key])
+    return pw
+
+
 def act_s7(f, M):
     k = M['scale'] / CROWN
     d = tw(f)
@@ -695,133 +790,155 @@ def act_s7(f, M):
     sx, sy = M['sill']
     stx, sty = M['step']
     wkx, wky = M['wick']
-    lx_, ly_ = M['lamp']
-    ledge = sy
-    flange = ly_ - 12.0                    # the brass flange round the foot of the glass
-    xf_ = wkx - 64.0
+    fil = M.get('filler', M['lamp'])
+    lg = M.get('ledge')
+    if lg is None: lg = (wkx - 150.0, wkx - 40.0, float(fil[1]))
+    lg_x0, lg_x1, lg_y = float(lg[0]), float(lg[1]), float(lg[2])
+    run_y = M.get('run_y', G - 80.0)
     props, pts, facing = [], {}, None
     P = O.pose()
     yaw = math.pi
-    G = M.get('run_y', G - 80.0)          # run behind the hatch opening, not across it
+    md = np.array([1.0, -.55]); md /= np.hypot(*md)            # the match points up and forward
     if d < T['jump']:
-        # ---------------- on the ledge, pushing the casement shut with the whole body (facing left)
-        x, y = sx + 95.0, ledge
+        # ---------------- on the sill: shoulder and both paws against the casement, feet braced
         facing = 'left'
-        push = keys(d, [(0, .2), (8, .55), (12, .3), (16, .35), (26, .8), (30, .7), (T['shut'], 1.0), (T['latch'], 1.0)])
-        strain = 1.0 if d < T['shut'] else 1 - seg(d, T['shut'], T['latch'] + 4)
-        P = lean(P, .55 * strain + .05)
-        P = shift(P, df=-2.0 * strain)
-        # paws flat on the casement edge (screen fixed via the push amount)
-        edge = np.array([wx + 70.0 - 60.0 * push, wy + 40.0])
-        V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
-        pb = _screen_to_body(V0, edge, depth_r=5.0)
-        P['pawR'] = tuple(pb); P['pawL'] = tuple(_screen_to_body(V0, edge + [6, 22], depth_r=-5.0))
-        P['elbL'] = (0, -1, -1); P['elbR'] = (0, -1, 1)
+        push = keys(d, [(0, .15), (8, .5), (12, .3), (16, .32), (26, .8), (30, .7), (T['shut'], 1.0), (T['latch'] + 6, 1.0)])
+        strain = 1.0 if d < T['shut'] else 1 - seg(d, T['shut'] + 2, T['latch'] + 6)
+        E, _ = _casement_edge(M, f, push)
+        P = lean(P, .48 * strain + .06)
+        P['footL'] = (-9.0 * strain, 2.8, -8.5); P['footR'] = (-16.0 * strain, 2.8 + 1.2 * strain, 8.5); P['fpR'] = -.45 * strain
         P['shrugL'] = P['shrugR'] = 3.0 * strain
-        P['footL'] = (-6.0 * strain, 2.8, -8.5); P['footR'] = (-12.0 * strain, 2.8, 8.5); P['fpR'] = -.3 * strain
-        P['squint'] = .7 * strain; P['ears'] = .9 * strain
-        P['mouth'] = .25 * strain if (d // 4) % 2 else .1 * strain
-        P['hpitch'] = .1
-        P['tail'] = tail_curve(ang=-.2 + .3 * strain, curl=.1)
-        P['scarf'] = (2.5 * strain - .5, 1.2 * math.sin(d / 2.0) * strain)
-        pts['push'] = V0.p(pb)[:2]
+        P['elbL'] = (0, -1, -1); P['elbR'] = (0, -1, 1)
+        y = sy
+        x = E[0] + 20.0 * k                                    # facing left: arm's length from the edge
+        for _ in range(3):                                     # walk the body until the paws reach it
+            V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
+            S = V0.p(_shoulder(P, 1))[:2]
+            dd = np.hypot(*(E - S)); want = 16.5 * k
+            if abs(dd - want) < 1: break
+            x += (dd - want) * (1 if E[0] > S[0] else -1) * (abs(E[0] - S[0]) / (dd + 1e-6))
+        V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
+        tR = _screen_to_body(V0, E, depth_r=6.0)
+        tL = _screen_to_body(V0, E + [0, 9.0 * k], depth_r=-4.0)
         if d >= T['shut']:
-            P['blink'] = blink_at(d, [T['latch'] + 2], 2, 2, 2)
+            # the latch: the near paw slides down the frame and presses it home
+            l_ = seg(d, T['shut'], T['latch'])
+            tR = _screen_to_body(V0, E + [0, 5.0 * k * l_], depth_r=6.0)
+        P['pawR'] = tuple(_reach(P, 'R', tR)); P['pawL'] = tuple(_reach(P, 'L', tL))
+        P['squint'] = .7 * strain; P['ears'] = .9 * strain
+        P['mouth'] = (.25 if (d // 4) % 2 else .1) * strain
+        P['hpitch'] = .05; P['hyaw'] = -.15 * strain
+        P['tail'] = tail_curve(ang=-.35 + .25 * strain, curl=.12)
+        P['scarf'] = (-2.5 * strain - .3, 1.2 * math.sin(d / 2.0) * strain)
+        if d < T['latch'] + 4: pts['push'] = V0.p(P['pawR'])[:2]
+        if d >= T['shut']: P['blink'] = blink_at(d, [T['latch'] + 2], 2, 2, 2)
+        x_ledge = x
     elif d < T['hop']:
-        # ---------------- jump down and dash to the lamp
+        # ---------------- jump down, dash behind the hatch to the lamp
+        x_start = sx + 95.0
+        V0 = None
         x_land = sx + 150.0
         x_run1 = stx - 110.0
         if d < T['land']:
             t = seg(d, T['jump'], T['land'], e=lambda u: u)
-            x = (sx + 95.0) * (1 - t) + x_land * t
-            y = ledge * (1 - t) + G * t - 90 * math.sin(math.pi * t)
-            P = stretch(P, 4.0) if t < .6 else P
+            x = x_start * (1 - t) + x_land * t
+            y = sy * (1 - t) + run_y * t - 90 * math.sin(math.pi * t)
+            if t < .6: P = stretch(P, 4.0)
             P['footL'] = (-2.0, 1.0, -8.5); P['footR'] = (0.0, .5, 8.5)
             P['pawL'] = (14.0, 56.0, -6.0); P['pawR'] = (15.0, 58.0, 6.0)
             P['tail'] = tail_curve(ang=.5, curl=-.15)
             P['scarf'] = (-2.0, 2.5)
-            # jumping down from the ledge: the feet are in the air, not walking along the ground
-            yaw = 0.0; facing = None
         else:
             nfr = T['hop'] - T['land']
             t = (d - T['land']) / float(nfr)
             x = x_land + (x_run1 - x_land) * t
-            y = G
+            y = run_y
             steps = 6
             P = _walk(t * steps / 2, step=(x_run1 - x_land) / steps / k, lift=5.0)
             P = lean(P, .32)
             if d < T['run']: P = shift(P, du=-5.0)
             P['pawL'] = (P['chest'][0] + 8, P['chest'][1] - 6, -8.0); P['pawR'] = (P['chest'][0] + 7, P['chest'][1] - 5, 8.0)
             P['ears'] = .7
-            yaw = 0.0; facing = 'right'
-    elif d < T['top']:
-        # ---------------- hop on the plinth, then up the tank paw over paw to the flange
-        # climbing, not walking: the feet go up the tank, so no walking direction
-        yaw = 0.0; facing = None
-        if d < T['climb']:
-            t = seg(d, T['hop'], T['climb'], e=lambda u: u)
-            x = (stx - 110.0) * (1 - t) + (xf_ - 20) * t
-            y = G * (1 - t) + sty * t - 40 * math.sin(math.pi * t)
-            P['footL'] = (-1.0, 1.0, -8.5); P['footR'] = (1.0, .5, 8.5)
-            P['tail'] = tail_curve(ang=.1, curl=-.1)
-        else:
-            t = seg(d, T['climb'], T['top'] - 2)
-            x = (xf_ - 20) * (1 - t) + xf_ * t
-            y = sty * (1 - t) + flange * t
-            ph = (d - T['climb']) / 4.0
-            P = lean(P, .25)
-            P['pawL'] = (14.0, 64 + 6 * math.sin(ph * math.pi), -6.0); P['pawR'] = (14.0, 64 - 6 * math.sin(ph * math.pi), 6.0)
-            P['footL'] = (8.0, 6 + 5 * max(0, math.sin(ph * math.pi)), -8.5); P['footR'] = (8.0, 6 + 5 * max(0, -math.sin(ph * math.pi)), 8.5)
-            P['tail'] = tail_curve(ang=-1.1, curl=.1, ln=36)
-            P['ears'] = .6
+        yaw = 0.0; facing = 'right'
     else:
-        # ---------------- on the flange: the match
-        x, y, yaw = xf_, flange, 0.0
-        facing = 'right'
-        V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
-        wick = np.array([wkx, wky], float)
-        if d < T['strike']:
-            a = seg(d, T['top'], T['strike'])
-            P['pawR'] = (6.0 + 8 * a, 40.0 - 6 * a, 8.0); P['pawL'] = (8.0, 42.0, -6.0)
-            P = lean(P, .1 * a); P['squint'] = .3 * a; P['ears'] = .4
-            lit = 0.0
-        elif d < T['catch'] - 6:
-            # struck: a flare, then cupped against the body, back to the window
-            P['pawR'] = (13.0, 46.0, 5.0); P['pawL'] = (15.0, 50.0, -2.0)
-            P['elbL'] = (.3, 0, -1)
-            P = lean(P, .22)
-            P['hpitch'] = -.25; P['look'] = (.4, -.5)
-            P['ears'] = keys(d, [(T['strike'], .2), (T['strike'] + 2, .9), (T['strike'] + 8, .5)])
-            P['squint'] = keys(d, [(T['strike'], .7), (T['strike'] + 6, .2)])
-            P['blink'] = blink_at(d, [T['strike']], 1, 2, 2)
-            lit = (d - T['strike']) / 36.0
+        # ---------------- where to stand on the ledge so the match reaches the wick
+        yaw = 0.0
+        Vt = O.View(0.0, lg_y, k, yaw=0.0, tilt=.08)
+        hold_t = np.array([13.0, 44.0, -3.0])                    # the far paw, holding the match out
+        ps = Vt.p(hold_t)[:2]
+        wick_paw = np.array([wkx, wky]) - md * 7.1 * k           # paw position that puts the head on the wick
+        x_st = float(np.clip(wick_paw[0] - ps[0], lg_x0 + 10, lg_x1 - 10))
+        if d < T['top']:
+            facing = 'right'
+            if d < T['climb']:
+                t = seg(d, T['hop'], T['climb'], e=lambda u: u)
+                x = (stx - 110.0) * (1 - t) + (x_st - 20) * t
+                y = run_y * (1 - t) + sty * t - 40 * math.sin(math.pi * t)
+                P['footL'] = (-1.0, 1.0, -8.5); P['footR'] = (1.0, .5, 8.5)
+                P['tail'] = tail_curve(ang=.1, curl=-.1)
+            else:
+                # paw over paw up the brass to the ledge
+                t = seg(d, T['climb'], T['top'] - 2)
+                x = (x_st - 20) * (1 - t) + x_st * t
+                y = sty * (1 - t) + lg_y * t
+                ph = (d - T['climb']) / 4.0
+                P = lean(P, .25)
+                P['pawL'] = (14.0, 64 + 6 * math.sin(ph * math.pi), -6.0); P['pawR'] = (14.0, 64 - 6 * math.sin(ph * math.pi), 6.0)
+                P['footL'] = (8.0, 6 + 5 * max(0, math.sin(ph * math.pi)), -8.5); P['footR'] = (8.0, 6 + 5 * max(0, -math.sin(ph * math.pi)), 8.5)
+                P['tail'] = tail_curve(ang=-1.1, curl=.1, ln=36)
+                P['ears'] = .6
+            lit = None
         else:
-            # to the wick, held, then back and a shake
-            reach = seg(d, T['catch'] - 6, T['catch'])
-            back = seg(d, T['back'], T['back'] + 6)
-            md = np.array([1.0, -.6]); md /= np.hypot(*md)
-            pb = _screen_to_body(V0, wick - md * 7.1 * k, depth_r=5.0)
-            hold = np.array([13.0, 46.0, 5.0])
-            q = hold * (1 - reach) + pb * reach
-            q = q * (1 - back) + np.array([10.0, 44.0, 6.0]) * back
-            P['pawR'] = tuple(q); P['pawL'] = (10.0 + 3 * reach, 46.0 + 6 * reach, -4.0)
-            P['elbR'] = (0, -1, 1)
-            P = lean(P, .18 * reach * (1 - back))
-            P['hpitch'] = .2 * reach; P['look'] = (.5, .3 * reach)
-            P['ears'] = .2
-            lit = 1.0 if d < T['back'] + 8 else 0.0
-            if d >= T['bloom']:
-                tb = seg(d, T['bloom'], T['bloom'] + 10)
-                P['hpitch'] = .35 * tb; P['look'] = (.2, .8 * tb)
-                P['squint'] = .55 * tb; P['smile'] = 1.0 * tb
-                P['ears'] = 0.0
-                P['pawR'] = (9.0, 42.0, 6.0); P['pawL'] = (9.0, 42.0, -6.0)
-        if 'lit' in dir() and lit is not None:
+            x, y = x_st, lg_y
+            facing = 'right'
+            V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
+            wick = np.array([wkx, wky], float)
+            P['elbL'] = (.3, -.5, -1); P['elbR'] = (.2, -.6, 1)
+            if d < T['strike']:
+                # anticipation: the match drawn back against the brass
+                a = seg(d, T['top'], T['strike'])
+                P['pawL'] = (6.0 + 6 * a, 40.0 - 4 * a, -4.0); P['pawR'] = (9.0, 44.0, 6.0)
+                P = lean(P, .1 * a); P['squint'] = .3 * a; P['ears'] = .4
+                lit = 0.0
+            elif d < T['catch'] - 6:
+                # struck: held in the far paw, the body curled over it, the near paw cupped round the flame
+                P['pawL'] = (11.0, 44.0, -3.0)
+                P['pawR'] = (14.5, 47.0, 4.0)
+                P = lean(P, .26)
+                P['hpitch'] = -.3; P['look'] = (.4, -.6)
+                P['ears'] = keys(d, [(T['strike'], .2), (T['strike'] + 2, .9), (T['strike'] + 8, .5)])
+                P['squint'] = keys(d, [(T['strike'], .7), (T['strike'] + 6, .2)])
+                P['blink'] = blink_at(d, [T['strike']], 1, 2, 2)
+                P['scarf'] = (1.2, .4 * math.sin(d / 3.0))
+                lit = (d - T['strike']) / 36.0
+            else:
+                reach = seg(d, T['catch'] - 6, T['catch'])
+                back = seg(d, T['back'], T['back'] + 6)
+                pb = _screen_to_body(V0, wick - md * 7.1 * k, depth_r=-3.0)
+                hold = np.array([11.0, 44.0, -3.0])
+                q = hold * (1 - reach) + pb * reach
+                q = q * (1 - back) + np.array([8.0, 42.0, -6.0]) * back
+                P['pawL'] = tuple(q)
+                P['pawR'] = (14.5 + 3 * reach, 47.0 + 2 * reach, 4.0)
+                P = lean(P, (.26 * (1 - reach) + .12 * reach) * (1 - back))
+                P['hpitch'] = .05 * reach; P['look'] = (.6, .1)
+                P['ears'] = .2
+                lit = 1.0 if d < T['back'] + 8 else 0.0
+                if d >= T['back'] + 8:
+                    P['pawR'] = (9.0, 42.0, 6.0)
+                if d >= T['bloom']:
+                    tb = seg(d, T['bloom'], T['bloom'] + 10)
+                    P['hpitch'] = .35 * tb; P['look'] = (.2, .8 * tb)
+                    P['squint'] = .55 * tb; P['smile'] = 1.0 * tb
+                    P['ears'] = 0.0
+                    P['pawR'] = (9.0, 42.0, 6.0); P['pawL'] = (9.0, 42.0, -6.0)
             Vm = O.View(x, y, k, yaw=yaw, tilt=.08)
-            pw = Vm.p(P['pawR'])[:2]
-            if lit > 0 or d < T['strike']:
-                fn, mp = match_and_flame(Vm, pw, d, min(lit, .99) if lit > 0 else 0.0, O.Env(M['light']), k, d=(1.0, -.6))
-                props.append(('front', fn))
+            pw = Vm.p(P['pawL'])[:2]
+            if lit is not None and (lit > 0 or d < T['strike']):
+                fn, mp = match_and_flame(Vm, pw, d, min(lit, .99) if lit > 0 else 0.0, O.Env(M['light']), k, d=tuple(md))
+                # between the far paw that holds it and the near paw that shields it
+                zL, zR = Vm.p(P['pawL'])[2], Vm.p(P['pawR'])[2]
+                props.append(((zL + zR) / 2.0 + 2.0 * k, fn))
                 if lit > 0 and d < T['back'] + 8: pts['match'] = mp['match']
     # light: storm (cold, dark) until the match; the match warms the face; then the lamp
     Ls = M['light']; Lw = M.get('lamp_light', dict(dir=(.6, -.8), color='#ffb458', amt=.9))
@@ -839,65 +956,78 @@ def act_s7(f, M):
 # ================================================================== s9: dawn
 # Draped over the rail, wet and tired.  3.0 s and 3.6 s the horn: the ears, the head comes up, a paw
 # waves; then it settles, squints into the sun; the tail curls.
+def _rail_y(R, x):
+    R = np.asarray(R, float)
+    return float(np.interp(x, R[:, 0], R[:, 1]))
+
+
+def _rail_clip(R, half):
+    """hide what is behind the bar (the body leaning on it); arms and head lie over it"""
+    R = np.asarray(R, float)
+
+    def clip(ox, oy, w, h):
+        yy, xx = np.mgrid[oy:oy + h, ox:ox + w].astype(f32)
+        yr = np.interp(xx, R[:, 0], R[:, 1]).astype(f32)
+        return np.clip(np.abs(yy - yr) - half + .5, 0, 1)
+    return clip
+
+
 def act_s9(f, M):
     k = M['scale'] / CROWN
     d = tw(f, 3) if f > 160 else tw(f)
-    rail = np.asarray(M['rail'], float)
-    c = rail[len(rail) // 2]
-    ang = math.atan2(rail[-1][1] - rail[0][1], rail[-1][0] - rail[0][0])
-    h1 = 72; h2 = 86
-    rw = M.get('rail_w', 2.2 * k)
+    rail = np.asarray(M.get('lean_rail', M['rail']), float)
+    rw = float(M.get('rail_w', 2.2 * k))
+    h1, h2 = 72, 86
+    # stands on the walkway behind the bar, forearms folded over it, chest against it
+    x = float(M['x0'] + M['x1']) / 2 if 'x0' in M else float(rail[len(rail) // 2][0])
+    ry = _rail_y(rail, x)
+    feet = float(M['deck']) if 'deck' in M else float(M['ground'])
+    yaw = .42
+    V0 = O.View(x, feet, k, yaw=yaw, tilt=.10)
     P = O.pose()
-    # prone along the rail: body horizontal, head toward the sun (+f), legs and tail hang
-    lift = keys(d, [(0, 0.0), (h1 + 2, 0.0), (h1 + 8, 1.0), (140, 1.0), (152, 0.0)])
-    wave = 1.0 if 92 <= d < 132 else 0.0
-    wv = seg(d, 90, 96) * (1 - seg(d, 128, 136))
+    P = lean(P, .16)
+    lift = keys(d, [(0, 0.0), (h1 + 2, 0.0), (h1 + 8, 1.0), (140, 1.0), (152, .35)])
     br = .5 * math.sin(2 * math.pi * f / 60.0)
-    P.update(pelvis=(-14.0, 9.0 + br * .3, 0.0), chest=(10.0, 10.0 + br * .6, 0.0), neck=(21.0, 11.0 + br * .6, 0.0), rp=15.0, rc=13.5, rn=10.0,
-             head=(30.0 + 2 * lift, 13.5 + 7 * lift, 0.0))
-    P['hpitch'] = -.25 + .55 * lift
-    P['hyaw'] = -.55 * lift
-    P['pawL'] = (31.0, 1.5, -5.0); P['pawR'] = (31.0, 2.5, 5.0)
-    P['elbL'] = (0, -1, -1); P['elbR'] = (0, -1, 1)
-    # the horn: it props its front up on the rail, the head comes round
-    P = lean(P, -.42 * lift, piv=(-6.0, 9.0, 0.0))
-    P['hpitch'] = -.25 + .25 * lift
-    P['pawL'] = (31.0 - 3 * lift, 1.5 - 1.5 * lift, -5.0)
-    P['elbL'] = (-1, -1.5, -.5)
+    P = shift(P, du=br * .4, names=('chest', 'neck', 'head'))
+    # head: resting on the forearms, then up at the horn
+    P['head'] = (P['head'][0] + 3.0 - 1.0 * lift, P['head'][1] - 7.0 * (1 - lift), 0.0)
+    P['hpitch'] = -.32 * (1 - lift) + .12 * lift
+    P['hyaw'] = -.15 * lift
+    # forearms over the bar: paws a little past it, elbows on it
+    bar = _screen_to_body(V0, np.array([x + 2.0 * k, ry - .55 * rw]), depth_r=0.0)
+    P['pawL'] = (bar[0] + 9.0, bar[1] - 1.0, -5.0); P['pawR'] = (bar[0] + 9.0, bar[1] + .5, 5.0)
+    P['elbL'] = (-.3, -1, -.6); P['elbR'] = (-.3, -1, .6)
+    wv = seg(d, h2 + 2, h2 + 8) * (1 - seg(d, 128, 136))
     if wv > 0:
-        sw = math.sin((d - 96) / 6.0 * 2 * math.pi) if wave else 0.0
-        ch = np.asarray(P['chest'], float)
-        up_ = np.array([ch[0] + 3.0 + 4.5 * sw * wv, ch[1] + 3.5 + 16.5 * wv, 9.0 + 3 * wv])
+        # a clear wave: the paw goes up over the head and swings twice
+        sw = math.sin((d - (h2 + 8)) / 10.0 * 2 * math.pi) if d >= h2 + 8 else 0.0
+        P = stretch(P, 5.0 * wv)
+        P['shrugR'] = 7.0 * wv
+        P['armxR'] = 1.0 + .38 * wv
+        up_ = _shoulder(P, 1) + np.array([-3.0 + 7.0 * sw, 24.0 - 2.0 * abs(sw), 8.0])
         P['pawR'] = tuple(np.array(P['pawR'], float) * (1 - wv) + up_ * wv)
-        P['shrugR'] = 3.0 * wv
-        P['elbR'] = (.6, -.3, 1)
-    P['footL'] = (-16.0, -10.0, -9.0); P['footR'] = (-12.0, -8.5, 9.0); P['fpL'] = -1.0; P['fpR'] = -.9
-    curl = keys(d, [(0, .2), (210, .2), (228, .55), (246, .35), (264, .6)])
-    P['tail'] = ((-28.0, 4.0, 0), (-33.0, -4.0, 0), (-35.0, -13.0, 1.0), (-33.0 + 6 * curl, -21.0 + 2 * curl, 2.0), (-28.0 + 12 * curl, -23.0 + 7 * curl, 3.0))
+        P['elbR'] = (.2, -.3, 1)
+        P['mouth'] = .35 if h2 + 4 <= d < 110 else 0.0
+    P['footL'] = (2.0, 2.8, -8.5); P['footR'] = (4.0, 2.8, 8.5)
+    curl = keys(d, [(0, .2), (210, .2), (228, .7), (246, .45), (264, .8)])
+    P['tail'] = tail_curve(ang=-.25, curl=.15 + .35 * curl, ln=40)
     P['ears'] = keys(d, [(0, .45), (h1, .45), (h1 + 2, 0.0), (150, 0.0), (160, .3), (216, .3), (218, 0.0), (224, .3)])
-    P['squint'] = keys(d, [(0, .5), (h1, .5), (h1 + 2, 0.0), (140, 0.0), (170, .35), (190, .75)])
-    P['blink'] = keys(d, [(0, .45), (h1, .45), (h1 + 2, 0.0)]) if d < h1 + 2 else blink_at(d, [110, 176], 2, 3, 3)
+    P['squint'] = keys(d, [(0, .45), (h1, .45), (h1 + 2, 0.0), (140, 0.0), (170, .4), (190, .8)])
+    P['blink'] = keys(d, [(0, .5), (h1, .5), (h1 + 2, 0.0)]) if d < h1 + 2 else blink_at(d, [112, 176], 2, 3, 3)
     P['smile'] = keys(d, [(96, 0.0), (104, 1.0)])
-    P['mouth'] = .3 if (d >= h2 + 4 and d < 100) else 0.0
-    P['look'] = keys(d, [(0, (0.0, -.3)), (h2, (0.0, -.3)), (h2 + 4, (-.5, -.6)), (140, (-.5, -.6)), (160, (.6, .3))])
-    P['wet'] = keys(d, [(0, 1.0), (312, .55)], e=lambda t: t)
+    P['look'] = keys(d, [(0, (0.0, -.3)), (h2, (0.0, -.3)), (h2 + 4, (-.3, -.7)), (140, (-.3, -.7)), (160, (.7, .3))])
+    P['wet'] = keys(d, [(0, 1.0), (312, .6)], e=lambda t: t)
     P['wph'] = .5 * (d // 8)
     P['scarf'] = (.3, -.6)
     env = O.Env(M['light'], amb='#8d7a98', rim=1.2, thr=.02)
-    p = Perf(c[0], c[1] + .15 * rw, k, 0.0, P, roll=ang, tilt=.10, env=env, facing=None)
-    V = p.view()
-    # the forearm lying along the rail: the elbow is just behind the far paw, on the bar
-    ch = np.asarray(P['chest'], float)
-    sh = ch + [1.0, 3.5, -10.0]
-    pl = np.asarray(P['pawL'], float)
-    el, _ = O.ik2(sh, pl, 9.4, 8.8, P['elbL'])
-    a2, b2 = V.p(el)[:2], V.p(pl)[:2]
-    best = a2
-    for t in np.linspace(0, 1, 21):
-        q = a2 * (1 - t) + b2 * t
-        if _dpoly(q, rail) < _dpoly(best, rail) - 1e-6: best = q
+    # the set draws the bar over the otter, so the body needs no clip of its own
+    p = Perf(x, feet, k, yaw, P, tilt=.10, env=env)
+    # contact: the near forearm where it crosses the bar
+    sh = _shoulder(P, 1)
+    el, pw = O.ik2(sh, np.asarray(P['pawR'] if wv <= 0 else P['pawL'], float), 9.4, 8.8, P['elbR'] if wv <= 0 else P['elbL'])
+    a2, b2 = V0.p(el)[:2], V0.p(pw)[:2]
+    best = min((a2 * (1 - t) + b2 * t for t in np.linspace(0, 1, 21)), key=lambda q: _dpoly(q, rail))
     p.points = {'elbow': best}
-    p.y = float(c[1])
     return p
 
 

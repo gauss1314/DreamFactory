@@ -14,6 +14,36 @@ import lamproom as LR
 cv2.setNumThreads(2)
 
 STILL = (116, 142)          # the beat of complete stillness (frames)
+import json, os
+_EV = {s_['id']: s_.get('events', {}) for s_ in json.load(open(os.path.join(os.path.dirname(__file__), '..', 'film.json')))['scenes']}
+F_OPEN = int(round(_EV['s5'].get('window', 1.5) * 24))
+F_OUT = int(round(_EV['s5'].get('out', 3.5) * 24))
+TH_MAX = 1.25               # how far the casement swings into the room
+_CAM = LR.camera('s5')
+
+
+def theta(f):
+    """casement angle (radians, into the room) at shot frame f (the stillness beat holds it)"""
+    a, b = STILL
+    f = f if f < a else (a if f < b else f - (b - a))
+    fo = F_OPEN
+    if f < fo:
+        th = .004 * math.sin(f * 1.9) + .003 * math.sin(f * 3.1)
+        for k0 in (fo - 14, fo - 7):                  # it shivers twice against the latch
+            u = f - k0
+            if 0 <= u < 5: th += .10 * math.sin(u / 5 * math.pi) * (1 if k0 == fo - 7 else .7)
+        return th
+    u = f - fo
+    # slams open past the stop, bounces back, and is then worried by the wind
+    if u < 4: return [.35, .80, 1.15, 1.30][u]
+    tt = u - 4
+    base = 1.05 + .25 * math.exp(-tt / 5.) * math.cos(tt * .9)
+    return base + .05 * math.sin(f * .35) + .025 * math.sin(f * .83)
+
+
+def casement(f):
+    """marks of the casement for the otter: hinge, free edge (mid height, frame px), angle, open 0..1"""
+    return LR.casement(_CAM, theta(f), TH_MAX)
 
 
 class Shot:
@@ -26,7 +56,8 @@ class Shot:
     M = dict(ground=900, x0=700, x1=1450, scale=290,
              light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.6),
              lamp_light=dict(dir=(.6, -.8), color='#ffb458', amt=.8),
-             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1463, 607), wick=(1431, 492), lens=(1432, 526))
+             casement=casement,
+             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1497, 618), wick=(1431, 492), lens=(1432, 526))
 
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}
@@ -51,20 +82,7 @@ class Shot:
         return f - (b - a)
 
     def theta(self, f):
-        """casement angle (radians, into the room)"""
-        fo = self.f_open
-        if f < fo:
-            th = .004 * math.sin(f * 1.9) + .003 * math.sin(f * 3.1)
-            for k0 in (fo - 14, fo - 7):                  # it shivers twice against the latch
-                u = f - k0
-                if 0 <= u < 5: th += .10 * math.sin(u / 5 * math.pi) * (1 if k0 == fo - 7 else .7)
-            return th
-        u = f - fo
-        # slams open past the stop, bounces, and is then worried by the wind
-        if u < 4: return [.30, .80, 1.30, 1.62][u]
-        tt = u - 4
-        base = 1.22 + .40 * math.exp(-tt / 5.) * math.cos(tt * .9)
-        return base + .06 * math.sin(f * .35) + .03 * math.sin(f * .83)
+        return theta(f)
 
     def flash(self, f):
         """storm light through the glass: a soft distant flicker early, a crack of lightning at the latch"""
@@ -117,10 +135,11 @@ class Shot:
         Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .9)
         sky = R.sky * (1 + .9 * fl) + rgb('#c8d4f0') * fl * .18
         sky = sky + (np.roll(R.sky, int(t * 2), axis=1) - R.sky) * .0     # clouds held: they move with the rain
-        img = R.render(Lt, sky)
+        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3) if t >= fo else 0.0, wet=1.0,
+                       sheen=rgb('#3a3c5a') * .10 + rgb('#ffb458') * .05 * lamp)
         img = LR.rain(img, t, self.win_mask * (1 - .3 * dark), n=320, ang=1.30, speed=70, length=40, col='#a8b6c4', amt=.30, seed=5)
         # the casement
-        th = self.theta(t)
+        th = theta(f)
         lit = rgb('#3a3c5a') * (1.0 + 1.4 * fl) + rgb('#ffb458') * lamp * .35
         img = LR.draw_sash(img, R.cam, th, t, lit, seed=8)
         if t >= fo:

@@ -1,8 +1,10 @@
-"""s9 黎明.  A still dawn after the storm.  From just off the gallery: the lantern (still lit) and the green dome on the
-left, the otter lying along the iron railing in front of it, the calm sea below breaking into gold under a sun that has
-just cleared the horizon.  The fishing boat passes under the tower and sounds its horn twice (3.0 s, 3.6 s), trailing
-a fine wake; a slow wave washes the reef (6.0 s); the lamp, its night's work done, goes out (9.0 s).  The air moves:
-thrift in the deck's cracks, the sea's glitter.  The camera eases in a little.  The driver fades out the last 2 s."""
+"""s9 黎明.  A still dawn after the storm, close on the otter.  The camera hangs just off the gallery, low, looking
+along it: the otter stands on the gallery floor and leans on the iron railing in the near third of the frame, the lantern
+(still lit) behind it at the upper left, and beyond the rail the calm sea breaking into gold under a sun just clear of the
+horizon.  The fishing boat passes under the tower and sounds its horn twice (3.0 s, 3.6 s), a V of wake opening behind
+it; a slow wave washes the reef (6.0 s); the lamp, its night's work done, goes out (9.0 s).  The air moves: thrift in the
+deck's cracks, the sea's glitter.  The camera dollies in: the gallery grows faster than the sea (two-layer parallax).
+The driver fades out the last 2 s."""
 import numpy as np, cv2, math, os
 from lp import W, H, comp, clouds, cache_path
 from lp.paint import f32, rgb, mix, ramp, smooth, fbm, grid, repaint, mottle, Canvas, arcs, jit_color, lum
@@ -16,25 +18,24 @@ try:
 except Exception:                       # the sea lane's boat; a stand-in is drawn if it is missing
     boat = None
 
-VER = 'v3'
+VER = 'v6'
 AT = (0., 0., 5.6)
 ZD = AT[2] + lh.Z_DECK
+EAZ, YAW = -120., 22.                    # camera azimuth round the tower, view heading (deg, world)
+OAZ = -110.                              # the otter's place on the gallery (deg)
 
 
 def _cam():
-    r, phi, h = 5.9, math.radians(-72), 1.9
-    eye = np.array([r * math.cos(phi), r * math.sin(phi), ZD + h])
-    to = -eye[:2] / np.linalg.norm(eye[:2])
-    yaw, pit = math.radians(27), math.radians(7.5)
-    fx = to[0] * math.cos(yaw) + to[1] * math.sin(yaw); fy = -to[0] * math.sin(yaw) + to[1] * math.cos(yaw)
-    fwd = np.array([fx * math.cos(pit), fy * math.cos(pit), -math.sin(pit)])
-    return Camera3D(eye, eye + fwd, focal=1200.)
+    eye = np.array([3.6 * math.cos(math.radians(EAZ)), 3.6 * math.sin(math.radians(EAZ)), ZD + .5])
+    y, p = math.radians(YAW), math.radians(2.5)
+    fwd = np.array([math.cos(y) * math.cos(p), math.sin(y) * math.cos(p), -math.sin(p)])
+    return Camera3D(eye, eye + fwd, focal=1100.)
 
 
 CAM = _cam()
 HZ = float(CAM.project(CAM.eye + np.r_[CAM.R[2][:2] / np.linalg.norm(CAM.R[2][:2]), 0] * 1e6)[0][1])
-SUN = (1500., HZ - 58.)
-SR = 46.
+SUN = (1590., HZ - 66.)
+SR = 44.
 
 
 def sun_dir(cam=CAM):
@@ -42,34 +43,53 @@ def sun_dir(cam=CAM):
     return d / np.linalg.norm(d)
 
 
-def _rail_pt(az):
-    """world point on the top rail at world azimuth az"""
-    return np.array([AT[0] + lh.R_RAIL * math.cos(az), AT[1] + lh.R_RAIL * math.sin(az), ZD + (lh.Z_RAIL[2] - lh.Z_DECK)])
+def _ring(az_deg, r, z):
+    a = np.radians(np.atleast_1d(az_deg))
+    return np.stack([AT[0] + r * np.cos(a), AT[1] + r * np.sin(a), np.full(a.shape, z)], -1)
 
 
 def _marks():
-    # the otter lies on the near top rail, right of the lamp, its head toward the sun
-    az = math.radians(-58.)
-    P = np.array([_rail_pt(az + d) for d in np.radians([-9, -4.5, 0, 4.5, 9])])
-    S, _ = CAM.project(P)
-    c = P[2]
-    sc = float(CAM.scale(c))
-    sd = np.array(SUN) - S[2]; sd /= np.linalg.norm(sd)
+    """marks for the otter: it stands on the gallery floor, leaning on the low rail, facing the sea and the sun"""
+    feet = _ring(OAZ, 2.68, ZD)[0]
+    (fx, fy), _ = CAM.project(feet)
+    sc = float(CAM.scale(feet))
+    side = _ring([OAZ - 3.5, OAZ + 3.5], 2.68, ZD)
+    S, _ = CAM.project(side)
+    lean = CAM.project(_ring(np.linspace(OAZ - 9, OAZ + 9, 7), lh.R_RAIL, AT[2] + lh.Z_RAIL[1]))[0]
+    top = CAM.project(_ring(np.linspace(OAZ - 9, OAZ + 9, 7), lh.R_RAIL, AT[2] + lh.Z_RAIL[-1]))[0]
+    posts = []
+    for az in np.arange(-180, 180, 10) + 5:
+        if abs(((az - OAZ + 180) % 360) - 180) < 16:
+            b = CAM.project(_ring(az, lh.R_RAIL, ZD))[0][0]; t = CAM.project(_ring(az, lh.R_RAIL, AT[2] + lh.Z_RAIL[-1]))[0][0]
+            posts.append(((float(b[0]), float(b[1])), (float(t[0]), float(t[1]))))
+    sd = np.array(SUN) - np.array([fx, fy - .3 * .4 * sc]); sd /= np.linalg.norm(sd)
     lx, ly = lh.lamp_px(CAM, AT)
-    return dict(ground=float(S[2][1]), x0=float(S[1][0]), x1=float(S[3][0]), scale=float(.40 * sc),
-                light=dict(dir=(float(sd[0]), float(sd[1])), color='#ffe7b8', amt=.8),
-                rail=[(float(x), float(y)) for x, y in S], rail_w=float(.05 * sc),
-                lamp=(lx, ly), lamp_off=9.0, sun=SUN, back_light=dict(color='#ffc46b', at=(lx, ly), amt=.5, off=9.0))
+    return dict(ground=float(fy), x0=float(min(S[:, 0])), x1=float(max(S[:, 0])), scale=float(.40 * sc),
+                light=dict(dir=(float(sd[0]), float(sd[1])), color='#ffe7b8', amt=.85),
+                rail=[(float(x), float(y)) for x, y in lean], rail_h=float(lh.Z_RAIL[1] - lh.Z_DECK),
+                rail_top=[(float(x), float(y)) for x, y in top], rail_w=float(.045 * CAM.scale(_ring(OAZ, lh.R_RAIL, ZD)[0])),
+                posts=posts, facing='right',
+                lamp=(lx, ly), lamp_off=9.0, sun=SUN, back_light=dict(color='#ffc46b', at=(lx, ly), amt=.45, off=9.0))
 
 
-BOAT_PATH = lambda t: (36. - 2.3 * t, 66. - .9 * t)          # world m; it runs right to left under the tower
+def _boat_path(t):
+    """world position: from the right of the frame toward the tower foot, ~2.5 m/s, passing under the gallery"""
+    a0 = math.radians(YAW - 36.); a1 = math.radians(YAW - 4.)
+    q = t / 13.
+    a = a0 + (a1 - a0) * q; d = 78. - 16. * q
+    return CAM.eye[0] + d * math.cos(a), CAM.eye[1] + d * math.sin(a)
+
+
+def _boat_heading():
+    (x0, y0), (x1, y1) = _boat_path(0.), _boat_path(13.)
+    return math.atan2(y1 - y0, x1 - x0)
 
 
 class Shot:
     n = 312
     finish = dict(hal_amt=.24, vig=.10)
     M = _marks()
-    CX, CY = M['x0'] * .5 + M['x1'] * .5, M['ground'] - 120     # the push closes gently on the otter
+    CX, CY = .8 * (M['x0'] + M['x1']) * .5 + .2 * M['lamp'][0], .55 * (M['ground'] - .5 * M['scale']) + .45 * M['lamp'][1]   # the dolly closes on the otter, the lamp stays in
 
     # ---------------------------------------------------------------- setup
     def setup(self):
@@ -79,90 +99,76 @@ class Shot:
         self.t_wave = float(ev.get('wave', 6.0))
         self.t_off = float(ev.get('lampoff', 9.0))
         cam = CAM
-        sd = sun_dir()
-        self.sd = sd
+        sd = self.sd = sun_dir()
+        light = sd * np.array([1, 1, .6]) + np.array([0, 0, .35])
         def cached(name, fn):
             p = cache_path(f's9_{name}_{VER}.npy')
             if os.path.exists(p): return np.load(p).astype(f32)
             a = fn(); np.save(p + '.tmp.npy', a.astype(np.float16)); os.replace(p + '.tmp.npy', p)
             return a.astype(f32)
-        light = sd * np.array([1, 1, .6]) + np.array([0, 0, .35])
         self.sky = cached('sky', sky_plate)
         sea = cached('sea', lambda: np.dstack(sea_plate(cam, sd)))
         self.sea, self.Y, self.sheen = sea[..., :3].copy(), sea[..., 3].copy(), sea[..., 4].copy()
         del sea
-        def tower():
-            on, m = lh.paint_tower(cam, 'dawn', 1.0, AT, light=light, house=False, masks=True, seed=7)
-            off = lh.paint_tower(cam, 'dawn', 0.0, AT, light=light, house=False, seed=7)
-            g = cv2.dilate(m['glass'], np.ones((5, 5), np.uint8))
-            g = cv2.GaussianBlur(g, (0, 0), 1.2)
-            return np.dstack([on, off, g])
-        T = cached('tower', tower)
-        self.on, self.off, self.glass = T[..., :4].copy(), T[..., 4:8].copy(), T[..., 8].copy()
-        del T
         def reef():
             L, info = island.paint_rocks(cam, reef_rocks(), 'dawn', light=light, seed=12, sizes=(5, 2.5, 1.3), tex=.06, dabs=.6, rim=.2, wet=.45)
             from shots.s1_island import _foam
-            fo = _foam(info['foam'], 110.)
-            return np.dstack([L, fo])
+            return np.dstack([L, _foam(info['foam'], 110.)])
         R = cached('reef', reef)
         self.reef, self.foam = R[..., :4].copy(), R[..., 4].copy()
+        del R
+        def fore():
+            on, m = lh.paint_tower(cam, 'dawn', 1.0, AT, light=light, house=False, masks=True, seed=7, top_only=True)
+            off = lh.paint_tower(cam, 'dawn', 0.0, AT, light=light, house=False, seed=7, top_only=True)
+            g = cv2.GaussianBlur(cv2.dilate(m['glass'], np.ones((5, 5), np.uint8)), (0, 0), 1.2)
+            on, off = _wall_light(on, g), _wall_light(off, g)
+            deck, edge = gallery(cam, light)
+            rail = railing(cam, light)
+            sh = post_shadows(cam, sd)
+            return np.dstack([on, off, g, deck, rail, sh, edge])
+        F = cached('fore', fore)
+        self.on, self.off, self.glass = F[..., 0:4].copy(), F[..., 4:8].copy(), F[..., 8].copy()
+        self.deck, self.rail, self.shadow, self.edge = F[..., 9:13].copy(), F[..., 13:17].copy(), F[..., 17].copy(), F[..., 18].copy()
+        del F
         self.gl = glitter_set(cam, sd)
         self.thrift_at = self._clumps()
         self.thrift = island.Thrift(self.thrift_at, 'dawn', seed=9, heads=3, blades=70)
-        self.lamp = lh.lamp_px(cam, AT)
-        self.lr = lh.lamp_radius_px(cam, AT)
-        self.shadow = self._post_shadows(sd)
-
-    def _post_shadows(self, sd):
-        """the low sun lays the railing posts' shadows long across the deck"""
-        sh = sd[:2] / np.linalg.norm(sd[:2]); el = math.atan2(sd[2], np.linalg.norm(sd[:2]))
-        Ls = min(7., (lh.Z_RAIL[2] - lh.Z_DECK) / math.tan(max(el, .02)))
-        cv = Canvas(H, W, layer=True, color='#000000')
-        P = []; WD = []
-        dax = np.linalg.norm(CAM.eye[:2] - np.array(AT[:2]))
-        for k in range(36):
-            az = -math.pi + 2 * math.pi * (k + .5) / 36
-            B = np.array([AT[0] + lh.R_RAIL * math.cos(az), AT[1] + lh.R_RAIL * math.sin(az)])
-            ss = np.linspace(0, Ls, 60)
-            Q = B[None] - sh[None] * ss[:, None]
-            rr = np.hypot(Q[:, 0] - AT[0], Q[:, 1] - AT[1])
-            ok = (rr > 1.62) & (rr < lh.R_DECK - .03) & (np.hypot(*(Q - CAM.eye[:2]).T) < dax)
-            if ok.sum() < 4: continue
-            i0 = np.argmax(ok); i1 = i0 + np.argmin(ok[i0:]) if not ok[i0:].all() else len(ok)
-            Q = Q[i0:i1]
-            if len(Q) < 4: continue
-            idx = np.linspace(0, len(Q) - 1, 6).astype(int)
-            S, z = CAM.project(np.c_[Q[idx], np.full(6, ZD + .005)])
-            if (z < .3).any(): continue
-            P.append(S); WD.append(float(CAM.f / z.mean()) * .03)
-        if P:
-            cv.strokes(np.array(P, f32), np.array(WD), np.zeros(3, f32), op=.9, seed=4, shape='flat', bristle=.03)
-        return cv2.GaussianBlur(cv.a, (0, 0), .8) * (self.on[..., 3] > .5)
+        self.hdg = _boat_heading()
+        # warm lamp light lying on the deck by the lantern wall
+        x, y = grid()
+        lx, ly = lh.lamp_px(cam, AT)
+        b = _ring(OAZ + 14, 1.95, ZD)[0]
+        (bx, by), _ = cam.project(b)
+        self.spill = (np.exp(-(((x - bx) / 420.) ** 2 + ((y - by) / 160.) ** 2)) * self.deck[..., 3]).astype(f32)
 
     def _clumps(self):
-        """thrift rooted in the cracks of the gallery deck, by the railing posts"""
+        """thrift rooted in the cracks of the gallery floor, along the foot of the rail and the lantern wall"""
         out = []
-        r = np.random.default_rng(3)
-        for az, rad, s in ((-108, 1.8, .9), (-92, 1.78, 1.1), (-76, 1.85, .8), (-60, 1.8, .7), (-50, 2.05, .6)):
-            P = np.array([AT[0] + rad * math.cos(math.radians(az)), AT[1] + rad * math.sin(math.radians(az)), ZD])
+        for az, rad, s in ((OAZ - 7, 2.72, .8), (OAZ + 9, 2.75, .7), (OAZ + 22, 2.7, .9), (OAZ + 34, 2.66, 1.0), (OAZ + 18, 1.72, .9), (OAZ + 40, 1.75, 1.1)):
+            P = _ring(az, rad, ZD)[0]
             (x, y), z = CAM.project(P)
-            if 0 < x < W and 0 < y < H:
-                out.append((float(x), float(y), float(CAM.scale(P) * .32 * s)))
+            if z > .3 and -40 < x < W + 40 and 0 < y < H + 20:
+                out.append((float(x), float(y), float(min(260., CAM.scale(P) * .26 * s))))
         return out
 
     # ---------------------------------------------------------------- per frame
     def lampk(self, f):
         """1 lit .. 0 out: the flame shrinks over half a second from the declared moment"""
-        t = f / 24.
-        q = np.clip((t - self.t_off) / .55, 0, 1)
+        q = np.clip((f / 24. - self.t_off) / .55, 0, 1)
         return float(1 - q ** .7) if q < 1 else 0.
 
-    def zoom(self, f):
-        return 1 + .028 * comp.ease(f / (self.n - 1.))
+    def cams(self, f):
+        """the dolly: (zoom, dx) of the near layer and of the far layer"""
+        e = comp.ease(f / (self.n - 1.))
+        return (1 + .07 * e, -40 * e), (1 + .02 * e, -18 * e)
+
+    def _warp(self, img, z, dx, interp=cv2.INTER_LINEAR):
+        M = np.float32([[1 / z, 0, self.CX - (self.CX + dx) / z], [0, 1 / z, self.CY - self.CY / z]])
+        return cv2.warpAffine(img, M, (W, H), flags=interp | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT_101)
 
     def frame(self, f):
         t = f / 24.
+        # far layer: sky, sea, reef, boat
         sea = self.sea.copy()
         y0 = int(HZ) - 2
         Y = self.Y[y0:]
@@ -171,35 +177,57 @@ class Shot:
         sea = self._glitter(sea, f)
         sea = self._wake(sea, f)
         seam = smooth(HZ - .5, HZ + 1., np.arange(H, dtype=f32))[:, None, None]
-        img = self.sky * (1 - seam) + sea * seam
-        # the reef, the wave that washes it
-        img = comp.over(img, self.reef)
-        img = self._wave(img, f)
-        img = self._boat(img, f)
-        # the tower: lantern lit until the declared moment, then out
+        far = self.sky * (1 - seam) + sea * seam
+        far = comp.over(far, self.reef)
+        far = self._wave(far, f)
+        far = self._boat(far, f)
+        (zn, dn), (zf, df) = self.cams(f)
+        img = self._warp(far, zf, df)
+        # near layer through its own dolly: lantern (lit until the declared moment), floor, shadows, warm spill
         k = self.lampk(f)
         g = self.glass[..., None] * (1 - k)
-        L = self.on * (1 - g) + self.off * g
-        img = comp.over(img, L)
-        img = img * (1 - self.shadow[..., None] * (1 - rgb('#c4a8c8')) * .55)
+        near = _over4(self.on * (1 - g) + self.off * g, self.deck)
+        near = self._warp(near, zn, dn)
+        img = comp.over(img, near)
+        img = img * (1 - self._warp(self.shadow, zn, dn)[..., None] * (1 - rgb('#c4a8c8')) * .5)
+        lx, ly = self._xf(*self.M['lamp'], f)
         if k > 0:
             fl = k * (1 + .03 * math.sin(f * .9) * (f % 2 == 0))
-            img = lh.lamp_glow(img, CAM, AT, amt=.32 * fl, col='#ffc46b', size=.45)
-            img = img + (self.glass * .10 * fl)[..., None] * rgb('#ffb458')
-        # sun's breath on the whole lit side: a faint warm veil toward the sun
-        # the otter, on the near rail
-        img = otteract.draw(img, 's9', f, self.M)
-        # deck thrift in the wind (on threes)
-        cv = Canvas(H - 700, 1100, layer=True, color='#86906e')
+            img = _glow(img, lx, ly, lh.lamp_radius_px(CAM, AT) * zn, .30 * fl, '#ffc46b')
+            img = img + (self._warp(self.glass, zn, dn) * .10 * fl)[..., None] * rgb('#ffb458')
+            img = img + (self._warp(self.spill, zn, dn) * .07 * fl)[..., None] * rgb('#ffb458')
+        img = self._thrift(img, f)
+        img = otteract.draw(img, 's9', f, self.marks(f))
+        img = comp.over(img, self._warp(self.rail, zn, dn))
+        return img
+
+    def marks(self, f):
+        """Shot.M carried through the dolly of the near layer: where the otter is in this frame's picture"""
+        (zn, dn), _ = self.cams(f)
+        M = dict(self.M)
+        P = lambda q: tuple(float(v) for v in self._xf(q[0], q[1], f))
+        M['ground'] = self._xf(0, self.M['ground'], f)[1]
+        M['x0'] = self._xf(self.M['x0'], 0, f)[0]; M['x1'] = self._xf(self.M['x1'], 0, f)[0]
+        M['scale'] = self.M['scale'] * zn
+        M['rail'] = [P(q) for q in self.M['rail']]; M['rail_top'] = [P(q) for q in self.M['rail_top']]
+        M['rail_w'] = self.M['rail_w'] * zn
+        M['posts'] = [(P(b), P(t)) for b, t in self.M['posts']]
+        M['lamp'] = P(self.M['lamp'])
+        M['back_light'] = dict(self.M['back_light'], at=M['lamp'])
+        return M
+
+    def _thrift(self, img, f):
+        y0 = int(max(0, min(c[1] for c in self.thrift_at) - 280)) if self.thrift_at else H
+        if y0 >= H: return img
+        cv = Canvas(H - y0, W, layer=True, color='#86906e')
         for (x, y, sz) in self.thrift_at:
-            cv.strokes(arcs(np.array([x]), np.array([y - 700 + sz * .03]), np.zeros(1), sz * .9, 0., K=3), sz * .12, rgb('#8d7a98'), op=.45, seed=5, shape='round', bristle=.02)
+            x, y = self._xf(x, y, f)
+            cv.strokes(arcs(np.array([x]), np.array([y - y0 + sz * .03]), np.zeros(1), sz * .9, 0., K=3), sz * .12, rgb('#8d7a98'), op=.45, seed=5, shape='round', bristle=.02)
+        t = f / 24.
         gust = .7 + .5 * math.sin(t * .9) + .35 * math.exp(-((t - 7.5) / 1.2) ** 2)
-        self.thrift.draw(cv, f, wind=gust, ox=0, oy=700, light=1)
-        img[700:, :1100] = comp.over(img[700:, :1100], cv.layer())
-        # the push
-        z = self.zoom(f)
-        M = np.float32([[1 / z, 0, self.CX - self.CX / z], [0, 1 / z, self.CY - self.CY / z]])
-        img = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT_101)
+        (zn, dn), _ = self.cams(f)
+        self.thrift.draw(cv, f, wind=gust, ox=self.CX - (self.CX + dn) / zn, oy=self.CY - self.CY / zn + y0 / zn, scale=zn, light=1)
+        img[y0:] = comp.over(img[y0:], cv.layer())
         return img
 
     def _glitter(self, sea, f):
@@ -221,43 +249,57 @@ class Shot:
 
     # boat ---------------------------------------------------------------
     def _pose(self, t):
-        X, Y = BOAT_PATH(t)
-        hdg = math.atan2(-.9, -2.3)
+        X, Y = _boat_path(t)
         hf = lambda xs, ys: .06 * np.sin(.35 * np.asarray(xs) + .5 * np.asarray(ys) + t * 1.3)
         if boat is not None:
-            return boat.place(CAM, X, Y, hdg, hf)
+            return boat.place(CAM, X, Y, self.hdg, hf)
         (x, y), _ = CAM.project(np.array([X, Y, 0.]))
         return dict(x=float(x), y=float(y), scale=float(CAM.scale(np.array([X, Y, 0.])) * 9), pitch=0., roll=0., facing=-1, fore=1.)
 
     def _wake(self, sea, f):
-        """two fine arms spreading from the stern and a churned trail, fading with age"""
-        t = (f // 2) * 2 / 24.
-        hdg = math.atan2(-.9, -2.3)
-        dx, dy = math.cos(hdg), math.sin(hdg); px, py = -dy, dx
-        ages = np.linspace(.05, 7.5, 60)
-        P = []; WD = []; OP = []; C = []
-        for s in (-1, 1, 0):
-            pts = []
-            for a in ages:
-                X, Y = BOAT_PATH(t - a)
-                X -= dx * 4.3; Y -= dy * 4.3
-                o = s * (.9 + a * 2.3 * .34) if s else 0.
-                pts.append((X + px * o, Y + py * o, 0.))
-            S, z = CAM.project(np.array(pts))
-            for i in range(0, len(S) - 3, 2):
-                q = S[i:i + 4]
-                if (q[:, 1] < HZ + 2).any() or (z[i:i + 4] < 1).any(): continue
-                age = ages[i]
-                P.append(q); WD.append(max(.6, float(CAM.f / z[i]) * (.22 if s == 0 else .1)))
-                OP.append(float(np.exp(-age / (2.2 if s == 0 else 3.4)) * (.75 if s == 0 else .6)))
+        """Kelvin wake: two arms opening from the stern at ~19 degrees, each a train of short feathered crests that
+        widen, soften and fade with age and catch the light as the swell lifts them; a churned trail down the middle"""
+        d = (f // 2) * 2
+        t = d / 24.
+        dx, dy = math.cos(self.hdg), math.sin(self.hdg); px, py = -dy, dx
+        v = 2.6
+        r = np.random.default_rng(77)
+        ages = np.linspace(.15, 9., 90)
+        jit = r.normal(0, 1, (3, len(ages)))
+        P = []; WD = []; OP = []
+        for si, s in enumerate((-1, 1)):
+            for i, a in enumerate(ages):
+                X, Y = _boat_path(t - a)
+                X -= dx * 4.2; Y -= dy * 4.2
+                off = s * (.8 + a * v * .34)
+                cx, cy = X + px * off, Y + py * off
+                # a crest: short, slanted back from the arm, longer and fainter with age
+                L = .9 + a * .35
+                ang = self.hdg + math.pi + s * math.radians(55 + 8 * jit[si, i])
+                q = np.array([[cx - math.cos(ang) * L * .5, cy - math.sin(ang) * L * .5, 0], [cx, cy, 0], [cx + math.cos(ang) * L * .5, cy + math.sin(ang) * L * .5, 0]])
+                S, z = CAM.project(q)
+                if (z < 2).any() or (S[:, 1] < HZ + 2).any(): continue
+                lift = .55 + .45 * math.sin(2 * math.pi * (t * .7 - a * .55) + jit[2, i])
+                P.append(np.vstack([S[0], (S[0] + S[1]) / 2, S[1], (S[1] + S[2]) / 2, S[2]]))
+                WD.append(max(.6, float(CAM.f / z[1]) * (.09 + .02 * a)))
+                OP.append(float(np.exp(-a / 3.6) * .8 * lift))
+        # the churned trail
+        for i, a in enumerate(ages[:40]):
+            X, Y = _boat_path(t - a); X -= dx * 4.6; Y -= dy * 4.6
+            w = .6 + a * .25
+            q = np.array([[X + px * w * jit[0, i] * .4 - dx * .8, Y + py * w * jit[0, i] * .4 - dy * .8, 0], [X + px * w * jit[1, i] * .4, Y + py * w * jit[1, i] * .4, 0], [X + dx * .8, Y + dy * .8, 0]])
+            S, z = CAM.project(q)
+            if (z < 2).any() or (S[:, 1] < HZ + 2).any(): continue
+            P.append(np.vstack([S[0], (S[0] + S[1]) / 2, S[1], (S[1] + S[2]) / 2, S[2]]))
+            WD.append(max(.6, float(CAM.f / z[1]) * (.25 + .05 * a)))
+            OP.append(float(np.exp(-a / 1.6) * .7))
         if not P: return sea
         P = np.array(P, f32)
         x0, y0 = int(max(0, P[..., 0].min() - 10)), int(max(0, P[..., 1].min() - 10))
         x1, y1 = int(min(W, P[..., 0].max() + 10)), int(min(H, P[..., 1].max() + 10))
         if x1 <= x0 or y1 <= y0: return sea
         cv = Canvas(y1 - y0, x1 - x0, layer=True, color='#fff6ea')
-        P = P - np.array([x0, y0], f32)
-        cv.strokes(P, np.array(WD), rgb('#fff6ea'), op=np.array(OP), dry=.25, seed=(f // 2), shape='round', bristle=.04)
+        cv.strokes(P - np.array([x0, y0], f32), np.array(WD), rgb('#fff6ea'), op=np.clip(np.array(OP), 0, 1), dry=.3, seed=7, shape='round', bristle=.05)
         sea[y0:y1, x0:x1] = comp.over(sea[y0:y1, x0:x1], cv.layer())
         return sea
 
@@ -268,7 +310,7 @@ class Shot:
         if boat is not None:
             p2 = self._pose(t - 2 / 24.)
             swing = .25 * math.sin(t * 2.1) - 2. * (p['pitch'] - p2['pitch'])
-            img = boat.draw(img, p['x'], p['y'], p['scale'], p['pitch'], .32, lantern_swing=swing, palette='dawn', facing=p['facing'], f=d,
+            img = boat.draw(img, p['x'], p['y'], p['scale'], p['pitch'], .45, lantern_swing=swing, palette='dawn', facing=p['facing'], f=d,
                             fore=p['fore'], lamp=0.0, wet=0.0, cut=True)
         else:
             c = Cel(W, H)
@@ -290,25 +332,179 @@ class Shot:
         br = .35 + .15 * math.sin(t * 2 * math.pi / 5.)
         if -1.2 < a < 3.5:
             br += .8 * smooth(-1.2, 0, a) * math.exp(-max(0, a) / 1.1)
-        img = img + (self.foam * np.clip(br, 0, 1.2))[..., None] * (rgb('#fff6ea') - img) * .85
-        return img
+        return img + (self.foam * np.clip(br, 0, 1.2))[..., None] * (rgb('#fff6ea') - img) * .85
+
+    def _xf(self, x, y, f, near=True):
+        """plate px -> picture px through the dolly of the near (or far) layer"""
+        (zn, dn), (zf, df) = self.cams(f)
+        z, d = (zn, dn) if near else (zf, df)
+        return self.CX + (x - self.CX) * z + d, self.CY + (y - self.CY) * z
 
     def actors(self, f):
-        acts = otteract.actors('s9', f, self.M)
-        z = self.zoom(f)
-        out = []
-        for a in acts:
-            a = dict(a)
-            a['x'] = self.CX + (a['x'] - self.CX) * z; a['y'] = self.CY + (a['y'] - self.CY) * z; a['s'] = a['s'] * z
-            if 'points' in a:
-                a['points'] = {k: [self.CX + (v[0] - self.CX) * z, self.CY + (v[1] - self.CY) * z] for k, v in a['points'].items()}
-            out.append(a)
+        out = [dict(a) for a in otteract.actors('s9', f, self.marks(f))]
         if boat is not None:
             p = self._pose((f // 2) * 2 / 24.)
             b = boat.actor(p)
-            b['x'] = self.CX + (b['x'] - self.CX) * z; b['y'] = self.CY + (b['y'] - self.CY) * z
+            b['x'], b['y'] = self._xf(b['x'], b['y'], f, False)
             out.append(b)
         return out
+
+
+def _glow(img, x, y, r, amt, col):
+    R = int(r * 7) + 4
+    x0, x1, y0, y1 = max(0, int(x - R)), min(W, int(x + R)), max(0, int(y - R)), min(H, int(y + R))
+    if x1 <= x0 or y1 <= y0: return img
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(f32)
+    q = np.sqrt((xx - x) ** 2 + (yy - y) ** 2) / r
+    g = (.55 * np.exp(-(q / 1.1) ** 2) + .3 * np.exp(-(q / 2.4) ** 2)) * amt
+    img[y0:y1, x0:x1] = comp.screen(img[y0:y1, x0:x1], g[..., None] * rgb(col))
+    return img
+
+
+def _wall_light(L, glass):
+    """the iron lantern wall in shade: sunlight bounced off the floor warms its foot, the paint is weathered"""
+    h, w = glass.shape
+    ys = np.arange(h, dtype=f32)[:, None]
+    gb = np.where(glass.max(0) > .3, h - np.argmax((glass > .3)[::-1], 0), 0).astype(f32)[None]     # glass bottom per column
+    below = smooth(gb + 4, gb + 30, ys) * (L[..., 3] > .5)
+    foot = h - np.argmax((L[..., 3] > .5)[::-1], 0).astype(f32)[None]
+    q = np.clip((ys - gb) / np.maximum(foot - gb, 1), 0, 1)
+    tex = fbm(h, w, (90, 30, 9), (1, .5, .3), 61)
+    col = L[..., :3] / np.maximum(L[..., 3:], 1e-4)
+    col = col * (1 + .045 * tex[..., None] * below[..., None])
+    col = col + (below * q ** 1.6 * .16)[..., None] * (rgb('#f0c8a8') - col)
+    col = col + (below * (1 - q) ** 3 * .10)[..., None] * (rgb('#3e3656') - col)
+    return np.dstack([col * L[..., 3:], L[..., 3:]])
+
+
+def _over4(a, b):
+    """premult a over premult b"""
+    return a + b * (1 - a[..., 3:4])
+
+
+# ================================================================= the gallery: floor, edge, railing, shadows
+def gallery(cam, light, seed=5):
+    """the gallery floor as a painted texture laid on its plane (flagstones round the lantern), and its outer edge"""
+    pal = lh.PAL['dawn']; st = pal['stone']
+    S = 300                                    # px per metre in the texture
+    M = 6.4
+    n = int(M * S)
+    r = np.random.default_rng(seed)
+    cv = Canvas(n, n, color=rgb(st[4]))
+    yy, xx = (np.mgrid[0:n, 0:n].astype(f32) + .5) / S - M / 2
+    rad = np.hypot(xx, yy); th = np.arctan2(yy, xx)
+    # flagstones: two rings of radial slabs, each its own tone; joints dark, worn edges pale
+    lab = np.zeros((n, n), np.int32)
+    k = 0
+    base = cv.img
+    for (r0, r1, nf) in ((1.6, 2.25, 22), (2.25, lh.R_DECK, 30)):
+        edges = np.sort(r.uniform(-math.pi, math.pi, nf))
+        for i in range(nf):
+            a0, a1 = edges[i], edges[(i + 1) % nf] + (2 * math.pi if i == nf - 1 else 0)
+            m = (rad >= r0) & (rad < r1) & (((th - a0) % (2 * math.pi)) < (a1 - a0))
+            k += 1; lab[m] = k
+            base[m] = plants_pick(st, .62 + r.normal(0, .06)) * (1 + r.normal(0, .02, 3).astype(f32))
+    # joints
+    j = np.zeros((n, n), f32)
+    for rr in (1.6, 2.25, lh.R_DECK):
+        j = np.maximum(j, np.exp(-((rad - rr) / .012) ** 2))
+    gx = cv2.Sobel(lab.astype(f32), cv2.CV_32F, 1, 0); gy = cv2.Sobel(lab.astype(f32), cv2.CV_32F, 0, 1)
+    j = np.maximum(j, cv2.GaussianBlur(((np.abs(gx) + np.abs(gy)) > 0).astype(f32), (0, 0), 1.6) * 1.5)
+    base[:] = base * (1 - .35 * np.clip(j, 0, 1)[..., None]) + rgb(st[1]) * .35 * np.clip(j, 0, 1)[..., None]
+    # weather: salt stains, a damp ring near the rail, lichen
+    base[:] = mottle(base, .05, seed + 1, .01, scales=(120, 40, 12))
+    wet = smooth(2.55, 2.9, rad) * (.5 + .5 * fbm(n, n, (90, 30), (1, .5), seed + 3))
+    base[:] = base * (1 - .18 * wet[..., None]) + rgb('#8d7a98') * .18 * wet[..., None]
+    g = repaint(base, (9, 4.5), seed=seed + 4, lab=lab, mask=(lab > 0).astype(f32), thr=(0, .01), density=.9, aspect=3.,
+                jit=(.006, .02, .022), op=.6, dry=.25, curve=.3, bristle=.05)
+    a = ((rad >= 1.58) & (rad <= lh.R_DECK)).astype(f32)
+    a = cv2.GaussianBlur(a, (0, 0), .8)
+    tex = np.dstack([g * a[..., None], a])
+    p0 = (AT[0] - M / 2, AT[1] - M / 2, ZD)
+    L = cam.warp_plane(tex, p0, (1, 0, 0), (0, 1, 0), M, M)
+    # the slab's outer edge, seen from just above: a band below the rim, lit by the low sun
+    c = Cel(W, H)
+    az = np.arange(-180, 181, 2.)
+    for a0, a1 in zip(az[:-1], az[1:]):
+        q = np.vstack([_ring([a0, a1], lh.R_DECK, ZD), _ring([a1, a0], lh.R_DECK, ZD - .26)])
+        zc = cam.cam(q)[..., 2]
+        if (zc < .2).any(): continue
+        nrm = np.array([math.cos(math.radians(a0 + 1)), math.sin(math.radians(a0 + 1)), 0])
+        if (cam.eye - q.mean(0)) @ nrm <= 0: continue
+        v = .3 + .55 * max(0., float(nrm @ (light / np.linalg.norm(light))))
+        c.fill(cam.project(q)[0], plants_pick(st, v))
+    E = c.layer()
+    # rim highlight on the slab lip
+    return _over4(L, E), E[..., 3]
+
+
+def plants_pick(pal, v):
+    from lp import plants
+    return plants.pick(pal, np.array([float(np.clip(v, 0, 1))]))[0]
+
+
+def railing(cam, light):
+    """the iron railing: round posts with ball finials and four rails, drawn as steady ink with a sunlit edge"""
+    pal = lh.PAL['dawn']
+    iron, hi = rgb(pal['iron']), mix(rgb(pal['iron_hi']), rgb('#ffe2b8'), .35)
+    c = Cel(W, H)
+    def seg(a, b, wm, col, alpha=1.):
+        s = cam.clip_seg(a, b)
+        if s is None: return
+        if np.abs(s).max() > 2e4: return
+        w = max(.8, float(cam.scale((a + b) / 2)) * wm)
+        c.line(s, w, col, (0, 0), .04, tremor=.05, alpha=alpha)
+    # rails, far to near
+    for zr in lh.Z_RAIL:
+        az = np.arange(-180, 181, 1.5)
+        P = _ring(az, lh.R_RAIL, AT[2] + zr)
+        dd = np.linalg.norm(P - cam.eye, axis=-1)
+        o = np.argsort(-dd[:-1])
+        for i in o:
+            wm = .035 if zr == lh.Z_RAIL[-1] else .022
+            seg(P[i], P[i + 1], wm, iron)
+            if zr == lh.Z_RAIL[-1]: seg(P[i] + [0, 0, .012], P[i + 1] + [0, 0, .012], .012, hi, .8)
+    for az in np.arange(-180, 180, 10) + 5:
+        b = _ring(az, lh.R_RAIL, ZD)[0]; t = _ring(az, lh.R_RAIL, AT[2] + lh.Z_RAIL[-1] + .06)[0]
+        seg(b, t, .032, iron)
+        lv = np.array([math.cos(math.radians(az)), math.sin(math.radians(az)), 0]) @ (light / np.linalg.norm(light))
+        if lv > -.2:
+            side = np.cross(cam.R[2], [0, 0, 1.]); side /= np.linalg.norm(side) + 1e-9
+            sgn = 1 if side @ light > 0 else -1
+            seg(b + side * .011 * sgn, t + side * .011 * sgn, .009, hi, .7)
+        (x, y), z = cam.project(t)
+        if z > .3 and -50 < x < W + 50 and -50 < y < H + 50:
+            rr = max(1.5, float(cam.scale(t)) * .03)
+            tt = np.linspace(0, 2 * math.pi, 20)
+            c.fill(np.c_[x + rr * np.cos(tt), y + rr * np.sin(tt)], iron)
+            c.fill(np.c_[x + rr * .45 * np.cos(tt) + rr * .3, y + rr * .45 * np.sin(tt) - rr * .3], hi, .8)
+    return c.layer()
+
+
+def post_shadows(cam, sd):
+    """the low sun lays the posts' shadows long across the floor"""
+    sh = sd[:2] / np.linalg.norm(sd[:2]); el = math.atan2(sd[2], np.linalg.norm(sd[:2]))
+    Ls = min(7., (lh.Z_RAIL[-1] - lh.Z_DECK) / math.tan(max(el, .02)))
+    cv = Canvas(H, W, layer=True, color='#000000')
+    P = []; WD = []
+    for k in range(36):
+        az = -math.pi + 2 * math.pi * (k + .5) / 36
+        B = np.array([AT[0] + lh.R_RAIL * math.cos(az), AT[1] + lh.R_RAIL * math.sin(az)])
+        ss = np.linspace(0, Ls, 80)
+        Q = B[None] - sh[None] * ss[:, None]
+        rr = np.hypot(Q[:, 0] - AT[0], Q[:, 1] - AT[1])
+        ok = (rr > 1.62) & (rr < lh.R_DECK - .03)
+        if ok.sum() < 4: continue
+        i0 = int(np.argmax(ok)); i1 = i0 + (int(np.argmin(ok[i0:])) if not ok[i0:].all() else len(ok) - i0)
+        Q = Q[i0:i1]
+        if len(Q) < 4: continue
+        idx = np.linspace(0, len(Q) - 1, 6).astype(int)
+        S, z = cam.project(np.c_[Q[idx], np.full(6, ZD + .005)])
+        if (z < .3).any() or np.abs(S).max() > 2e4: continue
+        P.append(S); WD.append(float(cam.f / z.mean()) * .03)
+    if P:
+        cv.strokes(np.array(P, f32), np.array(WD), np.zeros(3, f32), op=.9, seed=4, shape='flat', bristle=.03)
+    return cv2.GaussianBlur(cv.a, (0, 0), 1.0)
 
 
 def _puff(img, x, y, s, a, seed):
@@ -359,7 +555,8 @@ def sky_plate():
 
 
 def sea_plate(cam, sd):
-    u, v, t = cam.uv((0, 0, 0), (1, 0, 0), (0, 1, 0))
+    fh = cam.R[2][:2] / np.linalg.norm(cam.R[2][:2])
+    u, v, t = cam.uv((0, 0, 0), (fh[1], -fh[0], 0), (fh[0], fh[1], 0))
     Y = np.where(t > 0, v, 1e4).astype(f32)
     x, y = grid()
     q = np.clip((y - HZ) / (H - HZ), 0, 1)
@@ -371,13 +568,15 @@ def sea_plate(cam, sd):
     r = np.random.default_rng(7)
     cv = Canvas(img=base)
     n = 4200
-    Xw = r.uniform(-60, 160, n); Yw = 20 + 1200 * r.uniform(0, 1, n) ** 2.6
+    fh = cam.R[2][:2] / np.linalg.norm(cam.R[2][:2]); rh = np.array([fh[1], -fh[0]])
+    Yw = 20 + 1200 * r.uniform(0, 1, n) ** 2.6; Xw = r.uniform(-.9, 1.1, n) * (Yw * .95 + 10)
     P = np.zeros((n, 5, 2), f32); WD = np.zeros(n, f32); C = np.zeros((n, 3), f32); OP = np.zeros(n, f32); keep = np.zeros(n, bool)
     for i in range(n):
         Lw = r.uniform(2, 7) * (1 + Yw[i] / 200)
-        xs = Xw[i] + np.linspace(-.5, .5, 5) * Lw
-        ys = Yw[i] + np.sin(np.linspace(0, 3, 5) + i) * .2 * (1 + Yw[i] / 150)
-        pts, z = cam.project(np.stack([xs, ys, np.zeros(5)], -1))
+        lat = Xw[i] + np.linspace(-.5, .5, 5) * Lw
+        dep = Yw[i] + np.sin(np.linspace(0, 3, 5) + i) * .2 * (1 + Yw[i] / 150)
+        Q = cam.eye[:2] + fh[None] * dep[:, None] + rh[None] * lat[:, None]
+        pts, z = cam.project(np.c_[Q, np.zeros(5)])
         if (z < 1).any(): continue
         P[i] = pts
         WD[i] = max(.5, cam.f / z[2] * .1 * r.uniform(.6, 1.3))
@@ -401,10 +600,13 @@ def _refl(rf, md, sh, sv):
 def glitter_set(cam, sd):
     r = np.random.default_rng(21)
     m = 14000
+    fh = cam.R[2][:2] / np.linalg.norm(cam.R[2][:2]); rh = np.array([fh[1], -fh[0]])
+    sh = sd[:2] / np.linalg.norm(sd[:2])
+    a0 = math.atan2(sh @ rh, sh @ fh)
     Yw = 25 + 1600 * r.uniform(0, 1, m) ** 2.4
-    a0 = math.atan2(sd[0], sd[1])
-    Xw = cam.eye[0] + (Yw - cam.eye[1]) * math.tan(a0) + r.normal(0, 1, m) * (1 + Yw * .09)
-    P3 = np.stack([Xw, Yw, np.zeros_like(Xw)], -1)
+    Xw = Yw * math.tan(a0) + r.normal(0, 1, m) * (1 + Yw * .09)
+    Q = cam.eye[:2] + fh[None] * Yw[:, None] + rh[None] * Xw[:, None]
+    P3 = np.c_[Q, np.zeros(m)]
     d = P3 - cam.eye; d /= np.linalg.norm(d, axis=-1, keepdims=True)
     pr = _refl(d * np.array([1, 1, -1]), sd, .06, .26)
     keep = r.random(m) < pr
@@ -419,9 +621,13 @@ def glitter_set(cam, sd):
 
 
 def reef_rocks():
+    """a reef off the tower foot, low in the frame on the sea side"""
     r = np.random.default_rng(41)
     P = island.prism
     kw = dict(rough=.34, inset=.4, flare=.22, dome=.2)
-    return [P(13.0, 30.0, 3.2, 2.0, -.08, 1.1, r, k=12, **kw), P(17.5, 32.5, 2.4, 1.6, -.08, .7, r, k=11, **kw), P(9.5, 33.5, 1.8, 1.2, -.08, .5, r, k=10, **kw),
-            P(21.0, 29.0, 1.6, 1.0, -.08, .4, r, k=10, **kw), P(15.2, 27.0, 1.2, .8, -.08, .3, r, k=9, **kw), P(6.5, 31.0, 1.0, .6, -.08, .2, r, k=9, **kw),
-            P(11.0, 27.5, .7, .45, -.08, .15, r, k=8, **kw), P(19.4, 35.0, 1.3, .8, -.08, .3, r, k=9, **kw)]
+    out = []
+    for (da, d, rx, ry, z1, k) in ((-22, 40, 3.2, 2.0, 1.1, 12), (-17, 44, 2.4, 1.6, .7, 11), (-27, 43, 1.8, 1.2, .5, 10), (-13, 41, 1.6, 1.0, .4, 10),
+                                  (-20, 37, 1.2, .8, .3, 9), (-30, 39, 1.0, .6, .2, 9), (-24, 47, 1.3, .8, .3, 9)):
+        a = math.radians(YAW + da)
+        out.append(P(CAM.eye[0] + d * math.cos(a), CAM.eye[1] + d * math.sin(a), rx, ry, -.08, z1, r, k=k, **kw))
+    return out

@@ -32,7 +32,9 @@ LENS = (.25, .465, .94)        # glass drum
 CROWN = (.27, .94, 1.0)
 CAP = (.09, 1.0, 1.12)
 FLAME = np.array([0., 0., .68])
-FILLER = np.array([-.12, -.14, .42])      # the filler cap on top of the tank, front left
+_FA = math.radians(-128)
+FILLER = np.array([.31 * math.cos(_FA), .31 * math.sin(_FA), .40])    # top of the brass filler pipe, front left
+LEDGE = (.40, .30)        # the brass service ring round the tank: outer radius, height of its top
 HATCH = dict(cx=-1.02, cy=-.22, hw=.27, hh=.27)  # floor opening (x, y centre and half sizes)
 
 def _ledge(az_deg, r=.055, h=.17):
@@ -46,7 +48,10 @@ PROPS = [
     ('box', (1.42, 1.90, -.62, -.12, 0., .38), 19),     # crate
     ('box', (1.50, 1.84, -.52, -.22, .38, .58), 19),    # a smaller box on it
     ('box', (.72, 1.08, 1.55, 1.85, 0., .36), 21),      # stool (a block, painted as one)
-] + [(k, a, 20) for k, a, _ in (_ledge(62), _ledge(66, .045, .13), _ledge(118, .05, .2), _ledge(208), _ledge(213, .04, .12))]
+    ('cyl', (0., 0., LEDGE[0], LEDGE[1] - .025, LEDGE[1]), 11),       # service ring to stand on (brass, like the tray)
+    ('cyl', (float(FILLER[0]), float(FILLER[1]), .028, .30, .37), 10),   # filler pipe, up from the service ring
+    ('cyl', (float(FILLER[0]), float(FILLER[1]), .055, .37, .40), 10),   # its funnel
+] + [(k, a, 20) for k, a, _ in (_ledge(62), _ledge(66, .045, .13), _ledge(98, .05, .2), _ledge(208), _ledge(213, .04, .12))]
 # the hatch lid, opened back against its hinge on the far edge
 PROPS.append(('box', (-1.02 - .27, -1.02 + .27, -.22 + .27 + .01, -.22 + .27 + .55, 0., .03), 15))      # lid lying open on the boards
 
@@ -367,7 +372,7 @@ def layout_tag(ck):
     return h[:6]
 
 
-def paint(key, ver="p12"):
+def paint(key, ver="p13"):
     """painted albedo plate + geometry buffers for a camera, cached"""
     ck = 's5' if key == 's7' else key
     path = cache_path(f'lamproom_{ck}_{ver}_{layout_tag(ck)}.npz')
@@ -450,7 +455,7 @@ def lamp_light(P, N, mat):
         sh = below * (1 - _sm(r - soft, r + soft, rr))
         E = E * (1 - .55 * sh)
     lamp = np.isin(mat, (M_PLINTH, M_COLUMN, M_TANK, M_TRAY, M_CROWN))
-    E = np.where(lamp, E * .5 + .12, E)
+    E = np.where(lamp, E * .42 + .16, E)
     E = np.where(mat == M_LENS, 0, E)
     return E.astype(f32)
 
@@ -584,7 +589,7 @@ class Room:
         P = p['P'].astype(f32); N = p['N'].astype(f32)
         self.P, self.N = p['P'], p['N']
         ck = 's5' if key == 's7' else key
-        path = cache_path(f'lamproom_light_{ck}_l13_{layout_tag(ck)}.npz')
+        path = cache_path(f'lamproom_light_{ck}_l14_{layout_tag(ck)}.npz')
         if os.path.exists(path):
             z = np.load(path); L = {k: z[k] for k in z.files}
         else:
@@ -608,6 +613,16 @@ class Room:
         self.glass = (self.mat == M_GLASS).astype(f32)
         self.glass = cv2.GaussianBlur(self.glass, (0, 0), .6)[..., None]
         self.sky = sky(key, weather)
+        # the pane of the casement: an empty hole when it is open
+        az = np.arctan2(P[..., 1], P[..., 0]); step = 2 * math.pi / N_BAYS
+        ph = ((az - bay_az(OPEN_BAY)) % (2 * math.pi)) / step
+        hole = (self.mat == M_GLASS) & (ph > .5) & (ph < 1.0) & (P[..., 2] > Z_GLASS0 - .02) & (P[..., 2] < Z_TRANSOM + .02)
+        self.hole = cv2.GaussianBlur(hole.astype(f32), (0, 0), .8)[..., None]
+        r = np.random.default_rng(12)
+        dm = np.zeros((H, W), f32)
+        for x_, y_, s_ in zip(r.uniform(0, W, 2600), r.uniform(0, H, 2600), r.uniform(.8, 2.6, 2600)):
+            cv2.circle(dm, (int(x_ * 4), int(y_ * 4)), int(s_ * 4), float(r.uniform(.4, 1)), -1, cv2.LINE_AA, 2)
+        self.drops = cv2.GaussianBlur(dm, (0, 0), .6)[..., None]
         self.lamp = Lamp(self, P, N)
         self.lens_m = (self.mat == M_LENS)
 
@@ -638,11 +653,18 @@ class Room:
                 Lt = Lt + (b * beams * lamp)[..., None] * rgb('#ffd08a') * 1.6
         return Lt
 
-    def render(self, Lt, outside=None, outside_amt=1.0):
+    def render(self, Lt, outside=None, outside_amt=1.0, hole_open=0.0, wet=0.0, sheen=None):
+        """wet: rain beads on the glass (storm); sheen: rgb the panes reflect from the room"""
         img = self.alb * Lt
         img = 1 - (1 - np.clip(img, 0, 1.5)) * (1 - rgb('#1c1a30') * .5)       # shadows end in violet
         o = self.sky if outside is None else outside
-        return img * (1 - self.glass) + o * outside_amt * self.glass
+        sh = rgb('#3a3c5a') * .10 if sheen is None else np.asarray(sheen, f32)
+        g = o * outside_amt * .86 + sh
+        if wet > 0: g = g + self.drops * (o * .5 + .05) * wet
+        if hole_open > 0:
+            k = self.hole * hole_open
+            g = g * (1 - k) + o * outside_amt * 1.06 * k
+        return img * (1 - self.glass) + g * self.glass
 
 
 
@@ -765,8 +787,8 @@ def sash_corners(theta):
     """the opening casement (right half of the lower pane of OPEN_BAY), hinged on its right-hand mullion,
     swung into the room by theta radians.  -> 4 world corners (hinge-bottom, free-bottom, free-top, hinge-top)"""
     step = 2 * math.pi / N_BAYS
-    a_free = bay_az(OPEN_BAY) + step * .5 + .012
-    a_hinge = bay_az(OPEN_BAY) + step - .012
+    a_hinge = bay_az(OPEN_BAY) + step * .5 + .012       # hinged on the middle mullion (on the lamp side as seen in s5)
+    a_free = bay_az(OPEN_BAY) + step - .012
     rr = R_WALL - .01
     h = np.array([rr * math.cos(a_hinge), rr * math.sin(a_hinge)])
     p = np.array([rr * math.cos(a_free), rr * math.sin(a_free)])
@@ -778,6 +800,14 @@ def sash_corners(theta):
     q = h + vr
     z0, z1 = Z_GLASS0 - .01, Z_TRANSOM - .02
     return np.array([[h[0], h[1], z0], [q[0], q[1], z0], [q[0], q[1], z1], [h[0], h[1], z1]])
+
+
+def casement(cam, theta, theta_max):
+    """screen marks of the casement: hinge and free edge at mid height, the angle, how open (0..1)"""
+    C = sash_corners(theta)
+    h = cam.project((C[0] + C[3]) / 2)[0]; e = cam.project((C[1] + C[2]) / 2)[0]
+    return dict(hinge=(float(h[0]), float(h[1])), edge=(float(e[0]), float(e[1])), angle=float(theta),
+                open=float(np.clip(theta / theta_max, 0, 1)))
 
 
 def draw_sash(img, cam, theta, f, lit, sky_img=None, seed=0):
@@ -815,6 +845,9 @@ def draw_sash(img, cam, theta, f, lit, sky_img=None, seed=0):
     c.fill(bo(bar), wood)
     hb = q([pt(fw, .5 - fh * .2), pt(1 - fw, .5 - fh * .2), pt(1 - fw, .5 + fh * .2), pt(fw, .5 + fh * .2)])
     c.fill(bo(hb), wood)
+    for v0 in (.12, .80):                     # two hinges on the mullion
+        hp = q([pt(-.02, v0), pt(.05, v0), pt(.05, v0 + .08), pt(-.02, v0 + .08)])
+        c.fill(bo(hp), np.clip(rgb('#8a6130') * lit * 1.4, 0, 1))
     lt = q([pt(.95, .48), pt(.99, .48), pt(.99, .55), pt(.95, .55)])
     c.fill(bo(lt), np.clip(rgb('#c8963c') * lit * 1.3, 0, 1))
     for P in (outer, inner):

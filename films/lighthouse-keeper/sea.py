@@ -64,7 +64,7 @@ def _wave(bx, by, t, KX, KY, A, Q, OM, PH, GRP, RG, fade_s, env_amt, seed):
         lean = RG[r, 8]
         px += dx * lean * z; py += dy * lean * z; pz += z
         nx -= gx; ny -= gy
-        jxx += lean * ga * .5
+        jxx += lean * ga * .22
     J = jxx * jyy - jxy * jxy
     ln = math.sqrt(nx * nx + ny * ny + nz * nz)
     return px, py, pz, nx / ln, ny / ln, nz / ln, J, ph0
@@ -168,7 +168,7 @@ def _sm(a, b, x):
 
 
 @njit(cache=True, fastmath=True, parallel=True)
-def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, CR, BM, T, C, thr, prm, out, FOAM):
+def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, CR, GL, BM, T, C, thr, prm, out, FOAM):
     h, w = V.shape
     hasb = BM.shape[0] == h
     e = .014
@@ -204,7 +204,8 @@ def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, CR, BM, T, C, thr, prm, out
                 c += (C[1, k] - c) * s1
                 c += (C[2, k] - c) * s2
                 c += (C[3, k] - c) * s3
-                c *= 1 + .05 * b
+                c *= 1 + (.05 + .06 * nw) * b
+                c += (C[9, k] - c) * min(1.0, GL[y, x] * (.8 + .5 * b))
                 c += bmv * (C[6, k] * .6 - c * .3)
                 fc = C[5, k] + (C[4, k] - C[5, k]) * fl
                 c += (fc - c) * (hard * .92 + foam * .06)
@@ -311,7 +312,7 @@ class Sea:
         return cv2.remap(tex, (np.mod(u, tw)).astype(f32), (np.mod(v, th)).astype(f32), cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
 
     def paint(self, G, cam, t, pal, light=(-.4, .5, .75), flash=0.0, beam=None, fog_col=None, fog_k=(.0015, 1.0),
-              crest_foam=1.0, streak=1.0, out_hw=(H, W)):
+              crest_foam=1.0, streak=1.0, out_hw=(H, W), lip=0.0, caps=None, glass=0.0):
         """gouache pass.  Geometry G may be at a lower resolution: smooth fields are shaded there, then the tone
         edges are cut at full resolution against brush tiles that run along the crests and travel with them.
         pal: deep, body, face, sky_lo, foam, foam_sh, beam, thr.  beam: warm light on the surface (G's size)."""
@@ -336,8 +337,30 @@ class Sea:
         crest = smooth(.0, 1.0, G['pz'] / (self.A[0] * 1.8))
         v = .30 * F * (.5 + .8 * sky_ref) + .22 * (lam * .5 + .5) + .18 * smooth(.25, .9, nz) * F + .10 * crest * smooth(.2, .8, cosv)
         v = v + .26 * smooth(.25, .85, G['pz'] / (self.A[0] * 2.2)) * smooth(.95, .55, nz) * smooth(.1, .5, cosv)
+        v = v - .10 * smooth(0, -1, G['pz'] / self.A[0])                 # troughs sink
+        v = v + .10 * smooth(-1.2, 1.2, G['pz'] / self.A[0]) * smooth(.3, .05, z * z / (foc * max(cam.eye[2], 1.)) / sc)   # near: faces grade from trough to crest
         J = G['J']
         fold = smooth(.70, .20, J) * smooth(-.3, .4, G['pz'] / (self.A[0] + 1e-3))
+        if caps is not None:      # white caps come in patches: where a wave group is breaking, not everywhere
+            csc, camt = caps
+            if not hasattr(self, '_caps'):
+                self._caps = np.clip(fbm(256, 256, (40, 16), (1, .5), self.seed + 333) * .5 + .5, 0, 1).astype(f32)
+            cf = cv2.remap(self._caps, (G['bx'] / csc * 2.56).astype(f32) % 256, (G['by'] / csc * 2.56).astype(f32) % 256, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+            cf = smooth(.42, .75, cf)
+            fold = fold * ((1 - camt) + camt * 1.8 * cf)
+            v = v + .05 * camt * (cf - .5)
+        if lip > 0:               # the lip: foam riding the top edge of every near crest that hides the sea behind it
+            zab = np.vstack([z[:1], z[:-1]])
+            edge = (M & ((zab > z * 1.3) | (zab <= 0)) & (z < 40)).astype(f32) * smooth(40, 12, z) * smooth(.35, .8, G['pz'] / self.A[0]) * smooth(.95, .8, nz)
+            band = cv2.dilate(edge, np.ones((4, 1), np.uint8), anchor=(0, 0))
+            band = np.maximum(band, cv2.dilate(edge * smooth(30, 10, z), np.ones((20, 1), np.uint8), anchor=(0, 0)) * .7)
+            if not hasattr(self, '_caps'):
+                self._caps = np.clip(fbm(256, 256, (40, 16), (1, .5), self.seed + 333) * .5 + .5, 0, 1).astype(f32)
+            yy_, xx_ = np.mgrid[0:h, 0:w].astype(f32)
+            nn = cv2.remap(self._caps, (xx_ * .9 + G['bx'] * 3) % 256, (yy_ * .5 + G['by']) % 256, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+            band = cv2.GaussianBlur(band * smooth(.35, .6, nn), (0, 0), 1.2)
+            fold = np.maximum(fold, band * lip)
+        gl = (smooth(.25, .9, G['pz'] / (self.A[0] * 2.0)) * smooth(.92, .45, nz) * smooth(.12, .55, cosv) * glass).astype(f32)
         far = 1 - np.exp(-z * fog_k[0])
         mpp = z * z / (foc * max(cam.eye[2], 1.)) / sc           # metres per full-res pixel, vertically
         k0x, k0y = self.k0; k0 = math.hypot(k0x, k0y)
@@ -345,19 +368,21 @@ class Sea:
         cross = (-G['bx'] * k0y + G['by'] * k0x) / k0
         fu = (G['bx'] * self.wind[0] + G['by'] * self.wind[1]) - t * 1.6
         fv = (-G['bx'] * self.wind[1] + G['by'] * self.wind[0])
-        lst = [v, lam, fold, far, mpp, along, fu, fv, M.astype(f32), cross] + ([beam] if beam is not None else [])
+        lst = [v, lam, fold, far, mpp, along, fu, fv, M.astype(f32), cross, gl] + ([beam] if beam is not None else [])
+        for i_ in (0, 1, 2):          # the column renderer is not antialiased across columns: soften before cutting tones
+            lst[i_] = cv2.GaussianBlur(np.asarray(lst[i_], f32), (0, 0), .8)
         if (h, w) != (Hh, Ww):
             lst = [cv2.resize(np.asarray(q, f32), (Ww, Hh), interpolation=cv2.INTER_LINEAR) for q in lst]
-        v, lam, fold, far, mpp, along, fu, fv, Mf, cross = lst[:10]
-        bm = lst[10] if beam is not None else None
+        v, lam, fold, far, mpp, along, fu, fv, Mf, cross, gl = lst[:11]
+        bm = lst[11] if beam is not None else None
         bm = np.zeros((1, 1), f32) if bm is None else np.ascontiguousarray(bm, f32)
         P = lambda k, d: (rgb(pal[k]) if isinstance(pal[k], str) else np.asarray(pal[k], f32)) if k in pal else rgb(d)
         cols = np.stack([P('deep', '#16222b'), P('body', '#1c2a33'), P('face', '#2f4452'), P('sky_lo', '#5d6672'), P('foam', '#d8e2e6'),
-                         P('foam_sh', '#8d9aa6'), P('beam', '#fff2d0'), rgb('#e8f0ff'), P('fog', '#5a5f6e') if fog_col is None else (rgb(fog_col) if isinstance(fog_col, str) else np.asarray(fog_col, f32))]).astype(f32)
+                         P('foam_sh', '#8d9aa6'), P('beam', '#fff2d0'), rgb('#e8f0ff'), P('fog', '#5a5f6e') if fog_col is None else (rgb(fog_col) if isinstance(fog_col, str) else np.asarray(fog_col, f32)), P('glass', '#2f5652')]).astype(f32)
         thr = np.asarray(pal.get('thr', (.25, .36, .48)), f32)
         prm = np.array([crest_foam, streak, flash, fog_k[1] if fog_col is not None else 0., pal.get('bamt', .17), pal.get('foam_amt', 1.0)], f32)
         c = np.empty((Hh, Ww, 3), f32); foam = np.empty((Hh, Ww), f32)
-        _tone(*(np.ascontiguousarray(a_, f32) for a_ in (v, lam, fold, far, mpp, along, fu, fv, Mf, cross)), bm, T, cols, thr, prm, c, foam)
+        _tone(*(np.ascontiguousarray(a_, f32) for a_ in (v, lam, fold, far, mpp, along, fu, fv, Mf, cross, gl)), bm, T, cols, thr, prm, c, foam)
         return c, Mf, dict(foam=foam, far=far, lam=lam, mpp=mpp)
 
 
@@ -425,7 +450,7 @@ def rock(w, h, top, seed=0, pal=('#1d2030', '#2a2e42', '#3c4157', '#5a6078', '#7
 
 
 # ============================================================================ spray
-def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade='#8c98a6', life=1.6, up=1.0, n=60, mist=None):
+def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade='#8c98a6', life=1.6, up=1.0, n=60, mist=None, ang0=-np.pi / 2, tear=1.0):
     """a wave smashing on rock: white water thrown up as a fan of tongues that arc over, break into drops at the
     tips, detach from the rock and fall downwind, while a veil of spray hangs and drifts.  age in seconds.
     Draws strokes on a Canvas layer; if `mist` (HxW float) is given, adds the veil there."""
@@ -436,18 +461,18 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
     gpx = 2 * size / (.62 * T) ** 2            # the top is reached around .6 life
     c1, c2 = rgb(col), rgb(shade)
     # tongues
-    ang = -np.pi / 2 + r.normal(0, .42, n) * up + .18 * wind[0]
+    ang = ang0 + r.normal(0, .42, n) * up + .18 * wind[0]
     sp = r.uniform(.45, 1.0, n) ** .6
     v0 = gpx * .62 * T * sp
     vx = np.cos(ang) * v0; vy = np.sin(ang) * v0
-    tt = (age + .06) * r.uniform(.9, 1.1, n)
+    tt = (age + .12) * r.uniform(.9, 1.1, n)
     K = 7
     P = np.zeros((n, K, 2), f32)
     s0 = np.clip((tt - .30) / (T * .9), 0, .92)          # the base lets go of the rock after a beat
     for k in range(K):
         q = s0 + (1 - s0) * k / (K - 1)
         ts = tt * q
-        P[:, k, 0] = cx + vx * ts + wind[0] * size * .18 * ts ** 2
+        P[:, k, 0] = cx + vx * ts + wind[0] * size * .18 * tear * ts ** 2
         P[:, k, 1] = cy + vy * ts + .5 * gpx * ts ** 2
     P[:, :, 0] += (r.normal(0, size * .07, n))[:, None]
     fade = np.clip(1 - (tt - T * .5) / (T * .9), 0, 1)
@@ -456,26 +481,26 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
     if keep.any():
         t_ = np.clip(r.uniform(0, .5, n) + np.clip(-np.sin(ang), 0, 1) * 0 + (np.abs(ang + np.pi / 2) > .5) * .35, 0, 1)[:, None]
         C = c1 * (1 - t_) + c2 * t_
-        cv_img.strokes(P[keep], wd[keep], C[keep].astype(f32), op=np.clip(fade[keep] * .95, 0, 1), dry=np.clip(.15 + .5 * s0[keep], 0, .9), seed=seed, shape='taper', bristle=.06)
+        cv_img.strokes(P[keep], wd[keep], C[keep].astype(f32), op=np.clip(fade[keep] * .82, 0, 1), dry=np.clip(.15 + .5 * s0[keep], 0, .9), seed=seed, shape='taper', bristle=.06)
     # drops at the tips
     m = n * 4
     i = r.integers(0, n, m)
     tq = tt[i] * r.uniform(.8, 1.15, m)
     dx = r.normal(0, size * .06, m) * (1 + 2 * tq); dy = r.normal(0, size * .05, m) * (1 + 2 * tq)
-    x = cx + vx[i] * tq + wind[0] * size * .2 * tq ** 2 + dx
+    x = cx + vx[i] * tq + wind[0] * size * .2 * tear * tq ** 2 + dx
     y = cy + vy[i] * tq + .5 * gpx * tq ** 2 + dy
     fd = np.clip(1 - (tq - T * .4) / (T * 1.0), 0, 1) * (tq > .06)
-    rad = size * r.uniform(.003, .010, m) * (1 + tq)
+    rad = size * r.uniform(.002, .006, m) * (1 + tq)
     ok = fd > .03
     if ok.any():
         vyy = vy[i] + gpx * tq
-        Pd = arcs(x[ok], y[ok], np.arctan2(vyy[ok], vx[i][ok] + wind[0] * size * tq[ok]), rad[ok] * 3.2, 0., K=3)
+        Pd = arcs(x[ok], y[ok], np.arctan2(vyy[ok], vx[i][ok] + wind[0] * size * tq[ok]), rad[ok] * 4.5, 0., K=3)
         cv_img.strokes(Pd, rad[ok], np.broadcast_to(c1, (ok.sum(), 3)), op=np.clip(fd[ok], 0, 1) * .9, seed=seed + 1, shape='round', bristle=.03)
     if mist is not None:
         h, w = mist.shape
         g = np.clip(age / .35, 0, 1) * np.clip(1 - (age - T * .4) / (T * 1.2), 0, 1)
         if g > 0:
-            mx = cx + wind[0] * size * .25 * age; my = cy - size * (.45 + .25 * min(age, 1.2))
+            mx = cx + wind[0] * size * .25 * tear * age + wind[0] * size * .2 * tear * age * age; my = cy - size * (.45 + .25 * min(age, 1.2))
             R = size * (.35 + .45 * grow + .25 * age)
             x0, x1 = int(max(0, mx - R * 3.2)), int(min(w, mx + R * 3.2)); y0, y1 = int(max(0, my - R * 2.6)), int(min(h, my + R * 2.8))
             if x1 > x0 and y1 > y0:

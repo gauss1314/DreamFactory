@@ -45,7 +45,7 @@ Z_CORN = 15.6
 Z_DECK = 15.85
 R_DECK = 2.95
 R_RAIL = 2.85
-Z_RAIL = (15.98, 16.42, 16.85)
+Z_RAIL = (15.95, 16.11, 16.47, 16.85)          # bottom, lean (0.26 m above the deck: an otter's chest), mid, top
 Z_LWALL = 16.6
 Z_GLASS = 18.4
 R_GLASS = 1.5
@@ -86,7 +86,7 @@ PAL = {
                  copper=['#3e5a6e', '#4c6e7c', '#5e8488', '#709a96', '#88b0a4', '#a8c8b6', '#d0e4cc'],
                  iron='#4a4058', iron_hi='#a08ca0', glass='#4c4a72', sky='#e9c6c8', mortar='#8d7a98',
                  roof=['#4e4460', '#5e5270', '#706280', '#8a7a94', '#b0a0b2'], warm='#ffb458', door='#5a4458',
-                 grime='#7a7a8e', rust='#8a5a5a', bloom=.3, see=.35),
+                 grime='#7a7a8e', rust='#8a5a5a', bloom=.15, see=.35),
 }
 
 
@@ -168,6 +168,7 @@ class _P:
         self.dh = math.hypot(e[0], e[1])
         self.ez = e[2]
         self.pxm = float(cam.scale(self.A + (0, 0, 8)))   # px per metre at the tower
+        self.top_only = False
 
     # geometry
     def W(self, th, z, r, ax=(0, 0)):
@@ -180,7 +181,23 @@ class _P:
         return self.cam.project(P)[0]
 
     def T(self, th, z, r):
-        return self.S(self.W(th, z, r))
+        """screen point; a point behind the camera (a camera standing on the gallery) is slid round the drum toward the
+        camera's view direction until it is just in front of the lens, so fills stay whole at the frame edge"""
+        th, z, r = np.broadcast_arrays(np.asarray(th, float), np.asarray(z, float), np.asarray(r, float))
+        P = self.W(th, z, r)
+        zc = self.cam.cam(P)[..., 2]
+        bad = zc < .12
+        if np.any(bad):
+            fx, fy = self.cam.R[2][0], self.cam.R[2][1]
+            tb = math.atan2(fy, fx) - self.phc
+            tb = (tb + math.pi) % (2 * math.pi) - math.pi
+            t0 = np.where(bad, th, 0.); t1 = np.full_like(t0, tb)
+            for _ in range(22):
+                tm = (t0 + t1) / 2
+                ok = self.cam.cam(self.W(tm, z, r))[..., 2] >= .12
+                t1 = np.where(ok, tm, t1); t0 = np.where(ok, t0, tm)
+            P = np.where(bad[..., None], self.W(t1, z, r), P)
+        return self.S(P)
 
     def vis(self, r):
         return math.acos(min(.999, r / max(self.dh, r + 1e-3)))
@@ -297,7 +314,7 @@ def _box(cam, at, house):
     return x0, y0, x1, y1
 
 
-def paint_tower(cam, palette='night', lamp=1.0, at=(0, 0, 0), light=None, seed=7, house=True, rail='all', masks=False, gouache=True):
+def paint_tower(cam, palette='night', lamp=1.0, at=(0, 0, 0), light=None, seed=7, house=True, rail='all', masks=False, gouache=True, top_only=False):
     pal = PAL[palette] if isinstance(palette, str) else palette
     if light is None:
         light = -cam.R[0] * .55 + (-cam.R[1]) * .55 - cam.R[2] * .25
@@ -307,6 +324,8 @@ def paint_tower(cam, palette='night', lamp=1.0, at=(0, 0, 0), light=None, seed=7
     if box is None:
         return (out, dict(glass=np.zeros((cam.h, cam.w), f32), lamp=lamp_px(cam, at), r=lamp_radius_px(cam, at), box=None)) if masks else out
     p = _P(cam, at, pal, light, seed, box)
+    p.top_only = top_only
+    if top_only: p.pxm = float(cam.scale(p.A + (0, 0, Z_LAMP)))
     hp = np.asarray(at, float) + (HOUSE_AT[0], HOUSE_AT[1], 0)
     house_front = house and np.linalg.norm(cam.eye[:2] - hp[:2]) < np.linalg.norm(cam.eye[:2] - p.A[:2])
     if house and not house_front: _house(p, lamp)
@@ -334,6 +353,9 @@ def paint_tower(cam, palette='night', lamp=1.0, at=(0, 0, 0), light=None, seed=7
 
 # ------------------------------------------------------------------ the tower
 def _tower(p, lamp, rail):
+    if p.top_only:
+        _top(p, lamp)
+        return
     r = p.r; pal = p.pal; c = p.c
     st, red = pal['stone'], pal['red']
     px = p.pxm
@@ -431,6 +453,15 @@ def _tower(p, lamp, rail):
     # railing, far half
     if rail != 'none':
         _railing(p, back=True)
+    _top(p, lamp)
+    if rail == 'all':
+        _railing(p, back=False)
+
+
+def _top(p, lamp):
+    """lantern wall, glass lantern with its lens, dome"""
+    r = p.r; pal = p.pal; c = p.c
+    st = pal['stone']; px = p.pxm
     # lantern wall (low drum, iron plates with a little door)
     Rl = lambda z: 1.6
     plate = [pal['iron'], mix(rgb(pal['iron']), rgb(st[2]), .5), pal['iron_hi'], st[3]]
@@ -461,8 +492,6 @@ def _tower(p, lamp, rail):
     _lantern(p, lamp)
     # dome
     _dome(p)
-    if rail == 'all':
-        _railing(p, back=False)
 
 
 def _opening(p, th, z0, w, h, lamp=0., door=False):
@@ -558,59 +587,85 @@ def _lantern(p, lamp):
 
 
 def _lens(p, lamp):
-    """the Fresnel lens: a barrel of glass prism rings on a brass frame, a belt of bull's-eye panels round the lamp"""
-    r = p.r; pal = p.pal; c = p.c
-    warm = rgb(pal['warm']); brass = rgb('#8a6130'); glass = rgb(pal['glass']); sky = rgb(pal['sky'])
-    Rl = lambda z: .6 * (1 - .45 * smooth(.22, .85, abs(z - Z_LAMP)) ** 1.3)      # beehive: straight belt, stepped catadioptric rings
-    z0, z1 = Z_LAMP - .82, Z_LAMP + .82
-    core = mix(warm, rgb('#fff8e4'), .85)
-    def tone(zc, th, belt=False):
-        d = abs(zc - Z_LAMP) / .82
-        if lamp > 0:
-            k = (1 - d) ** 1.3 * (1 - .5 * abs(th) / 1.6) * lamp
-            cc = mix(mix(rgb('#c87a3a'), warm, .5 + .5 * k), core, k ** 1.5 * (1.0 if belt else .75))
-            return mix(cc, glass, (1 - lamp) * .85)
-        v = .08 + .55 * max(0., math.cos(th + .6)) ** 2 * (1 - d * .4) + .15 * (zc > Z_LAMP + .2)
-        return mix(glass * .8, sky, v)
-    lim = p.vis(Rl(Z_LAMP))
-    # base wash of the barrel
-    sil = np.vstack([p.ring(z0, Rl(z0), 30, lim), p.ring(z1, Rl(z1), 30, lim)[::-1]])
-    c.fill(sil, tone(Z_LAMP, 0) * .8 if lamp == 0 else mix(rgb('#b8743a'), warm, .5), .9)
-    nb = 8
-    edges = np.linspace(-math.pi, math.pi, nb + 1) + .2
-    rings = list(np.linspace(z1, Z_LAMP + .2, 7)) + [Z_LAMP - .2] + list(np.linspace(Z_LAMP - .2, z0, 6))[1:]
-    for k in range(nb):
-        a, b = max(edges[k], -lim), min(edges[k + 1], lim)
+    """the Fresnel lens: a drum of bull's-eye panels round the lamp, with stepped rings of glass prisms above and below,
+    all held in a brass frame.  Lit, the glass carries the flame's amber; out, the same prisms carry the sky: cool on the
+    shade side, warm where the sun or the lamp catches them."""
+    r = np.random.default_rng(311); pal = p.pal; c = p.c
+    warm = rgb(pal['warm']); brass = rgb('#b08440'); brass_d = rgb('#6a4a2c'); glass = rgb(pal['glass']); sky = rgb(pal['sky'])
+    cool = mix(sky, rgb('#bcd0ec'), .5); core = rgb('#fff6e0')
+    k = float(lamp)
+    belt = (Z_LAMP - .24, Z_LAMP + .24)
+    up = [(.58, .10), (.54, .10), (.49, .10), (.43, .09), (.36, .09), (.28, .08)]
+    dn = [(.57, .10), (.52, .10), (.45, .09), (.37, .08)]
+    rings = []
+    z = belt[1]
+    for R_, h in up:
+        rings.append((z, z + h, R_, 1)); z += h
+    ztop = z
+    z = belt[0]
+    for R_, h in dn:
+        rings.append((z - h, z, R_, -1)); z -= h
+    zbot = z
+    edges = np.linspace(-math.pi, math.pi, 9) + .2
+    def side(m):
+        """-1 shade side .. +1 lit side of the drum, by the key light"""
+        return float(p.ncyl(m) @ p.L)
+    def body(m, dzn):
+        """glass colour of a panel at angle m, dzn 0 at the lamp .. 1 at the ends"""
+        s_ = side(m)
+        out_ = mix(glass * .85, cool, .25 + .25 * max(0., -s_)) if s_ < 0 else mix(glass * .9, mix(sky, warm, .35), .2 + .35 * s_)
+        lit = mix(mix(rgb('#c8803c'), warm, .6), core, (1 - dzn) ** 2 * .7)
+        return mix(out_, lit, k * (1 - .35 * dzn))
+    # prism rings: body, a bright upper lip (sky or flame), a dark lower lip
+    for (z0, z1, R_, s_dir) in sorted(rings, key=lambda q: -abs((q[0] + q[1]) / 2 - Z_LAMP)):
+        lim = p.vis(R_)
+        dzn = min(1., abs((z0 + z1) / 2 - Z_LAMP) / (ztop - Z_LAMP))
+        for i in range(8):
+            a, b = max(edges[i], -lim), min(edges[i + 1], lim)
+            if b - a < .02: continue
+            m = (a + b) / 2
+            q = np.array([p.T(a, z0, R_), p.T(b, z0, R_), p.T(b, z1, R_), p.T(a, z1, R_)])
+            cb = body(m, dzn) * (1 + r.normal(0, .025))
+            c.fill(q, np.clip(cb, 0, 1.2), .97)
+            hl = mix(cool, rgb('#ffffff'), .3) if side(m) < .1 else mix(warm, rgb('#fff2dc'), .5)
+            hl = mix(hl, core, k * .6)
+            zt = z1 - (z1 - z0) * .28 if s_dir > 0 else z0 + (z1 - z0) * .28
+            lip = np.array([p.T(a, zt, R_), p.T(b, zt, R_), p.T(b, z1 if s_dir > 0 else z0, R_), p.T(a, z1 if s_dir > 0 else z0, R_)])
+            c.fill(lip, np.clip(hl, 0, 1.2), .55 + .25 * abs(side(m)))
+            e = np.array([p.T(a, z0 if s_dir > 0 else z1, R_), p.T(m, z0 if s_dir > 0 else z1, R_), p.T(b, z0 if s_dir > 0 else z1, R_)])
+            p.line(e, max(.5, p.pxm * .008), mix(cb, brass_d, .6), .7, (0, 0), ink=True)
+        # the step: a thin brass ring at the ring's foot
+        zz = z0 if s_dir > 0 else z1
+        p.line(p.ring(zz, R_ + .005, 24, lim), max(.6, p.pxm * .012), brass * (.75 + .35 * k), .9, (0, 0), ink=True)
+    # the belt: bull's-eye panels
+    R_ = .6; lim = p.vis(R_)
+    for i in range(8):
+        a, b = max(edges[i], -lim), min(edges[i + 1], lim)
         if b - a < .03: continue
         m = (a + b) / 2
-        for j, (za, zb) in enumerate(zip(rings[:-1], rings[1:])):
-            belt = za > Z_LAMP and zb < Z_LAMP
-            zc = (za + zb) / 2
-            q = np.array([p.T(a + .02, za, Rl(za)), p.T(b - .02, za, Rl(za)), p.T(b - .02, zb, Rl(zb)), p.T(a + .02, zb, Rl(zb))])
-            col = tone(zc, m, belt) * (1 + .12 * (j % 2) - .05 + r.normal(0, .02))
-            c.fill(q, np.clip(col, 0, 1.2), .95)
-            if not belt:       # prism edge: a bright line along the ring's lower lip
-                e = np.array([p.T(a + .03, zb + .03, Rl(zb) + .005), p.T(m, zb + .03, Rl(zb) + .005), p.T(b - .03, zb + .03, Rl(zb) + .005)])
-                p.line(e, max(.5, p.pxm * .012), mix(col, rgb('#ffffff'), .5) if lamp else mix(sky, rgb('#ffffff'), .3), .55 if lamp else .75, (.2, .2))
-            else:              # bull's-eye: concentric rings on the panel
-                cx, cy = p.T(m, Z_LAMP, Rl(Z_LAMP) + .01)
-                wpx = abs(p.T(b, Z_LAMP, Rl(Z_LAMP))[0] - p.T(a, Z_LAMP, Rl(Z_LAMP))[0]) * .5
-                hpx = abs(p.T(m, za, Rl(za))[1] - p.T(m, zb, Rl(zb))[1]) * .5
-                tt = np.linspace(0, 2 * math.pi, 28)
-                for qq in (.85, .6, .35):
-                    p.line(np.c_[cx + wpx * qq * np.cos(tt), cy + hpx * qq * np.sin(tt)], max(.5, p.pxm * .01), mix(col, rgb('#ffffff') if lamp else sky, .45), .5, (0, 0))
-                if lamp > 0:
-                    c.fill(np.c_[cx + wpx * .22 * np.cos(tt), cy + hpx * .22 * np.sin(tt)], rgb('#fffaf0'), .9 * lamp)
-    # brass frame: vertical bars and the belt rims
+        q = np.array([p.T(a, belt[0], R_), p.T(b, belt[0], R_), p.T(b, belt[1], R_), p.T(a, belt[1], R_)])
+        c.fill(q, np.clip(body(m, .25), 0, 1.2), .97)
+        cx, cy = p.T(m, Z_LAMP, R_ + .01)
+        wpx = abs(p.T(b, Z_LAMP, R_)[0] - p.T(a, Z_LAMP, R_)[0]) * .46
+        hpx = abs(p.T(m, belt[1], R_)[1] - p.T(m, belt[0], R_)[1]) * .46
+        tt = np.linspace(0, 2 * math.pi, 32)
+        for j, qq in enumerate((.95, .78, .6, .42)):
+            col = mix(body(m, .25 + .15 * j), cool if side(m) < .1 else mix(warm, rgb('#fff2dc'), .4), .35 if j % 2 == 0 else 0.)
+            c.fill(np.c_[cx + wpx * qq * np.cos(tt), cy + hpx * qq * np.sin(tt)], np.clip(col * (1.05 if j % 2 else .92), 0, 1.2), .9)
+            p.line(np.c_[cx + wpx * qq * np.cos(tt), cy + hpx * qq * np.sin(tt)][:24], max(.5, p.pxm * .007), mix(cool, rgb('#ffffff'), .4) if k < .5 else core, .55, (0, 0), ink=True)
+        ctr = core if k > 0 else mix(cool, rgb('#ffffff'), .35) if side(m) < .1 else mix(warm, rgb('#ffffff'), .4)
+        c.fill(np.c_[cx + wpx * .22 * np.cos(tt), cy + hpx * .22 * np.sin(tt)], ctr, .85 if k > 0 else .6)
+    # brass frame: vertical bars, the belt rims, the crown and the foot
     for e_ in edges:
-        if abs(e_) > lim: continue
-        P = np.array([p.T(e_, z, Rl(z) + .01) for z in np.linspace(z0, z1, 6)])
-        p.line(P, max(.6, p.pxm * .022), brass * (1.15 if lamp else .7), .95, (0, 0), ink=True)
-    for z in (z0, Z_LAMP - .2, Z_LAMP + .2, z1):
-        p.line(p.ring(z, Rl(z) + .01, 24, lim), max(.6, p.pxm * .02), brass * (1.15 if lamp else .7), .95, (0, 0), ink=True)
-    # pedestal under the lens
-    q = np.vstack([p.ring(z0 - .02, .2, 12, p.vis(.2)), p.ring(z0 - .12, .1, 12, p.vis(.1)), p.ring(Z_LWALL - .1, .1, 12, p.vis(.1))[::-1], p.ring(Z_LWALL - .1, .1, 12, p.vis(.1))[::-1][:0]])
-    c.fill(q, brass * (.75 if lamp else .5), .95)
+        if abs(e_) > p.vis(.6): continue
+        P = np.array([p.T(e_, z, .6 if belt[0] <= z <= belt[1] else max(.3, .6 - .55 * abs(z - Z_LAMP) / (ztop - Z_LAMP)) + .01) for z in np.linspace(zbot, ztop, 9)])
+        p.line(P, max(.6, p.pxm * .02), brass * (.8 + .4 * k), .95, (0, 0), ink=True)
+    for z in belt:
+        p.line(p.ring(z, .61, 24, p.vis(.61)), max(.7, p.pxm * .026), brass * (.8 + .4 * k), .95, (0, 0), ink=True)
+    cap = np.vstack([p.ring(ztop, .28, 16, p.vis(.28)), p.ring(ztop + .1, .12, 16, p.vis(.12))[::-1]])
+    c.fill(cap, brass * (.7 + .3 * k), .95)
+    q = np.vstack([p.ring(zbot, .3, 12, p.vis(.3)), p.ring(zbot - .1, .12, 12, p.vis(.12)), p.ring(Z_LWALL - .1, .12, 12, p.vis(.12))[::-1]])
+    c.fill(q, brass * (.6 + .3 * k), .95)
 
 
 def _dome(p):
@@ -669,7 +724,7 @@ def _railing(p, back):
     for k in range(nposts):
         th = -math.pi + 2 * math.pi * (k + .5) / nposts
         if far(th) != back: continue
-        P = np.array([p.T(th, Z_DECK, R_RAIL), p.T(th, Z_RAIL[2], R_RAIL)])
+        P = np.array([p.T(th, Z_DECK, R_RAIL), p.T(th, Z_RAIL[-1], R_RAIL)])
         p.line(P, lw(16.4, th), iron, 1.0, (0, .1), ink=True)
     for z in Z_RAIL:
         th = np.linspace(-math.pi, math.pi, 181)
@@ -687,8 +742,8 @@ def _railing(p, back):
                 if len(ts) < 2: continue
                 P = p.T(ts, z, R_RAIL)
                 wv = lw(z, float(ts.mean()))
-                p.line(P, wv * (1.25 if z == Z_RAIL[2] else .8), iron, 1.0, (0, 0), ink=True)
-                if z == Z_RAIL[2]:
+                p.line(P, wv * (1.25 if z == Z_RAIL[-1] else .8), iron, 1.0, (0, 0), ink=True)
+                if z == Z_RAIL[-1]:
                     hi = mix(iron, rgb(pal['iron_hi']), .8)
                     p.line(P + [0, -wv * .35], wv * .4, hi, .6, (0, 0), ink=True)
 

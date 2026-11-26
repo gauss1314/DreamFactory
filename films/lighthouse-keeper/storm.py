@@ -259,16 +259,42 @@ def beam_volume(cam, lamp, dirs, depth=None, t=0., half=.055, r0=1.2, reach=500.
     return np.maximum(out, 0) * amt
 
 
-def flare(img, x, y, amt, col=STORM['beam'], r=900):
-    """the beam crossing the lens: the lamp swells into a disc of light and the whole frame washes warm"""
+def flare(img, x, y, amt, col=STORM['beam'], r=900, seed=3, toward=None):
+    """the beam swinging across the lens: the lamp blooms into a wide hot core with rays, a halation ring and a
+    line of soft lens ghosts through the frame centre.  Added light only: the dark of the picture stays dark."""
     if amt <= 1e-3: return img
-    h, w = img.shape[:2]
-    core = comp.radial(x, y, 60 + 120 * amt, power=1.6, h=h, w=w)
-    halo = comp.radial(x, y, r * (.6 + .6 * amt), power=2.2, h=h, w=w)
+    H0, W0 = img.shape[:2]
+    q = 4
+    h, w = H0 // q, W0 // q
     c = rgb(col)
-    img = comp.screen(img, (core * 1.2 + halo * .7)[..., None] * c * amt)
-    img = img + (c * 1.0 - img) * (amt ** 1.3 * .55)
-    return img
+    yy, xx = np.mgrid[0:h, 0:w].astype(f32)
+    xx = xx * q + q / 2; yy = yy * q + q / 2
+    w, h = W0, H0
+    dx, dy = xx - x, yy - y
+    d = np.sqrt(dx * dx + dy * dy)
+    th = np.arctan2(dy, dx)
+    rr = np.random.default_rng(seed)
+    ph = rr.uniform(0, 6.28, 3)
+    rays = .75 + .15 * np.sin(th * 5 + ph[0]) * np.sin(th * 3 + ph[1]) + .1 * np.sin(th * 11 + ph[2])
+    core = np.exp(-(d / (40 + 170 * amt)) ** 1.2) * .9
+    halo = np.exp(-(d / (r * (.45 + .55 * amt))) ** 1.6)
+    ring = np.exp(-((d - 330 * (.7 + .3 * amt)) / 120.) ** 2) * .13
+    add = (core * 1.2 + halo * .20 * rays + ring) * amt
+    if toward is not None:      # the beam itself, swung round at us: a broad fan opening from the lamp
+        a0 = math.atan2(toward[1], toward[0])
+        da = np.angle(np.exp(1j * (th - a0))).astype(f32)
+        wd = .18 + .55 * amt
+        add = add + np.exp(-(da / wd) ** 2) * np.exp(-d / 900.) * .35 * amt * smooth(0, 120, d)
+    acc = np.clip(add, 0, 1.2)[..., None] * c
+    # ghosts along the line from the lamp through the centre
+    cx, cy = w / 2, h / 2
+    for s_, rad, op, gc in ((.45, 46, .18, '#ffe6bc'), (.95, 90, .12, '#e9e4d0'), (1.45, 150, .15, '#d9e2dc'), (1.9, 60, .14, '#ffdcb0')):
+        gx, gy = cx + (cx - x) * s_, cy + (cy - y) * s_
+        rad = rad * (.6 + .4 * amt)
+        g = np.clip((rad - np.sqrt((xx - gx) ** 2 + (yy - gy) ** 2)) / (rad * .35), 0, 1) * (1 - .4 * np.exp(-((xx - gx) ** 2 + (yy - gy) ** 2) / (rad * .5) ** 2))
+        acc = 1 - (1 - acc) * (1 - (g * op * amt)[..., None] * rgb(gc))
+    acc = cv2.resize(acc.astype(f32), (W0, H0), interpolation=cv2.INTER_LINEAR)
+    return comp.screen(img, acc)
 
 
 def beam_dirs(az, tilt=-.012):

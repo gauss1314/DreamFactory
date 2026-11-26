@@ -580,7 +580,8 @@ def build(P, V):
     for s_, key in ((-1, 'L'), (1, 'R')):
         sh_ = che + [1.0, 3.5, s_ * 10.0] + np.array([.6, 1.0, -s_ * .3]) * P.get('shrug' + key, 0.0)
         paw = np.array(P['paw' + key], float)
-        el, pw = ik2(sh_, paw, 9.4, 8.8, P['elb' + key])
+        ax = P.get('armx' + key, 1.0)                  # a cheat for big reaches (a wave over the head)
+        el, pw = ik2(sh_, paw, 9.4 * ax, 8.8 * ax, P['elb' + key])
         fa = unit(pw - el)
         prim = [Sweep([sh_ + [-.5, 2.0, 0], sh_, el, pw], [5.6, 5.3, 4.3, 3.6], None, fr_b),
                 Ell(pw + fa * 1.6, (4.2, 3.5, 3.9), frame_from(fa), mat_paw, fr_b)]
@@ -840,6 +841,12 @@ def whiskers(cel, V, geo, P, env, k, lw, side, t):
 
 
 # ------------------------------------------------------------------ draw
+def _clipfor(clip, name):
+    """clip may be one mask function for every cel, or a dict per piece name (key 'default' for the rest)"""
+    if clip is None or callable(clip): return clip
+    return clip.get(name, clip.get('default'))
+
+
 def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=False, parts=None):
     """composite the otter into img.  view: View; P: pose; env: Env.
     clip(ox, oy, w, h) -> alpha mask applied to every piece (e.g. the floor edge of a hatch).
@@ -883,7 +890,8 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
     t = seed * .5
     for zk, kind, obj in layers:
         if kind == 'piece':
-            r = render_piece(obj, V, env, seed, clip)
+            cf = _clipfor(clip, obj.name)
+            r = render_piece(obj, V, env, seed, cf)
             if r is None: continue
             rgba, ox, oy, info = r
             if obj.name == 'head': info_head = info; head_z = _zfield(obj, V, info)
@@ -892,7 +900,7 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
             if obj.name == 'scarf': scarf_ribs(cel, obj, V, env, k, lw)
             if getattr(obj, 'toes', None) is not None: toes(cel, obj, V, env, k, lw)
             ln = cel.rgba()
-            if clip is not None: ln *= clip(ox - 4, oy - 4, info['w'] + 8, info['h'] + 8)[..., None]
+            if cf is not None: ln *= cf(ox - 4, oy - 4, info['w'] + 8, info['h'] + 8)[..., None]
             over_into(buf, X0, Y0, rgba, ox, oy)
             over_into(buf, X0, Y0, ln, ox - 4, oy - 4)
         elif kind == 'wfar' or kind == 'face':
@@ -908,7 +916,8 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
                 face_lines(cel, V, geo, P, env, k, lw, zi)
                 whiskers(cel, V, geo, P, env, k, lw, near, t)
             ln = cel.rgba()
-            if clip is not None: ln *= clip(X0, Y0, X1 - X0, Y1 - Y0)[..., None]
+            cf = _clipfor(clip, 'head')
+            if cf is not None: ln *= cf(X0, Y0, X1 - X0, Y1 - Y0)[..., None]
             over_into(buf, X0, Y0, ln, X0, Y0)
         else:
             cel = Cel(X1 - X0, Y1 - Y0, X0, Y0)

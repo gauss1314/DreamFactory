@@ -44,7 +44,7 @@ class Shot:
         sk = ST.cached(f'lk_s8_sky_{VER}.npy', lambda: np.dstack(ST.sky_plate(H + 60, W + 160, hz + 30, seed=81, break_x=MOON_PX[0] + 80)))
         self.sky = sk[..., :3].copy(); self.cov = sk[..., 3].copy()
         self.open = ST.cached(f'lk_s8_open_{VER}.npy', self._open_sky)
-        self.sea = SEA.Sea(seed=19, wind=(1., -.35), heading=math.atan2(-.35, 1.), lmax=80., lmin=3.0, steep=.15, n=9, env_amt=.75, group=2.4)
+        self.sea = SEA.Sea(seed=23, wind=(1., -.35), heading=math.atan2(-.35, 1.), lmax=120., lmin=3.0, steep=.15, n=11, spread=.7, env_amt=.95, group=3.6)
         self.sea.textures()
         self.lamp = lh.lamp_world(AT)
         dz = float(c0.cam(self.lamp)[2]); self.tdepth = dz
@@ -147,7 +147,7 @@ class Shot:
         dirs = ST.beam_dirs(az)
         G = self.sea.render(cam, t, h=H // 2, w=W // 2, s1=2600.)
         bs = SEA.beam_on_surface(G, self.lamp, dirs, half=.03, reach=500., amt=1.0)
-        sc, Ms, info = self.sea.paint(G, cam, t, PAL, light=(-.5, .4, .75), beam=bs, fog_col='#5a6272', fog_k=(.0032, .85))
+        sc, Ms, info = self.sea.paint(G, cam, t, PAL, light=(-.5, .4, .75), beam=bs, fog_col='#5a6272', fog_k=(.0028, .8), caps=(110., .85), glass=.6)
         img = img * (1 - Ms[..., None]) + sc * Ms[..., None]
         zfull = cv2.resize(G['z'], (W, H), interpolation=cv2.INTER_NEAREST)
         # moon road on the sea
@@ -166,7 +166,7 @@ class Shot:
         # the boat and its wake
         img = self._boat(img, cam, t, f)
         # volumetric beams through the rain
-        B = ST.beam_volume(cam, self.lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=380., amt=.9, half=.012, r0=.75)
+        B = ST.beam_volume(cam, self.lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=230., amt=.72, half=.014, r0=.8)
         cur = self.rain.curtains(f)
         img = comp.screen(img, (B * (.8 + .35 * cur))[..., None] * rgb('#fff2d0'))
         # the tower: lantern and gallery right under us
@@ -183,14 +183,15 @@ class Shot:
         fa = self.flare_amt(t)
         if fa > 0:
             lx, ly = lh.lamp_px(cam, AT)
-            img = ST.flare(img, lx, ly, fa)
+            q, _ = cam.project(self.lamp + np.array(dirs[0]) * 6.0)
+            img = ST.flare(img, lx, ly, fa, toward=(q[0] - lx, q[1] - ly))
         return np.clip(img, 0, 1.5).astype(f32)
 
     def flare_amt(self, t):
         k = t - self.t_sweep
         if k < -1.5 / 24: return 0.
         if k < 0: return .3
-        return float(math.exp(-k / .12))
+        return float(math.exp(-k / .1))
 
     def _tear(self, op):
         h, w = H // 4, W // 4
@@ -250,7 +251,7 @@ class Shot:
                     o = np.clip(1 - age[i] / 6.0, 0, 1) ** .7 * (.95 if j == 1 else .6)
                     if o <= .02: continue
                     side = np.array([[-(seg[-1, 1] - seg[0, 1]), seg[-1, 0] - seg[0, 0]]]) / (np.hypot(*(seg[-1] - seg[0])) + 1e-6)
-                    cvs.strokes((seg + side * off * wd[i] * .8)[None], float(wd[i] * .45), rgb('#cfd8de')[None], op=o, dry=.5, seed=i + j * 99, shape='round', bristle=.06)
+                    cvs.strokes((seg + side * off * wd[i] * .8)[None], float(wd[i] * .45), rgb('#e2eaee')[None], op=min(1., o * 1.1), dry=.5, seed=i + j * 99, shape='round', bristle=.06)
         img = ST.over(img, cvs.layer())
         k = t - self.t_turn
         sw = .15 * math.sin(t * 2.6) + (.5 * math.exp(-k / .8) * math.sin(k * 6.5) if k >= 0 else 0)

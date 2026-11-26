@@ -12,7 +12,26 @@ import otteract
 import lamproom as LR
 
 cv2.setNumThreads(2)
-VER = 'b6'
+VER = 'b7'
+import json
+_EV = {s_['id']: s_.get('events', {}) for s_ in json.load(open(os.path.join(os.path.dirname(__file__), '..', 'film.json')))['scenes']}
+F_FLASH = int(round(_EV['s3'].get('flash', 2.8) * 24))
+
+
+def flash_amt(f):
+    """strength of the lightning at shot frame f (0 before; ~1 at the crack, falling back)"""
+    u = f - F_FLASH
+    if u < 0: return 0.0
+    v = 1.25 * math.exp(-u / 2.2) + .18 * math.exp(-u / 14.)
+    if 2 <= u < 6: v += .40 * math.sin((u - 2) / 4 * math.pi)        # the flicker that follows
+    return v
+
+
+class FlashMark(dict):
+    """M['flash']: a dict (f, dir, color, amt) that can also be called: M['flash'](f) ->
+    dict(amt=0..1, dir=(dx, dy) the light travels from the window side, color, hard=True)"""
+    def __call__(self, f):
+        return dict(amt=float(min(1.0, flash_amt(f))), dir=self['dir'], color=self['color'], hard=True)
 
 
 class Shot:
@@ -22,7 +41,7 @@ class Shot:
     # off the right of frame; flash: the lightning (frame `f`, from the window on the left).
     M = dict(ground=1720, x0=980, x1=980, scale=1500,
              light=dict(dir=(1, -.25), color='#ffb458', amt=.85),
-             flash=dict(f=67, dir=(-1, -.3), color='#c8d4f0', amt=1.0),
+             flash=FlashMark(f=F_FLASH, dir=(-1, -.3), color='#c8d4f0', amt=1.0),
              window=(430, 330), lamp=(2300, 520))
 
     def setup(self):
@@ -59,11 +78,7 @@ class Shot:
         return mottle(np.clip(b, 0, 1), .010, 6, .004).astype(f32)
 
     def flash(self, f):
-        u = f - self.f_flash
-        if u < 0: return 0.0
-        v = 1.25 * math.exp(-u / 2.2) + .18 * math.exp(-u / 14.)
-        if 2 <= u < 6: v += .40 * math.sin((u - 2) / 4 * math.pi)        # the flicker that follows
-        return v
+        return flash_amt(f)
 
     def frame(self, f):
         z = 1.0 + .02 * f / 95.

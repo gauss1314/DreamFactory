@@ -9,7 +9,7 @@ from lp.paint import f32, rgb, smooth, fbm, Canvas
 from lp.comp import ease
 import sea as SEA, storm as ST
 
-VER = 'v4'
+VER = 'v5'
 EYE0 = np.array([0., 0., 4.0])
 TGT = np.array([8., 120., 13.])
 FOC = 1250.
@@ -58,7 +58,7 @@ class Shot:
         self.sp_rock = ST.Sprite(self.rocks, 9.)
         del self.tower, self.isle, self.mid, self.rocks
         self.mist = ST.mist_band(H, W, hz + 8, 30, 5, .55)
-        self.bolt = ST.bolt(640, 60, 800, hz - 4, seed=12, depth=7)
+        self.bolt = ST.bolt(620, 120, 790, hz - 70, seed=12, depth=7, branch=.8) + ST.bolt(700, 260, 1040, 330, seed=15, depth=6, branch=.5)[:3]
 
     # ------------------------------------------------------------------ plates
     def _isle(self):
@@ -82,8 +82,8 @@ class Shot:
         """the ledge the camera stands on (bottom left) and a low rock bottom right"""
         out = np.zeros((H, W, 4), f32)
         from lp.ink import paste
-        top = np.array([[-20, 300], [80, 250], [210, 232], [330, 262], [420, 250], [560, 300], [690, 330], [760, 372], [830, 420], [900, 470], [960, 560]], float)
-        L = SEA.rock(980, 560, top, seed=11, cell=110, pal=('#161925', '#202435', '#2e3348', '#43495f', '#5f6680'))
+        top = np.array([[-20, 300], [80, 250], [210, 232], [330, 262], [420, 250], [560, 290], [690, 300], [800, 322], [900, 350], [980, 382], [1060, 432], [1120, 500], [1160, 560]], float)
+        L = SEA.rock(1180, 560, top, seed=11, cell=110, pal=('#161925', '#202435', '#2e3348', '#43495f', '#5f6680'))
         paste(out, L, 0, H - 560 + 30)
         top2 = np.array([[0, 140], [60, 96], [150, 80], [250, 70], [330, 92], [420, 130], [480, 170]], float)
         L2 = SEA.rock(480, 200, top2, seed=17, cell=70, pal=('#171a27', '#222638', '#30354a', '#454b62', '#626983'))
@@ -110,6 +110,42 @@ class Shot:
             out[..., 4] = np.where(a > .5, dz, out[..., 4])
         return out
 
+    def _runup(self, img, rka, age, Pw, k):
+        """white water running up the ledge from the impact, then draining back down in streaks; the rock stays wet"""
+        Ix, Iy = Pw((1110, 1110))
+        x0, y0 = int(max(0, Ix - 900 * k)), int(max(0, Iy - 700 * k))
+        sub = img[y0:, x0:int(min(W, Ix + 80))]
+        A = rka[y0:, x0:x0 + sub.shape[1]]
+        if A.max() < .1: return img
+        hh, ww = A.shape
+        yy, xx = np.mgrid[y0:y0 + hh, x0:x0 + ww].astype(f32)
+        u = ((xx - Ix) * -.82 + (yy - Iy) * -.57) / k                  # metres-ish up the slope, in sprite px
+        dtop = cv2.distanceTransform((A > .5).astype(np.uint8), cv2.DIST_L2, 3).astype(f32) / k
+        if not hasattr(self, '_caps2'):
+            self._caps2 = np.clip(fbm(256, 256, (24, 9, 3.5), (1, .6, .35), 78) * .5 + .5, 0, 1).astype(f32)
+        if not hasattr(self, '_streak'):
+            self._streak = np.clip(fbm(512, 512, (60, 6, 2.5), (1, .6, .4), 77, aspect=.08) * .5 + .5, 0, 1).astype(f32)
+        front = 520 * (1 - math.exp(-age / .16))
+        reach = 520.
+        lead = smooth(front + 40, front - 30, u) * (u > -80)
+        surf = smooth(110, 25, dtop)
+        n = self._caps2[(yy.astype(int) // 3) % 256, (xx.astype(int) // 3) % 256]
+        wash = A * lead * surf * float(np.clip(1.1 - age / .9, 0, 1)) * (.55 + .6 * n)
+        wet = A * smooth(reach + 20, reach - 60, u) * (u > -90) * smooth(170, 40, dtop) * float(min(1, age / .3))
+        # the wet rock: darker, with a cold sheen on the upper planes
+        dry = float(np.clip(1 - (age - 1.2) / 4.0, .55, 1))
+        sub *= (1 - .22 * wet * dry)[..., None]
+        sheen = wet * smooth(.62, .8, n) * smooth(60, 10, dtop) * dry
+        sub += (rgb('#8e9bb0') - sub) * (sheen * .5)[..., None]
+        # water draining back in thin streaks
+        if age > .35:
+            ds = self._streak[((yy.astype(int) - int(age * 420)) // 3) % 512, (xx.astype(int) * 2) % 512]
+            drain = cv2.GaussianBlur(wet * smooth(.62, .75, ds), (0, 0), 1.0) * float(np.clip(1.2 - (age - .35) / 2.2, 0, 1))
+            sub += (rgb('#aebbc6') - sub) * (drain * .45)[..., None]
+        c = rgb('#dfe7ea') * (1 - .3 * smooth(.3, .9, wash)[..., None]) + rgb('#9fb0bc') * .3 * smooth(.3, .9, wash)[..., None]
+        sub += (c - sub) * smooth(.25, .55, wash)[..., None]
+        return img
+
     # ------------------------------------------------------------------ timing
     def flash(self, f):
         e = int(round(self.t_bolt * 24))
@@ -119,7 +155,7 @@ class Shot:
     def big_wave(self, t):
         """the set wave that builds and breaks on the rock: amplitude keys (s, m), with a lean that steepens it"""
         T = self.t_crash
-        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .4, T, T + .5, T + 1.4, 9], [.0, 1.0, 4.0, 9.0, 10.0, 2.8, .8, .3]))
+        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .5, T - .1, T + .35, T + .9, T + 1.7, 9], [.0, 1.0, 4.0, 9.0, 9.4, 4.5, 1.8, .7, .3]))
         lean = float(np.interp(t, [0, T - 1.5, T - .3, T], [.1, .25, .55, .75]))
         d = WAVE_DIR / np.linalg.norm(WAVE_DIR)
         p = HIT - d * 8.5 * (T - t) - d * 3.0
@@ -137,8 +173,10 @@ class Shot:
         img = cv2.warpAffine(self.sky, M, (W, H), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT_101)
         cov = cv2.warpAffine(self.cov, M, (W, H), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT_101)
         if fl > 0:
-            g = comp.radial(720, 260, 1500, 900, 1.2)
-            img = img + (rgb('#c8d4f0') - img) * (fl * (.25 + .55 * cov) * (.35 + .65 * g))[..., None] * .8
+            g = comp.radial(740, 330, 1700, 1000, 1.1)
+            # cloud undersides near the bolt flare cold-white, the far deck less
+            under = np.clip(cov, 0, 1) * (.35 + .65 * g)
+            img = img + (rgb('#d6e0f8') - img) * (fl * (.20 + .70 * under))[..., None] * .9
             if fl > .3:
                 img = ST.draw_bolt(img, self.bolt, amt=min(1, fl * 1.1))
         # sea
@@ -151,11 +189,15 @@ class Shot:
         az = self.lh.beam_az(t, az0=math.radians(120))
         dirs = ST.beam_dirs(az)
         bs = SEA.beam_on_surface(G, lamp, dirs, half=.06, reach=300., amt=.8)
-        sc, Ms, info = self.sea.paint(G, cam, t, PAL, light=(-.5, .4, .75), flash=fl * .9, beam=bs, fog_col='#5c6474', fog_k=(.0045, .85))
+        sc, Ms, info = self.sea.paint(G, cam, t, PAL, light=(-.5, .4, .75), flash=fl * .9, beam=bs, fog_col='#5c6474', fog_k=(.0045, .85),
+                                       lip=1.0, glass=1.0, caps=(60., .5))
         self.sea.A = A0
         zfull = cv2.resize(G['z'], (W, H), interpolation=cv2.INTER_NEAREST)
         img = img * (1 - Ms[..., None]) + sc * Ms[..., None]
-        # horizon mist
+        if fl > 0:     # wave tops facing the bolt catch it
+            g2 = comp.radial(780, self.hz, 1900, 700, 1.0)
+            k_ = (fl * (.18 + .75 * info['foam']) * (.3 + .7 * g2) * Ms)[..., None]
+            img = img + (rgb('#e2eafc') - img) * k_
         img = img + (rgb('#5f6676') - img) * (self.mist * .7)[..., None]
         # island and tower, hidden where a nearer wave stands in front
         R = self.sp_isle.roi(d, cam.cx, cam.cy)
@@ -165,7 +207,7 @@ class Shot:
             L = L * vis[..., None]
             fogk = .38
             L[..., :3] = L[..., :3] * (1 - fogk) + rgb('#4e5566') * fogk * L[..., 3:4]
-            if fl > 0: L[..., :3] += (rgb('#c8d4f0') * L[..., 3:4] - L[..., :3]) * fl * .45
+            if fl > 0: L[..., :3] += (rgb('#d6e0f8') * L[..., 3:4] - L[..., :3]) * fl * .5
             sub = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
             img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, isa, vis * (isa > 0), f, seed=3, up=3, down=2, amt=.35)
         # mid rocks with surf at their feet
@@ -198,12 +240,18 @@ class Shot:
         cvs = Canvas(H, W, layer=True)
         SEA.crest_spray(cvs, info['foam'] * (rka < .3), G, f, wind=(1., -.12), n=110, seed=4, ymax=None)
         age = ((f // 2) * 2) / 24. - self.t_crash
-        hp = cam.project(np.array([HIT[0] - .5, HIT[1], 2.0]))[0]
         mist = np.zeros((H, W), f32)
+        k = 9. / (9. - d)
+        Pw = lambda p: (cam.cx + k * (p[0] - cam.cx), cam.cy + k * (p[1] - cam.cy))
+        if age >= -.05:
+            img = self._runup(img, rka, max(age, 0.), Pw, k)
         if age >= 0:
-            SEA.burst(cvs, hp[0], hp[1], 520, age, seed=31, wind=(1.2, 0), life=1.9, n=70, mist=mist)
-            SEA.burst(cvs, hp[0] - 260, hp[1] + 40, 300, age - .08, seed=37, wind=(1.2, 0), life=1.5, n=40, mist=mist)
-            SEA.burst(cvs, hp[0] + 240, hp[1] + 20, 240, age - .04, seed=41, wind=(1.2, 0), life=1.4, n=30, mist=mist)
+            # three seas break up the seaward face of the ledge, each its own shape; the wind tears them to the right
+            for (px_, py_, sz, a0, up, n_, dl, sd, lf) in ((975, 1004, 600, -np.pi / 2 - .30, .62, 90, 0., 31, 2.0),
+                                                           (1090, 1080, 380, -np.pi / 2 - .02, 1.0, 46, .06, 37, 1.5),
+                                                           (830, 952, 290, -np.pi / 2 - .55, .45, 34, .22, 41, 1.6)):
+                X, Y = Pw((px_, py_))
+                SEA.burst(cvs, X, Y, sz * k, age - dl, seed=sd, wind=(1.3, -.05), life=lf, n=n_, mist=mist, ang0=a0, up=up, tear=1.6)
             img = img + (rgb('#aab5c0') - img) * (mist * .8)[..., None]
         img = ST.over(img, cvs.layer())
         # rain over everything, brighter in the beam and in the flash
@@ -211,5 +259,5 @@ class Shot:
         lit = .55 + 2.2 * np.clip(B, 0, 1) + 1.2 * fl
         img = img + (rgb('#a8b6c4') * np.clip(lit, 0, 2)[..., None] * .9 - img) * (rs * .8)[..., None]
         if fl > 0:
-            img = img + (rgb('#dfe7fb') - img) * (fl * .12)
+            img = img + (rgb('#dfe7fb') - img) * (fl * .08)
         return np.clip(img, 0, 1.4).astype(f32)

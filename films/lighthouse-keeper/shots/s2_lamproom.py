@@ -31,11 +31,15 @@ class Shot:
     #   ground: floor y in front of the lamp; hatch: centre of the floor opening (its floor y is 940);
     #   hatch_quad: the opening's corners (near-left, near-right, far-right, far-left): clip the climbing
     #   body to above the near edge; step: top of the lamp's round plinth (z = 10 cm) in front of the tank;
-    #   lamp: the oil filler cap on top of the tank; wick: the flame inside the glass; lens: where to wipe.
+    #   filler: the mouth of the funnel on the brass filler pipe; lamp: where to hold the spout to pour
+    #   (a little above the funnel: the oil thread from points['spout'] into the funnel is drawn here); wick: the flame inside the glass;
+    #   lens: where to wipe (lowest glass ring, within reach); hatch_lip: the near edge of the opening (left to
+    #   right): below this line the body is inside the well and hidden.
     M = dict(ground=950, x0=660, x1=1110, scale=290,
              light=dict(dir=(.45, -.89), color='#ffb458', amt=.85),
              hatch=(660, 940), hatch_quad=((381, 1045), (862, 1002), (838, 876), (499, 898)),
-             step=(1206, 845), lamp=(1227, 634), wick=(1259, 500), lens=(1188, 598), window=(653, 416))
+             step=(1206, 845), lamp=(1208, 606), filler=(1211, 652), wick=(1259, 500), lens=(1160, 596), window=(653, 416),
+             hatch_lip=((381, 1045), (862, 1002)))
 
     def setup(self):
         self.room = LR.Room('s2', 'night')
@@ -64,6 +68,7 @@ class Shot:
         R.lamp.draw(img, f, rot=rot, lit=.95 * fl, flame=1.0, glow=fl)
         img = self.air(img, f, fl)
         img = otteract.draw(img, 's2', f, self.M)
+        img = self.oil(img, f)
         self.dust(img, f)
         z = self.zoom(f)
         cx, cy = self.cam_c
@@ -92,6 +97,28 @@ class Shot:
         c = cv2.GaussianBlur(c, (0, 0), 4)
         k = np.clip(m * fl + .6 * c, 0, .85)[..., None]
         return img * (1 - k * (1 - rgb('#3a2a48')))
+
+    def oil(self, img, f):
+        """a thin amber thread from the can's spout into the funnel while it pours"""
+        sp = None
+        for a in otteract.actors('s2', f, self.M):
+            sp = (a.get('points') or {}).get('spout', sp)
+        if sp is None: return img
+        from lp.ink import Cel, over_roi
+        tx, ty = self.M['filler']
+        sx, sy = sp
+        if ty - sy < 6: return img
+        x0, y0 = int(min(sx, tx) - 20), int(sy - 20)
+        c = Cel(int(abs(tx - sx) + 40), int(ty - sy + 40), x0, y0)
+        t = np.linspace(0, 1, 14)[:, None]
+        p0, p1 = np.array([sx, sy]), np.array([tx, ty - 2])
+        mid = p0 + (p1 - p0) * .5 + [3, -2]
+        q = (1 - t) ** 2 * p0 + 2 * t * (1 - t) * mid + t * t * p1
+        w = 2.4 + .4 * math.sin(f * 1.7)
+        c.line(q, w, '#ffc45a', taper=(.05, .1), press=.3, seed=f // 2, tremor=.5, alpha=.95)
+        c.line(q + [-.6, 0], w * .35, '#fff0b8', taper=(.1, .3), press=.2, seed=f // 2 + 1, tremor=.3, alpha=.9)
+        over_roi(img, c.rgba(), x0, y0)
+        return img
 
     def air(self, img, f, fl):
         """warm light hanging in the air round the glass"""
