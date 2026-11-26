@@ -393,7 +393,8 @@ def act_s2(f, M):
             P['scarf'] = (-2.0, 1.2)
         else:
             P = shift(P, du=-4.0); P = lean(P, .18); P['scarf'] = (1.0, -1.6); P['blink'] = .5
-        facing = 'right'
+        # a hop is not a walk along the ground: its y is the feet in the air, so no walking direction
+        facing = None
         tilt_can = 0.0
     else:
         # ---------------- on the plinth: pour, set down, wipe, pat
@@ -739,7 +740,8 @@ def act_s7(f, M):
             P['pawL'] = (14.0, 56.0, -6.0); P['pawR'] = (15.0, 58.0, 6.0)
             P['tail'] = tail_curve(ang=.5, curl=-.15)
             P['scarf'] = (-2.0, 2.5)
-            yaw = 0.0; facing = 'right'
+            # jumping down from the ledge: the feet are in the air, not walking along the ground
+            yaw = 0.0; facing = None
         else:
             nfr = T['hop'] - T['land']
             t = (d - T['land']) / float(nfr)
@@ -754,7 +756,8 @@ def act_s7(f, M):
             yaw = 0.0; facing = 'right'
     elif d < T['top']:
         # ---------------- hop on the plinth, then up the tank paw over paw to the flange
-        yaw = 0.0; facing = 'right'
+        # climbing, not walking: the feet go up the tank, so no walking direction
+        yaw = 0.0; facing = None
         if d < T['climb']:
             t = seg(d, T['hop'], T['climb'], e=lambda u: u)
             x = (stx - 110.0) * (1 - t) + (xf_ - 20) * t

@@ -405,7 +405,9 @@ export const heading = {
           if (speed < 20 && depth < 0.02) continue;
           judged++;
           const face = FACING[p.a.facing];
-          if (face === undefined) continue;
+          // judge a stretch only if it is one walk: the same facing at every look in it (a hop or
+          // a climb in between reports no facing, and is not a walk)
+          if (face === undefined || track.slice(i, j + 1).some((x) => x.a.facing !== p.a.facing)) continue;
           if (depth > 0.1) {
             problems.set(`${sc.id}|${name}|depth`, `${sc.id}：${name} 画的是侧面，却在往纵深里走（大小每秒变化 ${Math.round(depth * 100)}%）`);
           }
