@@ -20,13 +20,13 @@ class Shot:
     n = 168
     finish = dict(hal_amt=.20, vig=.16)
     # Marks (frame px).  ground: floor y between the window and the lamp; window: centre of the casement
-    # that blows open (its sill top is at y 634, x 581); step: top of the lamp plinth; wick: the flame.
+    # that blows open (its sill top is at y 567, x 581); step: top of the lamp plinth; wick: the flame.
     # light: the storm light through the open window after 1.5 s (the lamp's warm light comes from `lamp_light`
     # until it dies at 3.5 s).
-    M = dict(ground=960, x0=700, x1=1450, scale=290,
+    M = dict(ground=900, x0=700, x1=1450, scale=290,
              light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.6),
              lamp_light=dict(dir=(.6, -.8), color='#ffb458', amt=.8),
-             window=(568, 483), sill=(581, 634), step=(1507, 872), lamp=(1464, 674), wick=(1429, 559), lens=(1445, 592))
+             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1463, 607), wick=(1431, 492), lens=(1432, 526))
 
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}

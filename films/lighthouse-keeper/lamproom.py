@@ -54,7 +54,7 @@ PROPS.append(('box', (-1.02 - .27, -1.02 + .27, -.22 + .27 + .01, -.22 + .27 + .
 # per-camera layout; s7 shares s5's camera
 CAMS = {
     's2': dict(eye=(-.85, -1.85, .56), target=(-.30, .60, .50), f=1100, cx=W * .5, cy=H * .50),
-    's5': dict(eye=(-1.75, -1.15, .40), target=(-.60, .55, .58), f=980, cx=W * .5, cy=H * .52),
+    's5': dict(eye=(-1.75, -1.15, .40), target=(-.60, .55, .44), f=980, cx=W * .5, cy=H * .52),
     's3': dict(eye=(-.55, -.75, .36), target=(-1.9, .55, .70), f=1500, cx=W * .5, cy=H * .5),
 }
 # the window that blows open (bay index) -- seen in s5/s7 on the left, in s2 left of the lamp
@@ -341,6 +341,13 @@ def _seams(cv, cam, mat, rng):
                 for e in (.25, .75):                             # nails
                     q = (x0 + PLANK * e, yb + .035, 0)
                     seg(q, (q[0] + .004, q[1] + .002, 0), .005, rgb('#3a2a34'), 2)
+    for k in range(64):
+        a = -math.pi + 2 * math.pi * k / 64
+        for u0 in (0.0, .45):
+            pts = []
+            for u in np.linspace(u0, u0 + .5, 5):
+                rr = R_WALL * (1 - u); pts.append((rr * math.cos(a), rr * math.sin(a), Z_RING + (Z_APEX - Z_RING) * u))
+            seg(pts[0], pts[-1], .006, rgb('#2e2230'), 5)
     if not P: return
     cv.strokes(_pad(P), np.array(Wd), np.array(C), op=.8, dry=.3, seed=5, shape='flat', bristle=.03)
 
@@ -360,7 +367,7 @@ def layout_tag(ck):
     return h[:6]
 
 
-def paint(key, ver="p8"):
+def paint(key, ver="p9"):
     """painted albedo plate + geometry buffers for a camera, cached"""
     ck = 's5' if key == 's7' else key
     path = cache_path(f'lamproom_{ck}_{ver}_{layout_tag(ck)}.npz')
@@ -395,8 +402,17 @@ def paint(key, ver="p8"):
                   op=.9, dry=.18, aspect=4.0, curve=.25, bristle=.06)
     cv = Canvas(H, W, layer=True)
     _seams(cv, cam, mat, rng)
-    sm = (mat == M_FLOOR).astype(f32)[..., None] * cv.a[..., None]
+    sm = np.isin(mat, (M_FLOOR, M_CEIL)).astype(f32)[..., None] * cv.a[..., None]
     img = img * (1 - sm) + cv.img * sm
+    # whitewash is calm: soften the brush in it, then a few damp stains and salt bloom near the floor
+    pl = (mat == M_PLASTER)
+    soft = cv2.GaussianBlur(img, (0, 0), 3.0)
+    k = pl[..., None].astype(f32) * .6
+    img = img * (1 - k) + soft * k
+    st = fbm(H, W, (140, 50, 18), (1, .6, .3), 61, aspect=.5)
+    zz = P[..., 2]
+    damp = np.clip((st - .6) * 1.5, 0, 1) * np.clip(1 - zz / .4, 0, 1) * pl
+    img = img * (1 - damp[..., None] * (1 - rgb('#9a8aa0') / rgb('#ddd5cb')) * .8)
     img = mottle(img, .018, 4, .004)
     out = dict(alb=img.astype(np.float16), mat=mat.astype(np.int8), P=P.astype(np.float16), N=N.astype(np.float16), ao=ao.astype(np.float16))
     np.savez(path, **out)
@@ -487,7 +503,7 @@ def lens_bars(phi, el, rot):
 
 
 # ------------------------------------------------------------------ outside
-def sky(key, weather, ver="k4"):
+def sky(key, weather, ver="k5"):
     """what the windows look out on, painted.  weather: 'night' (calm, moon) or 'storm'"""
     ck = 's5' if key == 's7' else key
     path = cache_path(f'lamproom_sky_{ck}_{weather}_{ver}_{layout_tag(ck)}.npy')
@@ -503,7 +519,7 @@ def sky(key, weather, ver="k4"):
     eye = cam.eye
     if weather == 'night':
         g = ramp(np.clip(el / .6, 0, 1), [(0, '#34427a'), (.2, '#26305e'), (.6, '#1a2350'), (1, '#121a3a')])
-        mo_az, mo_el = math.radians(150), .42
+        mo_az, mo_el = math.radians(178), .40
         dm = np.hypot((az - mo_az) * np.cos(el), el - mo_el)
         cl = _sm(.15, .75, n1 * .6 + n2 * .7 + .2 - el * .8)
         ccol = ramp(np.clip(1 - dm / 1.2, 0, 1), [(0, '#262f62'), (.5, '#3e4a88'), (.85, '#6f7ab5'), (1, '#b7bfe0')])
@@ -563,7 +579,7 @@ class Room:
         P = p['P'].astype(f32); N = p['N'].astype(f32)
         self.P, self.N = p['P'], p['N']
         ck = 's5' if key == 's7' else key
-        path = cache_path(f'lamproom_light_{ck}_l9_{layout_tag(ck)}.npz')
+        path = cache_path(f'lamproom_light_{ck}_l10_{layout_tag(ck)}.npz')
         if os.path.exists(path):
             z = np.load(path); L = {k: z[k] for k in z.files}
         else:
@@ -644,6 +660,10 @@ class Lamp:
         self.room = room
         m = room.mat == M_LENS
         ys, xs = np.nonzero(m)
+        self.sc = float(room.cam.scale(FLAME))
+        self.fpx = room.cam.project(FLAME)[0]
+        if len(xs) == 0:
+            self.box = None; return
         pad = 4
         self.box = (max(0, xs.min() - pad), max(0, ys.min() - pad), min(W, xs.max() + pad + 1), min(H, ys.max() + pad + 1))
         x0, y0, x1, y1 = self.box
@@ -660,6 +680,7 @@ class Lamp:
 
     def draw(self, img, f, rot=0.0, lit=1.0, flame=1.0, lean=0.0, glow=1.0, bloom=0.0, flare=0.0):
         """lit: how much light the glass holds (0..), flame: flame size (0 = out)"""
+        if self.box is None: return img
         x0, y0, x1, y1 = self.box
         t = img[y0:y1, x0:x1]
         z, phi, fac = self.z, self.phi, self.facing
@@ -667,7 +688,7 @@ class Lamp:
         dp = (phi - rot) % step - step / 2                   # offset from the panel centre
         u = dp * LENS[0]; v = z - FLAME[2]
         # what is seen through the glass: the dim room, the brass inside, and the flame's light filling it
-        inner = rgb('#252840') * (.7 + .3 * fac)[..., None]
+        inner = rgb('#1e2036') * (.7 + .3 * fac)[..., None]
         inner = inner + LAMP_COL * (lit * (.30 + .9 * np.exp(-(v / .16) ** 2) * fac ** 2))[..., None]
         base = t * .35 + inner * .9
         # prism rings above and below the belt
@@ -675,7 +696,7 @@ class Lamp:
         ring = np.where(belt, 0, ((np.abs(v) - .10) / .034) % 1.0)
         edge = np.exp(-((ring - .08) / .07) ** 2) + .5 * np.exp(-((ring - .92) / .05) ** 2)
         glint = np.exp(-(((phi - self.azc + 1.0 + rot * 2.0 + np.floor((np.abs(v) - .10) / .034) * .9) % (2 * math.pi) - math.pi) / .16) ** 2)
-        cool = rgb('#9fb0d8') * .30 * (1 - fac * .5)[..., None]
+        cool = rgb('#8f9cc4') * (.10 + .10 * min(1., lit)) * (1 - fac * .5)[..., None] + t * .12
         warm = LAMP_COL * lit
         rings = (edge * (1 - belt))[..., None] * (cool + warm[None, None] * (.45 + .9 * glint[..., None]) * (.3 + fac[..., None]))
         # the bull's-eyes in the belt
@@ -762,7 +783,7 @@ def draw_sash(img, cam, theta, f, lit, sky_img=None, seed=0):
         return b + (t - b) * v
     q = lambda pts: cam.project(np.array(pts))[0]
     outer = q([pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1)])
-    fw = .06 / np.linalg.norm(C[1] - C[0]); fh = .06 / np.linalg.norm(C[3] - C[0])
+    fw = .045 / np.linalg.norm(C[1] - C[0]); fh = .045 / np.linalg.norm(C[3] - C[0])
     inner = q([pt(fw, fh), pt(1 - fw, fh), pt(1 - fw, 1 - fh), pt(fw, 1 - fh)])
     x0, y0 = np.floor(outer.min(0)).astype(int) - 12; x1, y1 = np.ceil(outer.max(0)).astype(int) + 12
     x0, y0 = max(0, x0), max(0, y0); x1, y1 = min(W, x1), min(H, y1)
@@ -789,7 +810,7 @@ def draw_sash(img, cam, theta, f, lit, sky_img=None, seed=0):
     lt = q([pt(.95, .48), pt(.99, .48), pt(.99, .55), pt(.95, .55)])
     c.fill(bo(lt), np.clip(rgb('#c8963c') * lit * 1.3, 0, 1))
     for P in (outer, inner):
-        c.line(np.vstack([bo(P), bo(P[:1])]), 1.8, '#1e1828', taper=(.05, .05), seed=seed + 3)
+        c.line(np.vstack([bo(P), bo(P[:1])]), 1.2, '#2a2236', taper=(.05, .05), seed=seed + 3, alpha=.7)
     over_roi(img, c.rgba(), x0, y0)
     return img
 

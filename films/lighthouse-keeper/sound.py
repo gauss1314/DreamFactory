@@ -40,8 +40,8 @@ CUES = {
     's7.match': ('sfx', [2500, 8000]),       # match head on the striker
     's7.catch': ('sfx', [80, 400]),          # the wick takes the flame
     's7.bloom': ('music', [300, 1200]),        # the chord arrives, low strings and drums
-    's8.sweep': ('music', [500, 2000]),    # cymbal crash at the beam's peak
-    's8.turn': ('music', [500, 2000]),         # timpani and bass drum as the boat turns
+    's8.sweep': ('sfx', [700, 3000]),      # the beam's glint crossing the lens (music: crash on the peak note)
+    's8.turn': ('sfx', [400, 2000]),       # the bow biting into the turn (music: timpani and drum)
     's9.horn.1': ('sfx', [450, 1400]),        # friendly horn, first blast
     's9.horn.2': ('sfx', [450, 1400]),        # and the second
     's9.wave': ('sfx', [400, 2000]),         # a small wave laps the shore
@@ -52,8 +52,8 @@ CUES = {
 MUSIC_DB = 0.0
 SFX_DB = 0.0
 # per-shot faders (dB); music ramps across a cut over RAMP seconds, effects step with the cut
-SHOT_M = dict(s1=6, s2=9, s3=5, s4=-1, s5=1, s6=6, s7=0, s8=0, s9=8)
-SHOT_S = dict(s1=10, s2=10, s3=10, s4=7, s5=6, s6=9, s7=9, s8=4, s9=10)
+SHOT_M = dict(s1=6, s2=9, s3=5, s4=-2, s5=4, s6=6, s7=-1, s8=-2.5, s9=8)
+SHOT_S = dict(s1=10, s2=10, s3=10, s4=6, s5=7, s6=9, s7=12, s8=4, s9=10)
 RAMP = .4
 END_FADE = (68.0, 70.0)
 START_FADE = (0.0, 1.5)

@@ -564,9 +564,9 @@ def build(P, V):
     pieces.append(Piece('head', hp, 'fur', k=2.6, spiky=P['wet'], kz=1.2))
     # ---- arms
     for s_, key in ((-1, 'L'), (1, 'R')):
-        sh_ = che + [1.0, 3.5, s_ * 10.0]
+        sh_ = che + [1.0, 3.5, s_ * 10.0] + np.array([.6, 1.0, -s_ * .3]) * P.get('shrug' + key, 0.0)
         paw = np.array(P['paw' + key], float)
-        el, pw = ik2(sh_, paw, 8.8, 8.2, P['elb' + key])
+        el, pw = ik2(sh_, paw, 9.4, 8.8, P['elb' + key])
         fa = unit(pw - el)
         prim = [Sweep([sh_ + [-.5, 2.0, 0], sh_, el, pw], [5.6, 5.3, 4.3, 3.6], None, fr_b),
                 Ell(pw + fa * 1.6, (4.2, 3.5, 3.9), frame_from(fa), mat_paw, fr_b)]

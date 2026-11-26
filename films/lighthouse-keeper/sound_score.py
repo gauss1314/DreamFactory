@@ -128,8 +128,8 @@ def m_s5(E):
     BRS(out, 'tbn', [(w, .5, K('C2'), .95, dict(art='marc'))], -4, 154, n=3)
     BRS(out, 'tbn', [(w, .5, K('Db3'), .95, dict(art='marc'))], -6, 155, n=2)
     BRS(out, 'horn', [(w, .4, K('Db4'), .9, dict(art='marc'))], -4, 156, n=3)
-    hit(out, 'timp', w, timp(K('C2'), 1.0, 157, 2.0), -2)
-    hit(out, 'bd', w, bassdrum(.9, 158), -2)
+    hit(out, 'timp', w, timp(K('C2'), 1.0, 157, 2.0), -6)
+    hit(out, 'bd', w, bassdrum(.9, 158), -7)
     # the flame struggling: a violin line flickers up by semitones, tremolo, faster and faster
     up = ['G5', 'Ab5', 'A5', 'Bb5', 'B5', 'C6', 'C#6', 'D6']
     t, dt = w + .5, .26
@@ -191,8 +191,8 @@ def m_s7(E):
     BRS(out, 'tuba', [(bl, 1.3, K('Eb1'), (.85, .5))], -4, 216, ep=2, expr=ex)
     for p, m, sd in (('S', 'G5', 220), ('A', 'Eb5', 221), ('T', 'Bb3', 222), ('B', 'Eb3', 223)):
         CH(out, p, [(bl, 1.3, K(m), (.75, .5), dict(vowel='o>a'))], 0, sd, n=9, ep=2, expr=ex, tail=.5)
-    hit(out, 'timp', bl, timp(K('Eb2'), 1.0, 230, 3.0), 2, ep=2)
-    hit(out, 'bd', bl, bassdrum(1.0, 231), 3, ep=2)
+    hit(out, 'timp', bl, timp(K('Eb2'), 1.0, 230, 3.0), -1, ep=2)
+    hit(out, 'bd', bl, bassdrum(1.0, 231), -1, ep=2)
     crash(out, bl, -10, 232, ep=2)
     sw = cymbal_roll(bl - c - .3, 233)
     out.put('music', c + .3, sw[:, :ns(bl - c - .3 + .02)] * fade(ns(bl - c - .3 + .02), .01, .02), -15, room='stage', wet=-10, ep=2)
@@ -230,7 +230,7 @@ X8 = X8B          # replaced per call with the event times (see x8)
 
 
 def x8(E):
-    return breaths(X8B, (E['s8.sweep'], E['s8.turn']))
+    return breaths(X8B, (E['s8.sweep'],), -12)
 
 
 def m_s8a(E):

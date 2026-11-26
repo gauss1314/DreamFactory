@@ -129,7 +129,7 @@ def x_s5(E):
     o.put('sfx', 27.0, rn, -14, room='room', wet=-10)
     o.put('sfx', 27.0, lp(FX.storm_sea(27.0, 34.02, 1504, .7), 400, 2), -6)
     # the window
-    o.put('sfx', W, FX.window_bang(1505), -3, p=-.45, room='room', wet=-8)
+    o.put('sfx', W, FX.window_bang(1505), -6, p=-.45, room='room', wet=-8)
     # the flame struggling: it gutters and flaps until it tears off
     fl = SX.flame(O - 27.0, 1506, lean=[(0, .05), (W - 27.0, .1), (W - 27.0 + .3, 1.0), (O - 27.0 - .4, .8), (O - 27.0, .5)])
     fl = env_gain(fl, 27.0, [(27, 0), (O - .25, 0), (O - .02, -8), (O, -60)])
@@ -154,7 +154,7 @@ def x_s6(E):
     cr = SX.stickslip(5.8, [(0, 25), (2, 40), (4, 20), (5.8, 35)], *SX.wood_modes(1605, 90, 20, 1800, .08), 1606, gain=[(0, .6), (1, .2), (2.2, .8), (3.0, .1), (5.0, .5), (5.8, .2)])
     o.put('sfx', 34.2, cr * .03, 0, p=-.1, room='sky', wet=-8)
     # the horn: short, sagging, two reeds out of tune
-    o.put('sfx', h, FX.horn(118.0, .55, 1610, rough=1.0, sag=1.0, release=.08, atk=.015), 2, p=-.15, room='sky', wet=-6)
+    o.put('sfx', h, FX.horn(118.0, .55, 1610, rough=1.0, sag=1.0, release=.08, atk=.015), 5, p=-.15, room='sky', wet=-6)
     o.put('sfx', x, FX.hull_hit(1611, 1.0), -2, p=-.1, room='sky', wet=-9)
     return o.pack()
 
@@ -175,15 +175,15 @@ def x_s7(E):
     for k_, t in enumerate((40.55, 40.72, 40.86, 41.0, 41.12)):
         o.put('sfx', t, SX.paw(1710 + k_, .55, 'wood'), -1, p=-.4, room='room', wet=-10)
     o.put('sfx', 40.9, SX.fur(.5, 1716, 1700, 1.4), -1, p=-.4, room='room', wet=-12)
-    o.put('sfx', sh, FX.thump(1717, 85, 1.0), 0, p=-.4, room='room', wet=-8)
+    o.put('sfx', sh, FX.thump(1717, 85, 1.0), -4, p=-.4, room='room', wet=-8)
     o.put('sfx', sh + .16, FX.latch(1718, .8), -16, p=-.4, room='room', wet=-8)
     # up the iron steps of the lamp stand
     for k_, t in enumerate((42.15, 42.45, 42.75, 43.05, 43.32)):
         o.put('sfx', t, FX.iron_step(1720 + k_, .5), -8, p=-.1 + .05 * k_, room='room', wet=-10)
     o.put('sfx', 43.55, SX.fur(.3, 1726, 2200), -3, p=.05, room='room', wet=-12)
     # the match
-    o.put('sfx', m, FX.match_strike(1730), -8, p=.05, room='room', wet=-12)
-    o.put('sfx', m + .5, env_gain(SX.flame(c - m - .5, 1731), m + .5, [(m + .5, -10), (c - .1, -6), (c, -40)]) * .5, 0, p=.05, room='room', wet=-14)
+    o.put('sfx', m, FX.match_strike(1730), -17, p=.05, room='room', wet=-12)
+    o.put('sfx', m + .5, env_gain(SX.flame(c - m - .5, 1731), m + .5, [(m + .5, -10), (c - .45, -8), (c - .2, -40), (c, -60)]) * .5, 0, p=.05, room='room', wet=-14)
     # the wick catches; the lamp burns steady
     o.put('sfx', c, FX.flame_catch(1732), 0, p=.0, room='room', wet=-12)
     o.put('sfx', c + .2, env_gain(FX.wick(c + .2, 49.02, 1733), c + .2, [(c + .2, -30), (c + 1.0, 0), (49, 0)]), -2, room='room', wet=-14)
@@ -203,7 +203,8 @@ def x_s8(E):
     # the beam swinging past: a long air-shaped swish
     o.put('sfx', sw - .7, SX.whoosh(1.6, [(0, 500), (.7, 2600), (1.6, 700)], .9, [(0, 0), (.62, .9), (.72, 1.0), (1.6, 0)], [(0, -.7), (1.6, .7)], 1804) * .06, 0, room='sky', wet=-8)
     # far: the boat heels over, her wake hissing in a curve
-    o.put('sfx', tu, FX.lap(1805, 1.0), -6, p=.35, room='sky', wet=-6)
+    o.put('sfx', tu, FX.lap(1805, 1.0), 2, p=.35, room='sky', wet=-6)
+    o.put('sfx', sw, FX.glint(1807), -2, p=.0, room='sky', wet=-8)
     o.put('sfx', tu + .2, SX.whoosh(2.2, [(0, 700), (.8, 2200), (2.2, 900)], .8, [(0, 0), (.6, .8), (2.2, 0)], [(0, .5), (2.2, .1)], 1806) * .03, 0, room='sky', wet=-6)
     return o.pack()
 
@@ -223,7 +224,7 @@ def x_s9(E):
     # the boat says thank you: two clean blasts, a warm major third
     for k, (t, d) in enumerate(((h1, h2 - h1 - .2), (h2, 1.0))):
         x = FX.horn(155.6, d, 1920 + k, rough=0.0, release=.04, chord=(1.0, 1.26), atk=.015)
-        o.put('sfx', t, x, -1, p=.35, room='sky', wet=-19)
+        o.put('sfx', t, x, -4, p=.35, room='sky', wet=-19)
     o.put('sfx', wv, FX.lap(1930, 1.0), -4, p=-.2, room='sky', wet=-10)
     # the lamp behind her goes out: a small sigh of the wick
     o.put('sfx', lo, FX.flame_puff(1940, .3), -12, p=-.2, room='room', wet=-12)

@@ -103,7 +103,12 @@ class Rain:
             self.layers.append(dict(x=r.uniform(-.3, 1.3, n) * w, y=r.uniform(0, 1, n) * (h + L * 2), L=L * r.uniform(.6, 1.3, n), wd=wd,
                                     sp=sp * speed * r.uniform(.85, 1.15, n), op=op * r.uniform(.4, 1, n), bl=bl))
         # far curtains: noise stretched along the fall, rotated by the lean
-        g = fbm(h * 2, w, (260, 70, 18), (1, .6, .35), seed + 1, aspect=.10)
+        g = fbm(h * 2, w * 2, (260, 70, 18), (1, .6, .35), seed + 1, aspect=.10)
+        u = (np.arange(h, dtype=f32) / h)[:, None]
+        g = g[h:] * (1 - u) + g[:h] * u                      # periodic in y: T(0) = T(h) = g[h]
+        v = (np.arange(w, dtype=f32) / w)[None]
+        g = g[:, w:] * (1 - v) + g[:, :w] * v                # and in x
+        g = g / (g.std() + 1e-6)
         g = np.clip(g * .5 + .5, 0, 1)
         self.sheet = g.astype(f32)
 
@@ -111,7 +116,7 @@ class Rain:
         """0..1 sheet density, scrolling down along the lean"""
         h, w = self.h, self.w
         dy = (f * 34.) % (h)
-        M = np.float32([[1, -self.lean, self.lean * h], [0, 1, -dy - h * .5]])
+        M = np.float32([[1, -self.lean, 0], [0, 1, -dy]])
         out = cv2.warpAffine(self.sheet, M, (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_WRAP)
         return out
 

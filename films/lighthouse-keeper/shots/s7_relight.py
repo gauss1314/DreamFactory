@@ -22,13 +22,13 @@ def _e(t, k):
 class Shot:
     n = 216
     finish = dict(hal_amt=.24, vig=.15)
-    # Same camera as s5.  window: centre of the casement the otter shuts (sill top y 634 at x 581);
+    # Same camera as s5.  window: centre of the casement the otter shuts (sill top y 567 at x 581);
     # step: top of the lamp plinth; lamp: the oil filler cap; wick: where the match must go.
     # Report the match head as points['match'] in otteract.actors('s7', f, M): its light is drawn here.
-    M = dict(ground=960, x0=600, x1=1450, scale=290,
+    M = dict(ground=900, x0=600, x1=1450, scale=290,
              light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.55),
              lamp_light=dict(dir=(.6, -.8), color='#ffb458', amt=.9),
-             window=(568, 483), sill=(581, 634), step=(1507, 872), lamp=(1464, 674), wick=(1429, 559), lens=(1445, 592))
+             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1463, 607), wick=(1431, 492), lens=(1432, 526))
 
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}

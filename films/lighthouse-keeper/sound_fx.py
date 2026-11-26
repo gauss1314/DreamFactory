@@ -429,7 +429,7 @@ def flame_catch(seed):
     out[:, :len(th)] += th
     # the leading edge: a quick puff so the catch reads on the beat
     m = ns(.03)
-    out[:, :m] += lp(white(m, seed + 3), 600, 2) * np.exp(-np.arange(m) / SR / .006) * .8
+    out[:, :m] += lp(white(m, seed + 3), 600, 2) * np.exp(-np.arange(m) / SR / .008) * 2.2
     return out
 
 
@@ -482,3 +482,12 @@ def lap(seed, size=1.0):
     fz = SX.crackle(dur, [(0, 0), (.03, 2500), (.5, 1200), (1.6, 300), (dur, 0)], seed + 1, 'dust', width=.6)[:, :n]
     pb = SX.crackle(dur, [(0, 0), (.9, 0), (1.3, 200), (2.1, 60), (dur, 0)], seed + 2, 'thick', width=.8)[:, :n]
     return (s * .9 + fz * .5 + pb * .35) * size * fade(n, .0002, .4)
+
+
+def glint(seed):
+    """The beam crossing the lens: a bright hiss with a hard front edge, like air torn by the light."""
+    n = ns(1.0)
+    t = np.arange(n) / SR
+    z = SX.noise2(n, seed, .5)
+    y = np.stack([svf(z[c], 900 + 3000 * np.exp(-t / .15), .9) for c in (0, 1)])
+    return y * (1 - np.exp(-t / .0015)) * (np.exp(-t / .12) + .2 * np.exp(-t / .45)) * fade(n, .0002, .2)

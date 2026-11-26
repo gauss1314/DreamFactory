@@ -85,6 +85,14 @@ def lean(P, a, piv=None):
     return Q
 
 
+def stretch(P, s):
+    """stand tall: the torso lengthens, the head and arms ride up with it"""
+    Q = shift(P, du=s, names=('neck', 'head', 'pawL', 'pawR'))
+    q = np.asarray(P['chest'], float).copy(); q[1] += s * .7; Q['chest'] = tuple(q)
+    Q['rc'] = P['rc'] - s * .12
+    return Q
+
+
 def shift(P, df=0.0, du=0.0, names=('pelvis', 'chest', 'neck', 'head', 'pawL', 'pawR')):
     Q = dict(P)
     for k_ in names:
@@ -276,7 +284,7 @@ def _hatch_clip(M):
         # right of the right edge and below the floor: hidden too
         xr = fr[0] + (yy - fr[1]) * (nr[0] - fr[0]) / (nr[1] - fr[1])
         b = np.clip(xr - xx + .5, 0, 1)
-        c = np.clip(floor_y - 6 - yy + .5, 0, 1)
+        c = np.clip(floor_y + 6 - yy + .5, 0, 1)
         return a * np.maximum(b, c)
     return clip
 
@@ -310,10 +318,10 @@ def act_s2(f, M):
     if d < T['up']:
         # ---------------- climbing out of the hatch, 3/4 toward the right
         clip = _hatch_clip(M)
-        dep = keys(d, [(0, 118.0), (T['rise'], 104.0), (T['slap'] - 2, 64.0), (T['heave'], 62.0), (T['knee'] - 2, 26.0), (T['knee'], 22.0), (T['up'], 4.0)],
+        dep = keys(d, [(0, 150.0), (T['rise'], 118.0), (T['slap'] - 2, 60.0), (T['heave'], 58.0), (T['knee'] - 2, 24.0), (T['knee'], 20.0), (T['up'], (G - hy) / k)],
                    e=lambda t: out_(t, 1.6))
         x = keys(d, [(0, hx + 40.0), (T['heave'], hx + 50.0), (T['knee'], rim_x - 30.0), (T['up'], walk_x0 - 6.0)])
-        y = G + dep * k * .62                              # deeper in the hole is lower on screen
+        y = hy + dep * k                                   # on the ladder: straight down below the hatch floor
         yaw = .75
         P = _hug(O.pose(), can_c)
         P = lean(P, keys(d, [(0, .05), (T['slap'], .12), (T['heave'] + 4, .38), (T['knee'], .30), (T['up'], .12)]))
@@ -406,11 +414,19 @@ def act_s2(f, M):
     if tilt_can is not None:
         cc = P.get('_can')
         if cc is None:
-            cc = np.array([(P['pawL'][0] + P['pawR'][0]) / 2 + 1.5, (P['pawL'][1] + P['pawR'][1]) / 2 + .5, 0.0])
+            cc = np.array([P['pawL'][0] + 1.0, P['pawL'][1] - 2.5, 2.5])
+        cc = np.asarray(cc, float).copy(); cc[2] = max(cc[2], 2.5)
         fn, cp = oil_can(V, cc, tilt_can, envd, k, seed=d // 6)
+        if T['lift'] <= d < T['down']:
+            # keep the spout on the filler: the paws carry the can the last little way
+            w = seg(d, T['lift'], T['pour'])
+            df = (lamp[0] - cp['spout'][0]) / k * w; du = (cp['spout'][1] - lamp[1]) / k * w
+            cc = cc + [df, du, 0]
+            for kk in ('pawL', 'pawR'): P[kk] = (P[kk][0] + df, P[kk][1] + du, P[kk][2])
+            fn, cp = oil_can(V, cc, tilt_can, envd, k, seed=d // 6)
         zc = V.p(cc)[2]
         props.append((zc, fn))
-        pts['paw'] = V.p(P['pawR'])[:2]
+        pts['paw'] = V.p(P['pawR'] if d >= T['hop'] else P['pawL'])[:2]
         pts['can'] = _closest(cp['grip'], pts['paw'], k * 4.2)
         if T['pour'] <= d < T['pour_end']:
             pts['spout'] = cp['spout']
@@ -468,8 +484,10 @@ def _wipe_pose(d, toe):
     for p in (T['pat1'], T['pat2']):
         if p - 4 <= d < p: pat = max(pat, (d - (p - 4)) / 4 * 3.0)       # draw back
         elif p <= d < p + 2: pat = max(pat, 0.0)                       # contact
-    target = np.array([18.0 - pat, 74.0 + toe * .6]) + rub
-    P = O.pose(pawR=(target[0] * up + 12 * (1 - up), target[1] * up + 44 * (1 - up), 4.5), pawL=(10.0, 44.0, -5.0), elbR=(-.2, -1, 1), elbL=(.2, -1, -1))
+    target = np.array([13.0 - pat, 74.0]) + rub
+    P = O.pose(pawR=(target[0] * up + 12 * (1 - up), target[1] * up + 44 * (1 - up), 5.5), pawL=(10.0, 44.0, -5.0), elbR=(-.2, -1, 1), elbL=(.2, -1, -1))
+    P['shrugR'] = 4.0 * up
+    P = stretch(P, 7.0 * up)
     P = shift(P, du=toe * up)
     P['footL'] = (2.5, 2.8 + toe * up * .6, -8.5); P['footR'] = (2.5, 2.8 + toe * up * .6, 8.5)
     P = lean(P, -.06 * up)
