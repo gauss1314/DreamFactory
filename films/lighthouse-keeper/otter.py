@@ -870,8 +870,9 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
     hz = byn['head'].zkey
     near = 1 if V.d(geo['Rh'] @ [0, 0, 1])[2] > 0 else -1
     layers = [(q.zkey, 'piece', q) for q in pieces]
-    layers.append((hz - .5, 'wfar', None))
-    layers.append((hz + .5, 'face', None))
+    if any(q.name == 'head' for q in pieces):
+        layers.append((hz - .5, 'wfar', None))
+        layers.append((hz + .5, 'face', None))
     if extra:
         for zk, fn in extra:
             if zk == 'front': zk = hz + .7          # in front of the face, behind a near arm

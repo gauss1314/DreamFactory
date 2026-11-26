@@ -1062,6 +1062,17 @@ def draw(img, key, f, M):
     env = p.env or env_from(M)
     sd = getattr(p, 'seed', None)
     sd = (tw(f) // 2 if sd is None else sd) + 17 * (sum(map(ord, key)) % 101)
+    between = M.get('between')
+    if callable(between):
+        # body, far arm, head, tail -> whatever the set puts between (a rail) -> the near forearm over it
+        near = getattr(p, 'near_arm', 'armR')
+        allp = ('torso', 'head', 'scarf', 'armL', 'armR', 'legL', 'legR', 'tail')
+        base = tuple(q for q in (p.parts or allp) if q != near)
+        O.draw(img, p.view(), p.P, env, seed=sd, lw=p.lw, clip=p.clip, extra=p.props, parts=base)
+        img = between(img, f)
+        if p.parts is None or near in p.parts:
+            O.draw(img, p.view(), p.P, env, seed=sd, lw=p.lw, clip=p.clip, parts=(near,))
+        return img
     O.draw(img, p.view(), p.P, env, seed=sd, lw=p.lw, clip=p.clip, extra=p.props, parts=p.parts)
     return img
 
