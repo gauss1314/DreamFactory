@@ -1,0 +1,16 @@
+{
+  "vertical": "anime",
+  "lang": "zh",
+  "title": "守灯人",
+  "scenes": [
+    { "id": "s1", "type": "s1_island", "duration": 7.0, "fadeIn": 1.5 },
+    { "id": "s2", "type": "s2_lamproom", "duration": 8.0, "events": { "hatch": 1.0, "pour": 4.0, "wipe": 6.0 } },
+    { "id": "s3", "type": "s3_otter", "duration": 4.0, "events": { "blink": 1.0, "flash": 2.8 } },
+    { "id": "s4", "type": "s4_storm", "duration": 8.0, "events": { "lightning": 3.5, "crash": 5.5 } },
+    { "id": "s5", "type": "s5_dark", "duration": 7.0, "events": { "window": 1.5, "out": 3.5 } },
+    { "id": "s6", "type": "s6_boat", "duration": 6.0, "events": { "horn": 2.5, "hit": 4.5 } },
+    { "id": "s7", "type": "s7_relight", "duration": 9.0, "events": { "shut": 1.5, "match": 4.0, "catch": 5.5, "bloom": 7.0 } },
+    { "id": "s8", "type": "s8_beam", "duration": 8.0, "events": { "sweep": 2.0, "turn": 4.0 } },
+    { "id": "s9", "type": "s9_dawn", "duration": 13.0, "fadeOut": 2.0, "events": { "horn": [3.0, 3.6], "wave": 6.0, "lampoff": 9.0 } }
+  ]
+}

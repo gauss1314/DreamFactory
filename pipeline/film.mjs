@@ -11,11 +11,13 @@ import * as synth from './lib/synth.mjs';
 import { writeWav } from './lib/wav.mjs';
 import { openStage, sampleFilm } from './lib/stage.mjs';
 import { renderVideo } from './lib/render.mjs';
+import { runPythonFilm } from './lib/python-film.mjs';
 import { runChecks } from './checks/index.mjs';
 
 const VERTICALS = {
   'data-story': () => import('../verticals/data-story/vertical.mjs'),
   narrative: () => import('../verticals/narrative/vertical.mjs'),
+  anime: () => import('../verticals/anime/vertical.mjs'),
 };
 
 /**
@@ -82,59 +84,64 @@ export async function runFilm(filmDir, opts = {}) {
   else fs.rmSync(builtScenes, { force: true });
   // Open the picture first: it reports the moments its actions happen, and the sound is placed on them.
   const contactFile = path.join(outDir, 'contact.jpg');
-  const stage = await openStage({ outDir, vertical, draft });
   let sampling;
   let video = null;
   let audio;
-  try {
-    const pageEvents = await stage.page.evaluate(() => (window.DF.events ? window.DF.events.map((e) => ({ ...e })) : []));
+  if (vertical.engine === 'python') {
     const declared = Object.entries(eventTimes(resolved, timeline)).map(([name, t]) => ({ name, t, kind: 'declared' }));
-    const eventList = [...declared, ...pageEvents].sort((x, y) => x.t - y.t);
+    ({ sampling, audio, video } = await runPythonFilm({ film, filmDir, outDir, timeline, declared, draft, video: opts.video !== false, vertical, timing }));
+  } else {
+    const stage = await openStage({ outDir, vertical, draft });
+    try {
+      const pageEvents = await stage.page.evaluate(() => (window.DF.events ? window.DF.events.map((e) => ({ ...e })) : []));
+      const declared = Object.entries(eventTimes(resolved, timeline)).map(([name, t]) => ({ name, t, kind: 'declared' }));
+      const eventList = [...declared, ...pageEvents].sort((x, y) => x.t - y.t);
 
-    // Score and effects: the film's own sound.js, else the vertical's, unless the film says "music": false.
-    const soundFile = path.join(filmDir, 'sound.js');
-    const verticalSound = film.music !== false && vertical.soundFile && fs.existsSync(vertical.soundFile) ? fs.readFileSync(vertical.soundFile, 'utf8') : null;
-    const soundSource = opts.sound !== undefined ? opts.sound : fs.existsSync(soundFile) ? fs.readFileSync(soundFile, 'utf8') : verticalSound;
-    soundHash = hash(soundSource ?? '');
-    let sound = null;
-    if (soundSource) {
-      const built = path.join(outDir, 'build', 'sound.mjs');
-      fs.writeFileSync(built, soundSource);
-      const render = (await import(`${pathToFileURL(built).href}?v=${hash(soundSource)}`)).default;
-      sound = await render({ synth, film: resolved, timeline, events: Object.fromEntries(eventList.map((e) => [e.name, e.t])), eventList });
-      for (const stem of ['music', 'sfx']) if (sound[stem]) writeWav(path.join(outDir, 'audio', `${stem}.wav`), toInt16(sound[stem], timeline.duration));
-    }
-    audio = await mixNarration({ timeline, outDir, stems: sound ? [sound.music, sound.sfx].filter(Boolean) : [] });
-    audio.cues = sound?.cues ?? [];
-    audio.events = eventList.filter((e) => !e.minor);
-    timing('open+sound+mix');
-    audio.stems = sound ? { music: path.join(outDir, 'audio', 'music.wav'), sfx: path.join(outDir, 'audio', 'sfx.wav') } : {};
-
-    // Picture: read the text back from the live page, then render if asked.
-    // Sampling reads the picture only, so it is cached under the picture's key, like the render.
-    const key = pictureKey(resolved, scenesSource, vertical);
-    const sampleCache = process.env.DF_RENDER_CACHE === 'off' ? null : path.join(process.env.DF_RENDER_CACHE ?? path.join(repoRoot, '.cache', 'render'), `${key}-${draft ? 'draft' : 'full'}-sample`);
-    if (sampleCache && fs.existsSync(path.join(sampleCache, 'sampling.json'))) {
-      sampling = readJson(path.join(sampleCache, 'sampling.json'));
-      if (fs.existsSync(path.join(sampleCache, 'contact.jpg'))) fs.copyFileSync(path.join(sampleCache, 'contact.jpg'), contactFile);
-    } else {
-      sampling = await sampleFilm(stage, timeline, { contactFile });
-      if (sampleCache && !sampling.pageErrors.length) {
-        const tmp = `${sampleCache}.${process.pid}.${Date.now()}.tmp`;
-        fs.mkdirSync(tmp, { recursive: true });
-        writeJson(path.join(tmp, 'sampling.json'), sampling);
-        if (fs.existsSync(contactFile)) fs.copyFileSync(contactFile, path.join(tmp, 'contact.jpg'));
-        fs.rmSync(sampleCache, { recursive: true, force: true });
-        fs.renameSync(tmp, sampleCache);
+      // Score and effects: the film's own sound.js, else the vertical's, unless the film says "music": false.
+      const soundFile = path.join(filmDir, 'sound.js');
+      const verticalSound = film.music !== false && vertical.soundFile && fs.existsSync(vertical.soundFile) ? fs.readFileSync(vertical.soundFile, 'utf8') : null;
+      const soundSource = opts.sound !== undefined ? opts.sound : fs.existsSync(soundFile) ? fs.readFileSync(soundFile, 'utf8') : verticalSound;
+      soundHash = hash(soundSource ?? '');
+      let sound = null;
+      if (soundSource) {
+        const built = path.join(outDir, 'build', 'sound.mjs');
+        fs.writeFileSync(built, soundSource);
+        const render = (await import(`${pathToFileURL(built).href}?v=${hash(soundSource)}`)).default;
+        sound = await render({ synth, film: resolved, timeline, events: Object.fromEntries(eventList.map((e) => [e.name, e.t])), eventList });
+        for (const stem of ['music', 'sfx']) if (sound[stem]) writeWav(path.join(outDir, 'audio', `${stem}.wav`), toInt16(sound[stem], timeline.duration));
       }
+      audio = await mixNarration({ timeline, outDir, stems: sound ? [sound.music, sound.sfx].filter(Boolean) : [] });
+      audio.cues = sound?.cues ?? [];
+      audio.events = eventList.filter((e) => !e.minor);
+      timing('open+sound+mix');
+      audio.stems = sound ? { music: path.join(outDir, 'audio', 'music.wav'), sfx: path.join(outDir, 'audio', 'sfx.wav') } : {};
+
+      // Picture: read the text back from the live page, then render if asked.
+      // Sampling reads the picture only, so it is cached under the picture's key, like the render.
+      const key = pictureKey(resolved, scenesSource, vertical);
+      const sampleCache = process.env.DF_RENDER_CACHE === 'off' ? null : path.join(process.env.DF_RENDER_CACHE ?? path.join(repoRoot, '.cache', 'render'), `${key}-${draft ? 'draft' : 'full'}-sample`);
+      if (sampleCache && fs.existsSync(path.join(sampleCache, 'sampling.json'))) {
+        sampling = readJson(path.join(sampleCache, 'sampling.json'));
+        if (fs.existsSync(path.join(sampleCache, 'contact.jpg'))) fs.copyFileSync(path.join(sampleCache, 'contact.jpg'), contactFile);
+      } else {
+        sampling = await sampleFilm(stage, timeline, { contactFile });
+        if (sampleCache && !sampling.pageErrors.length) {
+          const tmp = `${sampleCache}.${process.pid}.${Date.now()}.tmp`;
+          fs.mkdirSync(tmp, { recursive: true });
+          writeJson(path.join(tmp, 'sampling.json'), sampling);
+          if (fs.existsSync(contactFile)) fs.copyFileSync(contactFile, path.join(tmp, 'contact.jpg'));
+          fs.rmSync(sampleCache, { recursive: true, force: true });
+          fs.renameSync(tmp, sampleCache);
+        }
+      }
+      timing('sample');
+      if (opts.video !== false) {
+        video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null, cacheKey: key });
+      }
+      timing('render');
+    } finally {
+      await stage.close();
     }
-    timing('sample');
-    if (opts.video !== false) {
-      video = await renderVideo(stage, timeline, { outDir, draft, audioFile: audio.audible ? audio.file : null, cacheKey: key });
-    }
-    timing('render');
-  } finally {
-    await stage.close();
   }
 
   const ctx = {
