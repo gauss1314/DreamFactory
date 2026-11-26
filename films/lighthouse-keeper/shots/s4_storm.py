@@ -9,9 +9,9 @@ from lp.paint import f32, rgb, smooth, fbm, Canvas
 from lp.comp import ease
 import sea as SEA, storm as ST
 
-VER = 'v1'
-EYE0 = np.array([0., 0., 5.0])
-TGT = np.array([8., 120., 14.])
+VER = 'v4'
+EYE0 = np.array([0., 0., 4.0])
+TGT = np.array([8., 120., 13.])
 FOC = 1250.
 PUSH = 1.6                  # metres of dolly over the shot
 ISLAND = (52., 150., 0.)    # island foot (world); the tower stands on its top
@@ -83,10 +83,10 @@ class Shot:
         out = np.zeros((H, W, 4), f32)
         from lp.ink import paste
         top = np.array([[-20, 300], [80, 250], [210, 232], [330, 262], [420, 250], [560, 300], [690, 330], [760, 372], [830, 420], [900, 470], [960, 560]], float)
-        L = SEA.rock(980, 560, top, seed=11, cell=70, pal=('#161925', '#202435', '#2e3348', '#43495f', '#5f6680'))
+        L = SEA.rock(980, 560, top, seed=11, cell=110, pal=('#161925', '#202435', '#2e3348', '#43495f', '#5f6680'))
         paste(out, L, 0, H - 560 + 30)
         top2 = np.array([[0, 140], [60, 96], [150, 80], [250, 70], [330, 92], [420, 130], [480, 170]], float)
-        L2 = SEA.rock(480, 200, top2, seed=17, cell=46, pal=('#171a27', '#222638', '#30354a', '#454b62', '#626983'))
+        L2 = SEA.rock(480, 200, top2, seed=17, cell=70, pal=('#171a27', '#222638', '#30354a', '#454b62', '#626983'))
         paste(out, L2, W - 470, H - 160)
         return out
 
@@ -97,7 +97,7 @@ class Shot:
         for k, (x, y, wd, ht, sd) in enumerate(((-34., 62., 9., 3.2, 21), (21., 88., 6., 2.2, 23), (-9., 118., 4., 1.4, 25))):
             P = lambda a, z: c.project(np.array([x + a, y, z]))[0]
             r = np.random.default_rng(sd)
-            xs = np.linspace(-wd / 2, wd / 2, 9); zt = ht * np.clip(1 - (np.abs(xs) / (wd / 2)) ** 1.6, 0, 1) * r.uniform(.7, 1.1, 9)
+            xs = np.sort(r.uniform(-wd / 2, wd / 2, 13)); xs[0], xs[-1] = -wd / 2, wd / 2; zt = ht * np.clip(1 - np.abs(xs / (wd / 2)) ** 2.6, 0, 1) ** .55 * r.uniform(.7, 1.05, 13)
             zt[0] = zt[-1] = -1.5
             pts = np.array([P(a, z) for a, z in zip(xs, zt)])
             x0, y0 = int(pts[:, 0].min() - 6), int(pts[:, 1].min() - 6); y1 = int(P(0, -3)[1]) + 4
@@ -119,7 +119,7 @@ class Shot:
     def big_wave(self, t):
         """the set wave that builds and breaks on the rock: amplitude keys (s, m), with a lean that steepens it"""
         T = self.t_crash
-        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .4, T, T + .5, T + 1.4, 9], [.0, .8, 3.4, 7.8, 8.8, 2.6, .8, .3]))
+        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .4, T, T + .5, T + 1.4, 9], [.0, 1.0, 4.0, 9.0, 10.0, 2.8, .8, .3]))
         lean = float(np.interp(t, [0, T - 1.5, T - .3, T], [.1, .25, .55, .75]))
         d = WAVE_DIR / np.linalg.norm(WAVE_DIR)
         p = HIT - d * 8.5 * (T - t) - d * 3.0
@@ -167,7 +167,7 @@ class Shot:
             L[..., :3] = L[..., :3] * (1 - fogk) + rgb('#4e5566') * fogk * L[..., 3:4]
             if fl > 0: L[..., :3] += (rgb('#c8d4f0') * L[..., 3:4] - L[..., :3]) * fl * .45
             sub = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
-            img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, isa, vis * (isa > 0), f, seed=3, up=4, down=3, amt=.6)
+            img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, isa, vis * (isa > 0), f, seed=3, up=3, down=2, amt=.35)
         # mid rocks with surf at their feet
         R = self.sp_mid.roi(d, cam.cx, cam.cy)
         if R is not None:
@@ -176,8 +176,11 @@ class Shot:
             sub = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L * vis[..., None])
             img[Y0:Y0 + hh, X0:X0 + ww] = SEA.surf(sub, L[..., 3], vis, f, seed=2)
         # the lamp in the air and the beam in the rain
-        img = self.lh.lamp_glow(img, cam, self.at, amt=.9, col='#ffc070')
-        B = ST.beam_volume(cam, lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=260., amt=.55)
+        lx, ly = self.lh.lamp_px(cam, self.at)
+        zl = zfull[int(np.clip(ly + 3, 0, H - 1)), int(np.clip(lx, 0, W - 1))]
+        if zl <= 0 or zl > self.tdepth - 8:
+            img = self.lh.lamp_glow(img, cam, self.at, amt=.9, col='#ffc070')
+        B = ST.beam_volume(cam, lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=260., amt=.7, half=.035, r0=.8)
         cur = self.rain.curtains(f)
         bcol = rgb('#fff2d0')
         img = comp.screen(img, (B * (.55 + .7 * cur))[..., None] * bcol)

@@ -72,8 +72,8 @@ class Shot:
         v = .25 * max(0, 1 - abs(f - 12) / 6.) ** 2
         if f >= fo:
             u = f - fo
-            v += 1.6 * math.exp(-u / 2.2) + .5 * math.exp(-u / 9.)
-            if 4 <= u < 9: v += .35 * math.sin((u - 4) / 5 * math.pi)
+            v += 1.6 * math.exp(-u / 2.0) + .45 * math.exp(-u / 12.)
+            if 2 <= u < 6: v += .35 * math.sin((u - 2) / 4 * math.pi)
         return v
 
     def flame(self, f):
@@ -89,7 +89,7 @@ class Shot:
         size = (1 - .55 * u) * (1 + .25 * math.sin(d * 1.7) + .12 * r(d + 50))
         # it nearly goes twice and comes back
         for c in (.45, .78):
-            size *= 1 - .7 * math.exp(-((u - c) / .05) ** 2)
+            size *= 1 - .5 * math.exp(-((u - c) / .09) ** 2)
         return max(.12, size), lean
 
     def lamp_amt(self, f):
@@ -105,9 +105,9 @@ class Shot:
         lamp = self.lamp_amt(t)
         fl = self.flash(t)
         dark = 1.0 if t >= fx else 0.0
-        amb_col = mix(rgb('#2a2a46'), rgb('#141a2a'), dark)
+        amb_col = mix(rgb('#22223c'), rgb('#141a2a'), dark)
         win = .35 + (.55 if t >= fo else 0) + .25 * dark
-        Lt = R.light(lamp=lamp * .9, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .55)
+        Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .55)
         sky = R.sky * (1 + .9 * fl) + rgb('#c8d4f0') * fl * .18
         sky = sky + (np.roll(R.sky, int(t * 2), axis=1) - R.sky) * .0     # clouds held: they move with the rain
         img = R.render(Lt, sky)

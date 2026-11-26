@@ -228,7 +228,7 @@ def _h(a, b=0, c=0):
 
 ALB = {M_FLOOR: '#8c6a54', M_PLASTER: '#ddd5cb', M_SILL: '#86604a', M_MULL: '#55667a', M_GLASS: '#26305e', M_RING: '#6e4e3e',
        M_CEIL: '#76584a', M_PLINTH: '#4c5266', M_COLUMN: '#433d52', M_TANK: '#d29c42', M_TRAY: '#b98638', M_LENS: '#9ab8c8',
-       M_CROWN: '#cf9a40', M_HATCH: '#3a2c3a', M_LID: '#7e5c4a', M_RAIL: '#2a2a3a',
+       M_CROWN: '#cf9a40', M_HATCH: '#3a2c3a', M_LID: '#6e4e40', M_RAIL: '#2a2a3a',
        M_DRUM: '#a3444a', M_BUCKET: '#6a7a8c', M_CRATE: '#8a6a4e', M_CAN: '#9aa06a', M_STOOL: '#6e4a3c'}
 PLANK = .135
 
@@ -367,7 +367,7 @@ def layout_tag(ck):
     return h[:6]
 
 
-def paint(key, ver="p9"):
+def paint(key, ver="p12"):
     """painted albedo plate + geometry buffers for a camera, cached"""
     ck = 's5' if key == 's7' else key
     path = cache_path(f'lamproom_{ck}_{ver}_{layout_tag(ck)}.npz')
@@ -377,7 +377,7 @@ def paint(key, ver="p9"):
     cam = camera(ck)
     mat, P, N, T, d = geometry(cam)
     lab, guide, tg = _elements(mat, P, N)
-    ang = _angles(cam, P, tg)
+    ang = np.nan_to_num(_angles(cam, P, tg))
     ao = _ao(mat, P, N)
     g = guide * ao[..., None]
     # turn the round things: shade by how the surface faces us, a soft window highlight, a brass glint
@@ -411,8 +411,13 @@ def paint(key, ver="p9"):
     img = img * (1 - k) + soft * k
     st = fbm(H, W, (140, 50, 18), (1, .6, .3), 61, aspect=.5)
     zz = P[..., 2]
-    damp = np.clip((st - .6) * 1.5, 0, 1) * np.clip(1 - zz / .4, 0, 1) * pl
-    img = img * (1 - damp[..., None] * (1 - rgb('#9a8aa0') / rgb('#ddd5cb')) * .8)
+    damp = np.clip((st - .9) * 1.2, 0, 1) * np.clip(1 - zz / .3, 0, 1) * pl
+    img = img * (1 - damp[..., None] * (1 - rgb('#a898a8') / rgb('#ddd5cb')) * .5)
+    bad = ~np.isfinite(img).all(-1)
+    if bad.any():
+        img = np.nan_to_num(img); okm = (~bad).astype(f32)
+        fill = cv2.GaussianBlur(img * okm[..., None], (0, 0), 8) / (cv2.GaussianBlur(okm, (0, 0), 8)[..., None] + 1e-4)
+        img[bad] = fill[bad]
     img = mottle(img, .018, 4, .004)
     out = dict(alb=img.astype(np.float16), mat=mat.astype(np.int8), P=P.astype(np.float16), N=N.astype(np.float16), ao=ao.astype(np.float16))
     np.savez(path, **out)
@@ -497,7 +502,7 @@ def lens_bars(phi, el, rot):
     """shadow of the brass panel frames: vertical spokes on walls (1 = lit)"""
     step = 2 * math.pi / N_PANEL
     dp = np.abs((phi - rot) % step - step / 2)
-    bar = 1 - _sm(step / 2 - .05, step / 2 - .025, dp)
+    bar = 1 - _sm(step / 2 - .10, step / 2 - .02, dp)
     hor = np.abs(el) < math.atan2(LENS[2] - FLAME[2], LENS[0]) + .05
     return np.where(hor, .62 + .38 * (1 - bar), 1.0).astype(f32)
 
@@ -579,7 +584,7 @@ class Room:
         P = p['P'].astype(f32); N = p['N'].astype(f32)
         self.P, self.N = p['P'], p['N']
         ck = 's5' if key == 's7' else key
-        path = cache_path(f'lamproom_light_{ck}_l10_{layout_tag(ck)}.npz')
+        path = cache_path(f'lamproom_light_{ck}_l13_{layout_tag(ck)}.npz')
         if os.path.exists(path):
             z = np.load(path); L = {k: z[k] for k in z.files}
         else:
@@ -589,7 +594,7 @@ class Room:
             Es = stepped(E, tx)
             v = P - FLAME
             phi = np.arctan2(v[..., 1], v[..., 0]); el = np.arctan2(v[..., 2], np.hypot(v[..., 0], v[..., 1]))
-            amb = (.62 + .38 * np.clip(N[..., 2] * .5 + .5, 0, 1)) * p['ao'].astype(f32)
+            amb = np.nan_to_num((.62 + .38 * np.clip(N[..., 2] * .5 + .5, 0, 1)) * p['ao'].astype(f32))
             ow = self.open_center()
             wv = P - ow; wd = np.sqrt((wv * wv).sum(-1)) + 1e-6
             win = np.clip(-(wv * N).sum(-1) / wd * .7 + .3, 0, 1) / (1 + (wd / 1.3) ** 2)
@@ -646,7 +651,7 @@ def flame_shape(f, lean=0.0, size=1.0, seed=0):
     """flame outline in metres around the wick top (x right, y up), drawn on twos"""
     d = f // 2
     r = np.random.default_rng(900 + d + seed * 1000)
-    hgt = .11 * size * (1 + r.normal(0, .06)); wd = .03 * size * (1 + r.normal(0, .05))
+    hgt = .15 * size * (1 + r.normal(0, .06)); wd = .036 * size * (1 + r.normal(0, .05))
     tip = np.array([lean * hgt * .9 + r.normal(0, .004) * size, hgt])
     P = np.array([[0, -.008 * size], [-wd, .012 * size], [-wd * .8 + lean * hgt * .2, hgt * .38], [tip[0] * .55 - wd * .25, hgt * .72], tip,
                   [tip[0] * .55 + wd * .3, hgt * .70], [wd * .85 + lean * hgt * .25, hgt * .36], [wd, .012 * size]])
@@ -689,8 +694,9 @@ class Lamp:
         u = dp * LENS[0]; v = z - FLAME[2]
         # what is seen through the glass: the dim room, the brass inside, and the flame's light filling it
         inner = rgb('#1e2036') * (.7 + .3 * fac)[..., None]
-        inner = inner + LAMP_COL * (lit * (.30 + .9 * np.exp(-(v / .16) ** 2) * fac ** 2))[..., None]
-        base = t * .35 + inner * .9
+        inner = inner + LAMP_COL * (lit * (.10 + .55 * np.exp(-(v / .14) ** 2) * fac ** 2))[..., None]
+        amb_l = np.clip(lum(t) * 2.2, .2, 1.3)[..., None]
+        base = t * .12 + inner * .9 * (.5 + .5 * amb_l)
         # prism rings above and below the belt
         belt = np.abs(v) < .10
         ring = np.where(belt, 0, ((np.abs(v) - .10) / .034) % 1.0)
@@ -698,7 +704,7 @@ class Lamp:
         glint = np.exp(-(((phi - self.azc + 1.0 + rot * 2.0 + np.floor((np.abs(v) - .10) / .034) * .9) % (2 * math.pi) - math.pi) / .16) ** 2)
         cool = rgb('#8f9cc4') * (.10 + .10 * min(1., lit)) * (1 - fac * .5)[..., None] + t * .12
         warm = LAMP_COL * lit
-        rings = (edge * (1 - belt))[..., None] * (cool + warm[None, None] * (.45 + .9 * glint[..., None]) * (.3 + fac[..., None]))
+        rings = (edge * (1 - belt))[..., None] * (cool + warm[None, None] * (.22 + .9 * glint[..., None]) * (.25 + .8 * fac[..., None]))
         # the bull's-eyes in the belt
         rho = np.hypot(u, v)
         be = belt & (np.abs(u) < step / 2 * LENS[0] * .96)
@@ -708,14 +714,14 @@ class Lamp:
         face = np.exp(-((dp + (phi - rot - dp - self.azc + math.pi) % (2 * math.pi) * 0 ) * 0) ** 2)
         look = np.clip(np.cos(phi - self.azc), 0, 1)          # 1 where the panel looks at us
         warm2 = LAMP_COL * lit * (1 + 2.5 * bloom)
-        bulls = bull[..., None] * (cool * .8 + warm2 * (.35 + .9 * look[..., None] ** 3)) + centre[..., None] * warm2 * (.6 + 1.8 * look[..., None] ** 4)
+        bulls = bull[..., None] * (cool * .8 + warm2 * (.20 + .8 * look[..., None] ** 3)) + centre[..., None] * warm2 * (.6 + 1.8 * look[..., None] ** 4)
         out = base + rings + bulls
         out = out * (1 + .07 * self.tex[..., None])
         # brass: the panel frames and the belt hoops
         bar = np.abs(np.abs(dp) - step / 2) < .012 / LENS[0]
         hoop = (np.abs(np.abs(v) - .10) < .007)
         brass = (bar | hoop) & (fac > .02)
-        bcol = rgb('#8a6130') * (.45 + .55 * fac)[..., None] + rgb('#c8963c') * (lit * .6 * fac ** 4)[..., None] + t * .25
+        bcol = rgb('#8a6130') * (.45 + .55 * fac)[..., None] * amb_l * .8 + rgb('#c8963c') * (lit * .7 * fac ** 4)[..., None] + t * .15
         out = np.where(brass[..., None], bcol, out)
         m = self.mask[..., None]
         t[:] = t * (1 - m) + out * m
@@ -734,11 +740,13 @@ class Lamp:
         R = int(.16 * s * max(size, .4) + 8)
         c = Cel(2 * R, 2 * R, int(cx - R), int(cy - R))
         outer = spl(Q, closed=True, corners=(4,))
-        c.fill(outer, '#ff9a3c', .95)
-        inner = (Q - Q.mean(0)) * .55 + Q.mean(0) + [0, .010 * s]
-        c.fill(spl(inner, closed=True, corners=(4,)), '#fff3c8')
+        c.fill(outer, '#ff8a30', .9)
+        mid = (Q - Q.mean(0)) * .75 + Q.mean(0) + [0, .006 * s]
+        c.fill(spl(mid, closed=True, corners=(4,)), '#ffc260', .95)
+        inner = (Q - Q.mean(0)) * .45 + Q.mean(0) + [0, .016 * s]
+        c.fill(spl(inner, closed=True, corners=(4,)), '#fff6d8')
         c.fill(spl(np.c_[cx + np.array([-.006, .006, .0]) * s, cy + np.array([.006, .006, -.012]) * s], closed=True), '#5a8ad8', .55)
-        lay = c.rgba()
+        lay = cv2.GaussianBlur(c.rgba(), (0, 0), 1.1)        # behind the glass: a touch soft
         from lp.ink import over_roi
         over_roi(img, lay, int(cx - R), int(cy - R))
         # light in the air around it, inside the glass

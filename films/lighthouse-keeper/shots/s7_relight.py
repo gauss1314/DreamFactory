@@ -42,6 +42,14 @@ class Shot:
         # depth of the lamp from the camera, to put a screen point back into the room
         c = self.room.cam
         self.zl = float(c.cam(LR.FLAME)[2])
+        x, y = np.meshgrid(np.arange(W, dtype=f32), np.arange(H, dtype=f32))
+        cx, cy = self.M['wick']
+        self.ang = np.arctan2((y - cy) * 2.2, x - cx).astype(f32)
+        self.rad = np.hypot(x - cx, (y - cy) * 2.2).astype(f32)
+        g = np.clip(1 - np.hypot((x - cx) / 1500., (y - cy) / 900.), 0, 1) ** 1.3
+        self.warmwash = (g[..., None] * LR.rgb('#ffb458')).astype(f32)
+        r = np.random.default_rng(71)
+        self.ray_tab = np.convolve(r.uniform(0, 1, 720) ** 3, np.hanning(7) / 3, 'same').astype(f32)
 
     # ---------------------------------------------------------------- timing
     def theta(self, f):
@@ -113,7 +121,9 @@ class Shot:
             cx, cy = self.M['wick']
             img = comp.glow(img, cx, cy - 20, 300 + 300 * warm, '#ff9e48', .10 + .12 * warm + .25 * burst, 2.2)
         if f >= fb:
+            img = self.rays(img, ub, rot, burst, warm)
             img = self.rings(img, ub)
+            img = comp.screen(img, self.warmwash * (.30 * burst))
         img = otteract.draw(img, 's7', f, self.M)
         if m is not None:
             (mx, my), b = m
@@ -139,6 +149,18 @@ class Shot:
         out[y0:y1, x0:x1] = E[..., None] * rgb('#ffb060') * (2.2 * b)
         return out
 
+    def rays(self, img, u, rot, burst, warm):
+        """shafts of light thrown through the room's air by the turning panels"""
+        q = 4
+        a = self.ang[::q, ::q]; rr = self.rad[::q, ::q]
+        k = ((a + rot * 1.0) / (2 * np.pi) * 720).astype(np.int32) % 720
+        st = self.ray_tab[k]
+        reach = 250 + 1300 * (1 - math.exp(-u / 8.))
+        fall = np.clip(1 - rr / reach, 0, 1) ** 1.5 * np.clip((rr - 60) / 120, 0, 1)
+        L = cv2.GaussianBlur(st * fall, (0, 0), 1.5)
+        L = cv2.resize(L, (W, H), interpolation=cv2.INTER_LINEAR)
+        return comp.screen(img, L[..., None] * LR.rgb('#ffcf8a') * (.55 * burst + .16 * warm))
+
     def rings(self, img, u):
         """rings of light opening out from the lens, through the room's air"""
         cx, cy = self.M['wick']
@@ -151,10 +173,10 @@ class Shot:
             r = 40 + 1500 * _e(t, 16)
             a = amp * math.exp(-t / 22.) * min(1, t / 2.)
             if a < .01: continue
-            cv2.ellipse(L, (int(cx / q * 16), int(cy / q * 16)), (int(r / q * 16), int(r * .42 / q * 16)), 0, 0, 360, a, max(1, int((3 + t * .5) / q)), cv2.LINE_AA, 4)
-        L = cv2.GaussianBlur(L, (0, 0), 2.0)
+            cv2.ellipse(L, (int(cx / q * 16), int(cy / q * 16)), (int(r / q * 16), int(r * .42 / q * 16)), 0, 0, 360, a, max(1, int((10 + t * 1.4) / q)), cv2.LINE_AA, 4)
+        L = cv2.GaussianBlur(L, (0, 0), 4.0)
         L = cv2.resize(L, (W, H), interpolation=cv2.INTER_LINEAR)
-        return comp.screen(img, L[..., None] * rgb('#ffcf8a') * .55)
+        return comp.screen(img, L[..., None] * rgb('#ffcf8a') * .85)
 
     def actors(self, f):
         return otteract.actors('s7', f, self.M) + [dict(name='窗扇', prop=True, x=float(self.M['sill'][0]), y=float(self.M['sill'][1]), s=1.0)]

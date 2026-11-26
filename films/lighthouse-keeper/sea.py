@@ -64,7 +64,7 @@ def _wave(bx, by, t, KX, KY, A, Q, OM, PH, GRP, RG, fade_s, env_amt, seed):
         lean = RG[r, 8]
         px += dx * lean * z; py += dy * lean * z; pz += z
         nx -= gx; ny -= gy
-        jxx += lean * ga * .25
+        jxx += lean * ga * .5
     J = jxx * jyy - jxy * jxy
     ln = math.sqrt(nx * nx + ny * ny + nz * nz)
     return px, py, pz, nx / ln, ny / ln, nz / ln, J, ph0
@@ -97,7 +97,7 @@ def _march(ex, ey, ez, R, foc, cx, cy, h, w, KX, KY, A, Q, OM, PH, GRP, RG, t, s
             dX = px - ex; dY = py - ey; dZ = pz - ez
             cz = R[2, 0] * dX + R[2, 1] * dY + R[2, 2] * dZ
             cyv = R[1, 0] * dX + R[1, 1] * dY + R[1, 2] * dZ
-            ds = s * min(.03, max(.004, s / (foc * max(ez, 1.0)) * .9))
+            ds = s * min(.03, max(.006, s / (foc * max(ez, 1.0)) * .9))
             if cz < .05:
                 s += ds; continue
             sy = cyv / cz * foc + cy
@@ -168,7 +168,7 @@ def _sm(a, b, x):
 
 
 @njit(cache=True, fastmath=True, parallel=True)
-def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, BM, T, C, thr, prm, out, FOAM):
+def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, CR, BM, T, C, thr, prm, out, FOAM):
     h, w = V.shape
     hasb = BM.shape[0] == h
     e = .014
@@ -181,7 +181,7 @@ def _tone(V, LAM, FOLD, FAR, MPP, ALONG, FU, FV, MF, BM, T, C, thr, prm, out, FO
                 continue
             mpp = MPP[y, x]
             nw = _sm(.5, .12, mpp)
-            bn = _tex(T, 0, x * .8, ALONG[y, x] * 46.)
+            bn = _tex(T, 0, CR[y, x] * 23., ALONG[y, x] * 46.)
             bf = _tex(T, 0, x * .55 + 300, y * 2.4)
             b = bn * nw + bf * (1 - nw) * .85
             vb = V[y, x] + b * prm[4]
@@ -335,19 +335,21 @@ class Sea:
         sky_ref = smooth(.55, -.02, rz)
         crest = smooth(.0, 1.0, G['pz'] / (self.A[0] * 1.8))
         v = .30 * F * (.5 + .8 * sky_ref) + .22 * (lam * .5 + .5) + .18 * smooth(.25, .9, nz) * F + .10 * crest * smooth(.2, .8, cosv)
+        v = v + .26 * smooth(.25, .85, G['pz'] / (self.A[0] * 2.2)) * smooth(.95, .55, nz) * smooth(.1, .5, cosv)
         J = G['J']
         fold = smooth(.70, .20, J) * smooth(-.3, .4, G['pz'] / (self.A[0] + 1e-3))
         far = 1 - np.exp(-z * fog_k[0])
         mpp = z * z / (foc * max(cam.eye[2], 1.)) / sc           # metres per full-res pixel, vertically
         k0x, k0y = self.k0; k0 = math.hypot(k0x, k0y)
         along = (G['bx'] * k0x + G['by'] * k0y) / k0 - self.OM[0] / k0 * t
+        cross = (-G['bx'] * k0y + G['by'] * k0x) / k0
         fu = (G['bx'] * self.wind[0] + G['by'] * self.wind[1]) - t * 1.6
         fv = (-G['bx'] * self.wind[1] + G['by'] * self.wind[0])
-        lst = [v, lam, fold, far, mpp, along, fu, fv, M.astype(f32)] + ([beam] if beam is not None else [])
+        lst = [v, lam, fold, far, mpp, along, fu, fv, M.astype(f32), cross] + ([beam] if beam is not None else [])
         if (h, w) != (Hh, Ww):
             lst = [cv2.resize(np.asarray(q, f32), (Ww, Hh), interpolation=cv2.INTER_LINEAR) for q in lst]
-        v, lam, fold, far, mpp, along, fu, fv, Mf = lst[:9]
-        bm = lst[9] if beam is not None else None
+        v, lam, fold, far, mpp, along, fu, fv, Mf, cross = lst[:10]
+        bm = lst[10] if beam is not None else None
         bm = np.zeros((1, 1), f32) if bm is None else np.ascontiguousarray(bm, f32)
         P = lambda k, d: (rgb(pal[k]) if isinstance(pal[k], str) else np.asarray(pal[k], f32)) if k in pal else rgb(d)
         cols = np.stack([P('deep', '#16222b'), P('body', '#1c2a33'), P('face', '#2f4452'), P('sky_lo', '#5d6672'), P('foam', '#d8e2e6'),
@@ -355,7 +357,7 @@ class Sea:
         thr = np.asarray(pal.get('thr', (.25, .36, .48)), f32)
         prm = np.array([crest_foam, streak, flash, fog_k[1] if fog_col is not None else 0., pal.get('bamt', .17), pal.get('foam_amt', 1.0)], f32)
         c = np.empty((Hh, Ww, 3), f32); foam = np.empty((Hh, Ww), f32)
-        _tone(*(np.ascontiguousarray(a_, f32) for a_ in (v, lam, fold, far, mpp, along, fu, fv, Mf)), bm, T, cols, thr, prm, c, foam)
+        _tone(*(np.ascontiguousarray(a_, f32) for a_ in (v, lam, fold, far, mpp, along, fu, fv, Mf, cross)), bm, T, cols, thr, prm, c, foam)
         return c, Mf, dict(foam=foam, far=far, lam=lam, mpp=mpp)
 
 
@@ -403,7 +405,7 @@ def rock(w, h, top, seed=0, pal=('#1d2030', '#2a2e42', '#3c4157', '#5a6078', '#7
     gy = cv2.Sobel(big, cv2.CV_32F, 0, 1, ksize=5); gx = cv2.Sobel(big, cv2.CV_32F, 1, 0, ksize=5)
     gl = np.sqrt(gx * gx + gy * gy) + 1e-4
     side = np.clip(-(gx * lx + gy * ly) / gl, -1, 1)
-    v = .50 * smooth(cell * 1.1, cell * .25, dn) * (.6 + .4 * side) + .18 * np.clip(nxm * lx + nym * ly, -1, 1) - .10
+    v = .50 * smooth(cell * 1.1, cell * .25, dn) * (.6 + .4 * side) + .10 * np.clip(nxm * lx + nym * ly, -1, 1) - .08
     v -= .20 * smooth(cell * 1.5, cell * 4, dn)
     v -= .25 * smooth(.08, .0, cr) * smooth(cell * .2, cell * .6, dist)              # crevices
     P = np.stack([rgb(c) for c in pal])
@@ -438,32 +440,32 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
     sp = r.uniform(.45, 1.0, n) ** .6
     v0 = gpx * .62 * T * sp
     vx = np.cos(ang) * v0; vy = np.sin(ang) * v0
-    tt = age * r.uniform(.9, 1.1, n)
+    tt = (age + .06) * r.uniform(.9, 1.1, n)
     K = 7
     P = np.zeros((n, K, 2), f32)
     s0 = np.clip((tt - .30) / (T * .9), 0, .92)          # the base lets go of the rock after a beat
     for k in range(K):
         q = s0 + (1 - s0) * k / (K - 1)
         ts = tt * q
-        P[:, k, 0] = cx + r.normal(0, 1) * 0 + vx * ts + wind[0] * size * .5 * ts ** 2
+        P[:, k, 0] = cx + vx * ts + wind[0] * size * .18 * ts ** 2
         P[:, k, 1] = cy + vy * ts + .5 * gpx * ts ** 2
     P[:, :, 0] += (r.normal(0, size * .07, n))[:, None]
     fade = np.clip(1 - (tt - T * .5) / (T * .9), 0, 1)
     wd = size * r.uniform(.035, .09, n) * (1 - .5 * s0) * (.5 + .5 * sp)
     keep = fade > .02
     if keep.any():
-        t_ = r.uniform(0, 1, n)[:, None]
-        C = c1 * (1 - t_ * .5) + c2 * t_ * .5
+        t_ = np.clip(r.uniform(0, .5, n) + np.clip(-np.sin(ang), 0, 1) * 0 + (np.abs(ang + np.pi / 2) > .5) * .35, 0, 1)[:, None]
+        C = c1 * (1 - t_) + c2 * t_
         cv_img.strokes(P[keep], wd[keep], C[keep].astype(f32), op=np.clip(fade[keep] * .95, 0, 1), dry=np.clip(.15 + .5 * s0[keep], 0, .9), seed=seed, shape='taper', bristle=.06)
     # drops at the tips
     m = n * 4
     i = r.integers(0, n, m)
     tq = tt[i] * r.uniform(.8, 1.15, m)
     dx = r.normal(0, size * .06, m) * (1 + 2 * tq); dy = r.normal(0, size * .05, m) * (1 + 2 * tq)
-    x = cx + vx[i] * tq + wind[0] * size * .55 * tq ** 2 + dx
+    x = cx + vx[i] * tq + wind[0] * size * .2 * tq ** 2 + dx
     y = cy + vy[i] * tq + .5 * gpx * tq ** 2 + dy
     fd = np.clip(1 - (tq - T * .4) / (T * 1.0), 0, 1) * (tq > .06)
-    rad = size * r.uniform(.006, .018, m) * (1 + tq)
+    rad = size * r.uniform(.003, .010, m) * (1 + tq)
     ok = fd > .03
     if ok.any():
         vyy = vy[i] + gpx * tq
@@ -473,13 +475,13 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
         h, w = mist.shape
         g = np.clip(age / .35, 0, 1) * np.clip(1 - (age - T * .4) / (T * 1.2), 0, 1)
         if g > 0:
-            mx = cx + wind[0] * size * .45 * age; my = cy - size * (.45 + .25 * min(age, 1.2))
+            mx = cx + wind[0] * size * .25 * age; my = cy - size * (.45 + .25 * min(age, 1.2))
             R = size * (.35 + .45 * grow + .25 * age)
-            x0, x1 = int(max(0, mx - R * 1.6)), int(min(w, mx + R * 1.6)); y0, y1 = int(max(0, my - R * 1.3)), int(min(h, my + R * 1.6))
+            x0, x1 = int(max(0, mx - R * 3.2)), int(min(w, mx + R * 3.2)); y0, y1 = int(max(0, my - R * 2.6)), int(min(h, my + R * 2.8))
             if x1 > x0 and y1 > y0:
                 yy, xx = np.mgrid[y0:y1, x0:x1].astype(f32)
                 nn = fbm(y1 - y0, x1 - x0, (R * .35 + 4, R * .12 + 2), (1, .5), seed + 7)
-                e = np.exp(-(((xx - mx) / (R * 1.1)) ** 2 + ((yy - my) / (R * .85)) ** 2) * (1 + .35 * nn))
+                e = np.exp(-(((xx - mx) / (R * 1.1)) ** 2 + ((yy - my) / (R * .85)) ** 2) * np.maximum(.4, 1 + .35 * nn))
                 mist[y0:y1, x0:x1] = np.maximum(mist[y0:y1, x0:x1], np.clip(e * g * .75, 0, 1))
     return cv_img
 

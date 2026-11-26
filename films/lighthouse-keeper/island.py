@@ -22,7 +22,7 @@ PAL = {
                   wet='#0e1430', weed='#16243a', grass=['#10162a', '#161e34', '#1e2a40', '#2a3a54', '#46587a'],
                   thrift=['#2a2038', '#3e2c4c', '#5a3e66', '#74547e', '#9a7aa2'], foam='#b8c4ee', lichen='#3e4a6a'),
     'dawn': dict(rock=['#4e4462', '#64566e', '#7a6a84', '#8d7a98', '#a38c9e', '#b89a9c', '#d4b8aa', '#ecd6bc'],
-                 wet='#4a4058', weed='#5a5a52', grass=['#4e5a52', '#62725e', '#7a8c6a', '#98a87c', '#c2c898'],
+                 wet='#5e5072', weed='#56606a', grass=['#5a5a5e', '#6e7262', '#86906e', '#a2a882', '#cac6a0'],
                  thrift=['#9a5a74', '#c06e88', '#dc8ca0', '#eeaab8', '#fad0d4'], foam='#fff2e0', lichen='#c8a870'),
     'storm': dict(rock=['#14181e', '#1a2028', '#222a34', '#2c3540', '#3a4450', '#4c5662', '#66707c', '#8a94a0'],
                   wet='#12161c', weed='#1a2422', grass=['#182024', '#202c2e', '#2c3a3a', '#3e504c', '#5a6e66'],
@@ -99,7 +99,7 @@ class _RP:
         return .14 + .62 * lam ** .9 + .10 * max(0., n[2])
 
 
-def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, wet=.55):
+def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, wet=.55, sizes=(7, 3.5, 1.8), tex=.04, dabs=0., rim=1.0):
     pal = PAL[palette] if isinstance(palette, str) else palette
     if light is None:
         light = -cam.R[0] * .55 - cam.R[1] * .55 - cam.R[2] * .25 + np.array([0, 0, .25])
@@ -154,7 +154,7 @@ def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, w
                 p.c.fill(p.S(np.array([l0, r0, r2, l2])), rgb(pal['weed']), .6)
             # lit edge along the top rim of sides facing the light
             if v > .45 and li == len(rings) - 2:
-                p.c.line(p.S(np.array([quad[3], quad[2]])), max(.6, float(cam.scale(quad[2])) * .06), p.col(rk, min(1, v + .2), .02), (.2, .2), .3, seed=p.k + 5, alpha=.8)
+                p.c.line(p.S(np.array([quad[3], quad[2]])), max(.6, float(cam.scale(quad[2])) * .06), p.col(rk, min(1, v + .2), .02), (.2, .2), .3, seed=p.k + 5, alpha=.8 * rim)
             # waterline
             wl, wr = at_h(0.0)
             if li == 0: foam.append((p.S(np.array([wl, wr])), float(cam.cam((wl + wr) / 2)[2])))
@@ -176,7 +176,7 @@ def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, w
                 e = np.array([t[i], t[j]]); n = np.cross(t[j] - t[i], [0, 0, 1.]); n /= np.linalg.norm(n) + 1e-9
                 if (E - e.mean(0)) @ n <= 0: continue
                 if p.shade(n * .7 + np.array([0, 0, .7])) > .5 and r.random() < .8:
-                    p.c.line(p.S(e), max(.6, float(cam.scale(e[0])) * .045), p.col(rk, .92, .03), (.25, .25), .4, seed=p.k + i, alpha=r.uniform(.5, .9))
+                    p.c.line(p.S(e), max(.6, float(cam.scale(e[0])) * .045), p.col(rk, .92, .03), (.25, .25), .4, seed=p.k + i, alpha=r.uniform(.5, .9) * rim)
     rgba = p.c.rgba()
     a = rgba[..., 3]
     col = rgba[..., :3] / np.maximum(a[..., None], 1e-4)
@@ -184,7 +184,23 @@ def paint_rocks(cam, rocks, palette='night', light=None, seed=3, gouache=True, w
         x0, y0, x1, y1 = _bbox(a)
         if x1 > x0:
             sl = (slice(y0, y1), slice(x0, x1))
-            g = repaint(col[sl], (7, 3.5, 1.8), seed=seed + 1, lab=p.lab[sl], mask=(a[sl] > .5).astype(f32), thr=(0, .015, .02), density=1.0, aspect=2.8,
+            gd = mottle(col[sl], tex, seed + 11, .006, scales=(sizes[0] * 9, sizes[0] * 3.5, sizes[0] * 1.4))
+            if dabs:
+                # granite grain: short strokes of near tones laid along each facet, never across a facet edge
+                rr = np.random.default_rng(seed + 21)
+                am = (a[sl] > .6).astype(f32)
+                n = int(am.sum() / (sizes[0] ** 2) * 2.2 * dabs)
+                xs, ys = scatter_mask(am, n, rr)
+                ix, iy = np.clip(xs.astype(int), 0, am.shape[1] - 1), np.clip(ys.astype(int), 0, am.shape[0] - 1)
+                cvt = Canvas(img=gd, h=gd.shape[0], w=gd.shape[1])
+                c0 = gd[iy, ix] * (1 + rr.normal(0, .09 + .14 * dabs, (n, 1))).astype(f32)
+                c0 = c0 + (rr.random((n, 1)) < .18) * (rgb(pal['lichen']) - c0) * .5
+                ang = p.ang[sl][iy, ix] + rr.normal(0, .35, n)
+                P = arcs(xs, ys, ang, sizes[0] * rr.uniform(1.2, 3.2, n), rr.normal(0, .4, n))
+                cvt.strokes(P, sizes[0] * rr.uniform(.25, .6, n), np.clip(c0, 0, 1), op=rr.uniform(.4, .85, n), dry=rr.uniform(0, .5, n), seed=seed + 5,
+                            lab=p.lab[sl], LAB=p.lab[sl][iy, ix], bristle=.08)
+                gd = cvt.img
+            g = repaint(gd, sizes, seed=seed + 1, lab=p.lab[sl], mask=(a[sl] > .5).astype(f32), thr=(0, .015, .02), density=1.0, aspect=2.8,
                         angle=p.ang[sl] + fbm(y1 - y0, x1 - x0, (60,), None, seed) * .25, jit=(.006, .02, .022), op=.75, dry=.25, curve=.35, bristle=.06)
             col[sl] = mottle(g, .018, seed + 4, .004, scales=(40, 14, 5))
     out = np.dstack([col * a[..., None], a])

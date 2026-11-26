@@ -9,7 +9,7 @@ from lp.cam import Camera3D
 import lighthouse as lh
 import island
 
-VER = 'v5'
+VER = 'v6'
 HZ = 690.
 EYE = 1.7
 FOCAL = 2400.
@@ -185,7 +185,7 @@ def lamp_reflection(cam):
                 ph=r.uniform(0, 1, n).astype(f32), rate=r.uniform(.3, .7, n).astype(f32), b=b.astype(f32))
 
 
-def _foam(segs):
+def _foam(segs, k=240.):
     """lace of foam where the rock meets the water: short broken strokes along each waterline segment"""
     r = np.random.default_rng(17)
     cv = Canvas(H, W, layer=True, color='#ffffff')
@@ -193,10 +193,10 @@ def _foam(segs):
     for (Q, z) in segs:
         a, b = Q[0], Q[1]
         L = np.hypot(*(b - a))
-        w = max(.7, 240. / z)
+        w = max(.7, k / z)
         for k in range(int(L / (w * 3)) + 1):
-            u = r.uniform(0, 1); l = r.uniform(4, 9) * w
-            c = a + (b - a) * u + r.normal(0, w * .4, 2) * [1, .5]
+            u = r.uniform(0, 1); l = r.uniform(2.5, 7) * w
+            c = a + (b - a) * u + r.normal(0, w * .4, 2) * [1, .5] + np.array([0, abs(r.normal(0, w * 1.4))])
             d = (b - a) / (L + 1e-6)
             P.append(np.stack([c + d * l * t + [0, r.normal(0, w * .15)] for t in np.linspace(-.5, .5, 4)]))
             WD.append(w * r.uniform(.4, 1.0)); OP.append(r.uniform(.25, .75))
@@ -243,7 +243,7 @@ class Shot:
         M = cached('mid', mid)
         self.mid, self.glass, self.foam, self.towa = M[..., :4].copy(), M[..., 4].copy(), M[..., 5].copy(), M[..., 6].copy()
         del M
-        self.fg = cached('fg', lambda: island.paint_rocks(cam, fg_rocks(cam), 'night', light=self.md + np.array([0, 0, .2]), seed=8)[0])
+        self.fg = cached('fg', lambda: island.paint_rocks(cam, fg_rocks(cam), 'night', light=self.md + np.array([0, 0, .2]), seed=8, sizes=(16, 8, 4), tex=.10, dabs=1.0)[0])
         self.gl = glitter_set(cam)
         self.lr = lamp_reflection(cam)
         self.seam = smooth(HZ - .5, HZ + 1.0, np.arange(H, dtype=f32))[:, None] * np.ones((1, W), f32)
@@ -314,7 +314,7 @@ class Shot:
         flare = 0.
         for k in range(2):
             a = az + k * math.pi
-            I, dpt = lh.beam_field(cam, a, AT, spread=.06, r0=.5, fade=260., cap=3., dip=.11)
+            I, dpt = lh.beam_field(cam, a, AT, spread=.06, r0=.5, fade=260., cap=2.2, dip=.11)
             hide = towa * (dpt > tdep)
             B += I * (1 - hide)
             v = np.array([math.cos(a), math.sin(a)]); tc = cam.eye[:2] - np.array(AT[:2]); tc /= np.linalg.norm(tc)
@@ -323,11 +323,11 @@ class Shot:
         B = B * (fog * .55 + .12) * (.55 + .45 * sky_part)
         img = comp.screen(img, (B * .34)[..., None] * rgb('#fff0c8'))
         # lantern: glass brightens as a beam turns toward us; glow in the air
-        fl = max(0., flare) ** 18
+        fl = max(0., flare) ** 10
         gl = warp(self.glass, zm)
-        img = img + (gl * (.10 + .55 * fl))[..., None] * rgb('#ffc46b')
+        img = img + (gl * (.10 + .4 * fl))[..., None] * rgb('#ffc46b')
         lx, ly = lh.lamp_px(cam, AT)
-        img = _glow(img, lx, ly, lh.lamp_radius_px(cam, AT), .55 + 1.1 * fl, '#ffc46b')
+        img = _glow(img, lx, ly, lh.lamp_radius_px(cam, AT), .55 + .6 * fl, '#ffc46b')
         wx, wy = lh.house_window_px(cam, AT)
         img = _glow(img, wx, wy, 7.0 * zm, .30, '#ffb458', spread=1.6)
         # foreground: the near rock and its thrift
@@ -350,7 +350,7 @@ class Shot:
         xy, L, w = g['xy'][on], g['L'][on], g['w'][on]
         x0, y0 = int(max(0, xy[:, 0].min() - 70)), int(max(0, xy[:, 1].min() - 8))
         x1, y1 = int(min(W, xy[:, 0].max() + 70)), int(min(H, xy[:, 1].max() + 8))
-        cv = Canvas(y1 - y0, x1 - x0, layer=True)
+        cv = Canvas(y1 - y0, x1 - x0, layer=True, color=col)
         P = arcs(xy[:, 0] - x0, xy[:, 1] - y0, np.zeros(len(L)), L, 0., K=3)
         cv.strokes(P, w, rgb(col), op=np.clip(b[on], 0, 1), seed=d, shape='round', bristle=.02)
         l = cv.layer()

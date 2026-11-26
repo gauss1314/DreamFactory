@@ -195,6 +195,8 @@ def place(cam, X, Y, heading, hfun, L=L_M, beam=BEAM_M, freeboard=0.0):
     facing = 1 if v[0] >= 0 else -1
     fore = float(np.clip(abs(v[0]) / max(full, 1e-3), .3, 1.0))
     ang = math.atan2(-(v[1]), abs(v[0]) + 1e-6)       # screen angle of the hull line, + = bow up
+    k = min(1., max(0., (fore - .45) / .4))            # seen end-on the projected line says nothing: use the world pitch
+    ang = k * ang + (1 - k) * pitch_w
     # which side faces the camera decides the sign of the roll on screen
     cam_side = np.array([cam.eye[0] - X, cam.eye[1] - Y]) @ np.array([px, py])
     roll = roll_w if cam_side > 0 else -roll_w

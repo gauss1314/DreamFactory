@@ -9,13 +9,14 @@ from lp.paint import f32, rgb, smooth, fbm, Canvas
 from lp.comp import ease
 import sea as SEA, storm as ST, boat as BT
 
-VER = 'v1'
+VER = 'v3'
 EYE0 = np.array([0., 0., 7.0])
 TGT = np.array([3., 60., 1.0])
 FOC = 1250.
 PUSH = 1.2
 TOWER_AT = (-150., 380., 4.)
-ROCKS = ((17., 50., 8., 4.2, 51), (26., 58., 5., 2.6, 53), (10., 64., 3.5, 1.6, 55), (31., 70., 4., 1.8, 57))
+ROCKS = ((16., 48., 9., 5.5, 51), (25., 55., 6., 3.4, 53), (9., 60., 4., 2.0, 55), (31., 66., 5., 2.4, 57))
+SURF_T = ((0, -.6), (0, 2.1), (0, 4.9), (1, .7), (1, 3.4), (3, 1.6), (3, 4.2), (2, 2.8))
 PAL = dict(deep='#17222b', body='#1c2a33', face='#2f4452', sky_lo='#55606d', foam='#d8e2e6', foam_sh='#7f8c99', thr=(.24, .35, .47))
 
 
@@ -56,7 +57,7 @@ class Shot:
         for (x, y, wd, ht, sd) in ROCKS:
             P = lambda a, z: c.project(np.array([x + a, y, z]))[0]
             r = np.random.default_rng(sd)
-            xs = np.linspace(-wd / 2, wd / 2, 9); zt = ht * np.clip(1 - (np.abs(xs) / (wd / 2)) ** 1.5, 0, 1) * r.uniform(.6, 1.1, 9)
+            xs = np.sort(r.uniform(-wd / 2, wd / 2, 13)); xs[0], xs[-1] = -wd / 2, wd / 2; zt = ht * np.clip(1 - np.abs(xs / (wd / 2)) ** 2.6, 0, 1) ** .55 * r.uniform(.7, 1.05, 13)
             zt[0] = zt[-1] = -1.5
             pts = np.array([P(a, z) for a, z in zip(xs, zt)])
             x0, y0 = int(pts[:, 0].min() - 6), int(pts[:, 1].min() - 6); y1 = int(P(0, -3)[1]) + 4
@@ -144,6 +145,13 @@ class Shot:
         fd = (f // 2) * 2
         img = BT.draw(img, P['x'], P['y'], P['scale'], P['pitch'], P['roll'], lantern_swing=sw, palette='storm', facing=P['facing'],
                       f=fd, fore=P['fore'], lamp=1.0, wet=.3)
+        # a nearer crest standing in front of the hull hides it
+        zb = float(cam.cam(np.array([*self.boat_xy(t)[:2], P['z']]))[2])
+        r_ = int(P['scale'] * .9) + 20
+        X0, X1 = max(0, int(P['x'] - r_)), min(W, int(P['x'] + r_)); Y0, Y1 = max(0, int(P['y'] - r_)), min(H, int(P['y'] + r_ * .5))
+        zz = zfull[Y0:Y1, X0:X1]
+        occ = ((zz > 0) & (zz < zb - 3.0)).astype(f32)[..., None] * Ms[Y0:Y1, X0:X1, None]
+        img[Y0:Y1, X0:X1] = img[Y0:Y1, X0:X1] * (1 - occ) + sc[Y0:Y1, X0:X1] * occ
         # wash along the waterline and the sea over the bow
         cvs = Canvas(H, W, layer=True)
         self._wash(cvs, P, f)
@@ -151,9 +159,20 @@ class Shot:
         if age >= 0:
             bx, by = P['bow_px']
             mist = np.zeros((H, W), f32)
-            SEA.burst(cvs, bx - 10 * P['facing'], by + 6, 150, age, seed=63, wind=(.5, 0), life=1.3, n=46, mist=mist)
+            SEA.burst(cvs, bx - 14 * P['facing'], by + 10, 230, age, seed=63, wind=(.5, 0), life=1.4, n=56, mist=mist)
             img = img + (rgb('#aab5c0') - img) * (mist * .7)[..., None]
         SEA.crest_spray(cvs, info['foam'], G, f, wind=(1., -.1), n=120, seed=6, scale=.6)
+        # seas breaking on the rocks ahead, one after another
+        mist2 = np.zeros((H, W), f32)
+        for j, (ri, t0) in enumerate(SURF_T):
+            for rep in (0., 5.6):
+                a = fd / 24. - t0 - rep
+                if 0 <= a < 2.2:
+                    x, y, wd, ht, _ = ROCKS[ri]
+                    p, _ = cam.project(np.array([x - wd * .2, y - wd * .3, .3]))
+                    sz = float(cam.scale(np.array([x, y, 0.]))) * ht * 1.5
+                    SEA.burst(cvs, p[0], p[1], sz, a, seed=90 + j, wind=(.8, 0), life=1.4, n=30, mist=mist2)
+        img = img + (rgb('#9aa5b1') - img) * (mist2 * .6)[..., None]
         img = ST.over(img, cvs.layer())
         # rain
         cur = self.rain.curtains(f)

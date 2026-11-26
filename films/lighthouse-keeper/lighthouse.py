@@ -84,9 +84,9 @@ PAL = {
     'dawn': dict(stone=['#6a5a7e', '#8d7a98', '#a48c9e', '#b89a9c', '#d0b2aa', '#e6d0b8', '#f7e7d0'],
                  red=['#5a3044', '#723a4a', '#8a4450', '#a45056', '#bc6460', '#d27e70'],
                  copper=['#3e5a6e', '#4c6e7c', '#5e8488', '#709a96', '#88b0a4', '#a8c8b6', '#d0e4cc'],
-                 iron='#4a4058', iron_hi='#a08ca0', glass='#6a6a8c', sky='#e9c6c8', mortar='#8d7a98',
+                 iron='#4a4058', iron_hi='#a08ca0', glass='#4c4a72', sky='#e9c6c8', mortar='#8d7a98',
                  roof=['#4e4460', '#5e5270', '#706280', '#8a7a94', '#b0a0b2'], warm='#ffb458', door='#5a4458',
-                 grime='#7a7a8e', rust='#8a5a5a'),
+                 grime='#7a7a8e', rust='#8a5a5a', bloom=.3, see=.35),
 }
 
 
@@ -517,7 +517,7 @@ def _lantern(p, lamp):
     for k in range(NSIDE):
         a0 = -math.pi + 2 * math.pi * k / NSIDE + .5 * 2 * math.pi / NSIDE; a1 = a0 + 2 * math.pi / NSIDE
         q = np.array([p.T(a0, Z_LWALL, R_GLASS), p.T(a1, Z_LWALL, R_GLASS), p.T(a1, Z_GLASS, R_GLASS), p.T(a0, Z_GLASS, R_GLASS)])
-        cc = mix(rgb(pal['glass']), rgb(pal['sky']), r.uniform(.15, .55))
+        cc = mix(rgb(pal['glass']), rgb(pal['sky']), r.uniform(.15, .55) * pal.get('see', 1.))
         c.fill(q, cc, .5)
     # lamp light inside: a soft warm bloom in the room
     if lamp > 0:
@@ -525,7 +525,7 @@ def _lantern(p, lamp):
         t = np.linspace(0, 2 * math.pi, 48)
         for gg in np.linspace(1, 0, 14):
             rr = rp * (.3 + 1.6 * (1 - gg))
-            c.fill(np.c_[cx + rr * np.cos(t), cy + rr * .95 * np.sin(t)], mix(warm, rgb('#fff0c8'), gg ** 2), (.07 + .07 * gg) * lamp)
+            c.fill(np.c_[cx + rr * np.cos(t), cy + rr * .95 * np.sin(t)], mix(warm, rgb('#fff0c8'), gg ** 2), (.07 + .07 * gg) * lamp * pal.get('bloom', 1.) ** (1 - gg * .5))
     _lens(p, lamp)
     c.unclip()
     # near panes: reflections, mullions, glazing bar
@@ -536,6 +536,9 @@ def _lantern(p, lamp):
         q = np.array([p.T(a0c, Z_LWALL, R_GLASS), p.T(a1c, Z_LWALL, R_GLASS), p.T(a1c, Z_GLASS, R_GLASS), p.T(a0c, Z_GLASS, R_GLASS)])
         refl = max(0., float(p.ncyl((a0c + a1c) / 2) @ p.L))
         c.fill(q, rgb(pal['sky']) * 1.15, (.06 + .18 * refl * r.uniform(.5, 1.3)) * (1 - .6 * lamp))
+        zr = Z_GLASS - (Z_GLASS - Z_LWALL) * r.uniform(.3, .5)     # the sky mirrored in the upper glass
+        qr = np.array([p.T(a0c, zr + .12, R_GLASS), p.T(a1c, zr, R_GLASS), p.T(a1c, Z_GLASS, R_GLASS), p.T(a0c, Z_GLASS, R_GLASS)])
+        c.fill(qr, mix(rgb(pal['sky']), rgb('#ffffff'), .15), (.10 + .22 * refl) * (1 - .4 * lamp) * pal.get('see', 1.) ** -.5 * .6)
         if r.random() < .5:      # a diagonal glint
             u = r.uniform(.2, .6)
             g0 = p.T(a0c + (a1c - a0c) * u, Z_LWALL + .2, R_GLASS + .01); g1 = p.T(a0c + (a1c - a0c) * (u + .25), Z_GLASS - .3, R_GLASS + .01)
@@ -558,7 +561,7 @@ def _lens(p, lamp):
     """the Fresnel lens: a barrel of glass prism rings on a brass frame, a belt of bull's-eye panels round the lamp"""
     r = p.r; pal = p.pal; c = p.c
     warm = rgb(pal['warm']); brass = rgb('#8a6130'); glass = rgb(pal['glass']); sky = rgb(pal['sky'])
-    Rl = lambda z: .6 * (1 - .12 * ((z - Z_LAMP) / .8) ** 2)
+    Rl = lambda z: .6 * (1 - .45 * smooth(.22, .85, abs(z - Z_LAMP)) ** 1.3)      # beehive: straight belt, stepped catadioptric rings
     z0, z1 = Z_LAMP - .82, Z_LAMP + .82
     core = mix(warm, rgb('#fff8e4'), .85)
     def tone(zc, th, belt=False):
@@ -567,8 +570,8 @@ def _lens(p, lamp):
             k = (1 - d) ** 1.3 * (1 - .5 * abs(th) / 1.6) * lamp
             cc = mix(mix(rgb('#c87a3a'), warm, .5 + .5 * k), core, k ** 1.5 * (1.0 if belt else .75))
             return mix(cc, glass, (1 - lamp) * .85)
-        v = .25 + .4 * max(0., math.cos(th + .6)) * (1 - d * .5)
-        return mix(mix(glass, sky, v), rgb('#ffffff'), .05 * (zc > Z_LAMP))
+        v = .08 + .55 * max(0., math.cos(th + .6)) ** 2 * (1 - d * .4) + .15 * (zc > Z_LAMP + .2)
+        return mix(glass * .8, sky, v)
     lim = p.vis(Rl(Z_LAMP))
     # base wash of the barrel
     sil = np.vstack([p.ring(z0, Rl(z0), 30, lim), p.ring(z1, Rl(z1), 30, lim)[::-1]])
@@ -584,11 +587,11 @@ def _lens(p, lamp):
             belt = za > Z_LAMP and zb < Z_LAMP
             zc = (za + zb) / 2
             q = np.array([p.T(a + .02, za, Rl(za)), p.T(b - .02, za, Rl(za)), p.T(b - .02, zb, Rl(zb)), p.T(a + .02, zb, Rl(zb))])
-            col = tone(zc, m, belt) * (1 + .06 * (j % 2) + r.normal(0, .02))
+            col = tone(zc, m, belt) * (1 + .12 * (j % 2) - .05 + r.normal(0, .02))
             c.fill(q, np.clip(col, 0, 1.2), .95)
             if not belt:       # prism edge: a bright line along the ring's lower lip
                 e = np.array([p.T(a + .03, zb + .03, Rl(zb) + .005), p.T(m, zb + .03, Rl(zb) + .005), p.T(b - .03, zb + .03, Rl(zb) + .005)])
-                p.line(e, max(.5, p.pxm * .012), mix(col, rgb('#ffffff'), .5), .55, (.2, .2))
+                p.line(e, max(.5, p.pxm * .012), mix(col, rgb('#ffffff'), .5) if lamp else mix(sky, rgb('#ffffff'), .3), .55 if lamp else .75, (.2, .2))
             else:              # bull's-eye: concentric rings on the panel
                 cx, cy = p.T(m, Z_LAMP, Rl(Z_LAMP) + .01)
                 wpx = abs(p.T(b, Z_LAMP, Rl(Z_LAMP))[0] - p.T(a, Z_LAMP, Rl(Z_LAMP))[0]) * .5
@@ -606,8 +609,8 @@ def _lens(p, lamp):
     for z in (z0, Z_LAMP - .2, Z_LAMP + .2, z1):
         p.line(p.ring(z, Rl(z) + .01, 24, lim), max(.6, p.pxm * .02), brass * (1.15 if lamp else .7), .95, (0, 0), ink=True)
     # pedestal under the lens
-    q = np.vstack([p.ring(z0 - .02, .3, 12, p.vis(.3)), p.ring(Z_LWALL - .1, .22, 12, p.vis(.22))[::-1]])
-    c.fill(q, brass * (.9 if lamp else .55), .95)
+    q = np.vstack([p.ring(z0 - .02, .2, 12, p.vis(.2)), p.ring(z0 - .12, .1, 12, p.vis(.1)), p.ring(Z_LWALL - .1, .1, 12, p.vis(.1))[::-1], p.ring(Z_LWALL - .1, .1, 12, p.vis(.1))[::-1][:0]])
+    c.fill(q, brass * (.75 if lamp else .5), .95)
 
 
 def _dome(p):

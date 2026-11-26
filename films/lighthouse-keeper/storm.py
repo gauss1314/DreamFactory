@@ -222,7 +222,7 @@ def _beam(ex, ey, ez, R, foc, cx, cy, h, w, LX, LY, LZ, D, half, r0, reach, dept
                 win = Rc * 3.0 / (sinang * dl) + 2.0
                 ta = max(.3, tc - win); tb = min(tm, tc + win)
                 if tb <= ta: continue
-                n = 28
+                n = 22
                 dt = (tb - ta) / n
                 for k in range(n):
                     tt = ta + (k + .5) * dt
@@ -254,6 +254,7 @@ def beam_volume(cam, lamp, dirs, depth=None, t=0., half=.055, r0=1.2, reach=500.
     D = D / np.linalg.norm(D, axis=1, keepdims=True)
     _beam(*map(float, cam.eye), cam.R.astype(np.float64), float(foc), cam.cx / q, cam.cy / q, h, w, float(lamp[0]), float(lamp[1]), float(lamp[2]), D,
           half, r0, reach, dep, tmax, float(t), seed, lean, out)
+    out = 1 - np.exp(-np.maximum(out, 0) * 1.2)          # a long chord through the cone saturates softly, never clips
     out = cv2.resize(out, (cam.w, cam.h), interpolation=cv2.INTER_CUBIC)
     return np.maximum(out, 0) * amt
 
@@ -265,8 +266,8 @@ def flare(img, x, y, amt, col=STORM['beam'], r=900):
     core = comp.radial(x, y, 60 + 120 * amt, power=1.6, h=h, w=w)
     halo = comp.radial(x, y, r * (.6 + .6 * amt), power=2.2, h=h, w=w)
     c = rgb(col)
-    img = comp.screen(img, (core * 1.0 + halo * .55)[..., None] * c * amt)
-    img = img + (c * .95 - img) * (amt ** 1.5 * .38)
+    img = comp.screen(img, (core * 1.2 + halo * .7)[..., None] * c * amt)
+    img = img + (c * 1.0 - img) * (amt ** 1.3 * .55)
     return img
 
 

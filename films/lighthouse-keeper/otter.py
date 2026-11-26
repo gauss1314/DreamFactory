@@ -228,7 +228,7 @@ class Env:
         lit = base * (1 - .42 * a) + base * self.col * 1.32 * .42 * a
         shd = sh * .86 + sh * self.amb * 1.9 * .14
         hi = rgb(PAL['fur_hi']) if name == 'fur' else mix(base, np.ones(3, f32), .35)
-        rim = mix(hi * (.55 + .7 * self.col), self.col * 1.08, .35 + .25 * a)
+        rim = mix(hi * (.55 + .7 * self.col), self.col * 1.02, .3 + .2 * a)
         if self.dark > 0:
             dk = self.amb
             lit = mix(lit, dk * (.55 + .5 * lum3(base)), self.dark)
@@ -244,6 +244,12 @@ def lum3(c):
 
 
 # ------------------------------------------------------------------ piece renderer
+def _sh(s):
+    """stable small hash of a name (str hash() changes between processes)"""
+    import zlib
+    return zlib.crc32(s.encode())
+
+
 def smin(a, b, k):
     h = np.clip(.5 + .5 * (b - a) / k, 0, 1)
     return b * (1 - h) + a * h - k * h * (1 - h)
@@ -308,7 +314,15 @@ def render_piece(P, V, env, seed, clipfn=None):
     for c in used:
         F[c] = sum(Wt[i] * (At[i][1][c] if c in At[i][1] else -4.0) for i in range(len(P.prims)))
     # boil the drawing: whole-cel wobble, seeded by the drawing number
-    D = D + _boil(X, Y, seed * 7 + hash(P.name) % 997, .45, 55.0 + 8 * k)
+    D = D + _boil(X, Y, seed * 7 + _sh(P.name) % 997, .45, 55.0 + 8 * k)
+    if P.spiky > 0:
+        cx_ = np.mean([q.bb[0] + q.bb[2] for q in P.prims]) / 2; cy_ = np.mean([q.bb[1] + q.bb[3] for q in P.prims]) / 2
+        th_ = np.arctan2(Y - cy_, X - cx_)
+        per = 2 * ((x1 - x0) + (y1 - y0))
+        nsp = max(6, int(per / (5.5 * k + 6)))
+        tri = np.abs(((th_ / (2 * np.pi) * nsp + .37 * np.sin(th_ * 3 + seed % 7)) % 1.0) - .5) * 2
+        spike = np.clip(1 - tri * 1.8, 0, 1) ** 1.6
+        D = D - P.spiky * (1.4 * k + 1.0) * spike * (D > -3 * k)
     L = env.L
     ndl = N[0] * L[0] + N[1] * L[1] + N[2] * L[2]
     l2 = N[0] * env.L2[0] + N[1] * env.L2[1]
@@ -332,7 +346,7 @@ def render_piece(P, V, env, seed, clipfn=None):
         sh = np.zeros_like(ndl1)
     if env.flat: sh = sh * (1 - env.flat)
     # rim on the lit edge
-    rw = 1.0 * k + 1.5
+    rw = min(1.0 * k, 4.0 + .35 * k) + 1.5
     rim = np.clip(D1 + rw + .5, 0, 1) * np.clip(((.62 - nz1) * 6), 0, 1) * np.clip((l21 - .25) * 4, 0, 1) * env.rim * P.rim_amt
     rim = np.clip((rim - .5) / .12 + .5, 0, 1) * (1 - sh)
     lit, shd, rmc = env.colors(P.base)
@@ -380,7 +394,7 @@ def _strokes(loop, P, info, k, seed, roots, lifts):
     keep = np.ones(n, bool)
     for (c, rad) in roots:
         keep &= np.hypot(loop[:, 0] - c[0], loop[:, 1] - c[1]) > rad
-    r = np.random.default_rng(1000 + hash(P.name) % 9973)
+    r = np.random.default_rng(1000 + _sh(P.name) % 9973)
     seglen = (90 + 40 * r.random()) * max(1.0, k / 3.3) ** .6
     s = np.r_[0, np.cumsum(np.hypot(*np.diff(loop, axis=0).T))]
     Ltot = s[-1]
@@ -688,7 +702,7 @@ def draw_eye(cel, V, geo, P, env, s, k, zbuf, lw):
     c, n = ell_surface(H([0, 0, 0]), np.array([12.6, 11.6, 14.6]), Rh, [.80, .26, s * .50])
     c = c + n * .25
     ns = V.d(n)
-    if ns[2] < -.05: return None
+    if ns[2] < .22: return None
     t1 = unit(np.cross(Rh @ [0, 1, 0], n)) * s * -1    # horizontal on the face, pointing forward-ish
     t1 = unit(Rh @ [1, 0, 0] - n * ((Rh @ [1, 0, 0]) @ n))
     t2 = unit(np.cross(n, t1)) * (1 if (np.cross(n, t1) @ (Rh @ [0, 1, 0])) > 0 else -1)
@@ -816,6 +830,7 @@ def whiskers(cel, V, geo, P, env, k, lw, side, t):
     col = mix(rgb('#f3e8d4'), env.col, .25) if env.dark < .5 else mix(rgb('#9aa8c8'), env.col, .4)
     for i, (du, ln, dr) in enumerate(((.8, 21, -.10), (-.4, 23, .02), (-1.6, 19, .16))):
         root = np.array([15.6, -2.6 + du * .9, side * 4.6])
+        t = P.get('wph', t)
         ang = dr + tw * (.06 + .03 * i) * math.sin(t * 1.0 + i * .8)
         d = unit([-.15, -ang * 2.2, side * 1.0])
         d2 = unit([-.55, -ang * 2.2 - .35, side * .8])
@@ -841,8 +856,8 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
     zo = P.get('zo', {}) or {}
     byn = {q.name: q for q in pieces}
     for q in pieces: q.zkey += bias.get(q.name, 0)
-    byn['scarf'].zkey = max(byn['scarf'].zkey, byn['torso'].zkey + 1)
-    byn['head'].zkey = max(byn['head'].zkey, byn['scarf'].zkey + 1)
+    byn['scarf'].zkey = byn['torso'].zkey + .5
+    byn['head'].zkey = max(byn['head'].zkey, byn['scarf'].zkey + .5)
     for q in pieces: q.zkey += zo.get(q.name, 0) * k
     if parts is not None: pieces = [q for q in pieces if q.name in parts]
     hz = byn['head'].zkey
@@ -851,7 +866,9 @@ def draw(img, view, P, env, seed=0, lw=None, clip=None, extra=None, ret_layer=Fa
     layers.append((hz - .5, 'wfar', None))
     layers.append((hz + .5, 'face', None))
     if extra:
-        for zk, fn in extra: layers.append((zk, 'extra', fn))
+        for zk, fn in extra:
+            if zk == 'front': zk = hz + .7          # in front of the face, behind a near arm
+            layers.append((zk, 'extra', fn))
     layers.sort(key=lambda t: t[0])
     # ROI: everything
     bbs = [pr.bb for q in pieces for pr in q.prims]

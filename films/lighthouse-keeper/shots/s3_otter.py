@@ -12,7 +12,7 @@ import otteract
 import lamproom as LR
 
 cv2.setNumThreads(2)
-VER = 'b5'
+VER = 'b6'
 
 
 class Shot:
