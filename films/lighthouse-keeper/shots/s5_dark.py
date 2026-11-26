@@ -93,8 +93,15 @@ class Shot:
         return max(.35, size), lean
 
     def lamp_amt(self, f):
-        s, _ = self.flame(f)
-        return 0.0 if f >= self.f_out else .25 + .75 * s
+        """the light the flame throws on the room: follows the flame, but smoothly (no frame-to-frame jumps)"""
+        fo, fx = self.f_open, self.f_out
+        if f >= fx: return 0.0
+        if f < fo: return 1.0 + .03 * math.sin(f * .45)
+        u = (f - fo) / float(fx - fo)
+        s = (1 - .5 * u) * (1 + .08 * math.sin(f * .55))
+        for c in (.45, .78):
+            s *= 1 - .4 * math.exp(-((u - c) / .10) ** 2)
+        return .25 + .75 * s
 
     # ---------------------------------------------------------------- frame
     def frame(self, f):
