@@ -55,8 +55,24 @@ async function grabFrames(filmDir, outDir, opts) {
   moments.sort((a, b) => a.t - b.t);
   const frames = path.join(outDir, 'frames');
   fs.mkdirSync(frames, { recursive: true });
-  const stage = await openStage({ outDir: build, vertical, draft: false });
   const index = ['# 画面索引', '', '| 图 | 时刻（秒） | 镜头 | 这一刻 |', '| --- | --- | --- | --- |'];
+  if (vertical.engine === 'python') {
+    // a Python film draws its own frames: the driver renders them and the close-ups
+    const py = process.env.DF_PYTHON ?? path.join(repo, '.venv', 'bin', 'python');
+    await new Promise((resolve, reject) => {
+      const child = spawn(py, [path.join(vertical.engineDir, 'tools', 'film.py'), 'frames', filmDir, '--at', moments.map((m) => m.t.toFixed(3)).join(','), '--out', frames], { stdio: 'inherit' });
+      child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`frames exited with ${code}`))));
+    });
+    const got = JSON.parse(fs.readFileSync(path.join(frames, 'index.json'), 'utf8'));
+    got.forEach((g, k) => {
+      const m = moments[k];
+      index.push(`| ${g.file} | ${g.t.toFixed(2)} | ${g.shot} | ${m.what} |`);
+      for (const c of g.closeups) index.push(`| ${c.file} | ${g.t.toFixed(2)} | ${g.shot} | ${c.name} 的 1:1 局部 |`);
+    });
+    fs.writeFileSync(path.join(outDir, 'frames.md'), index.join('\n') + '\n');
+    return moments.length;
+  }
+  const stage = await openStage({ outDir: build, vertical, draft: false });
   try {
     for (const [k, m] of moments.entries()) {
       const n = String(k + 1).padStart(2, '0');
@@ -125,7 +141,9 @@ export async function reviewFilm(filmDir, { workDir, model, budget = 4, timeoutM
   const brief = path.join(filmDir, 'brief.md');
   if (fs.existsSync(brief)) fs.copyFileSync(brief, path.join(workDir, 'brief.md'));
   else if (filmOpts.brief) fs.writeFileSync(path.join(workDir, 'brief.md'), filmOpts.brief);
-  fs.copyFileSync(path.join(repo, 'verticals', 'narrative', 'ART.md'), path.join(workDir, 'ART.md'));
+  // the art rules: a film's own production contract when it has one, else the narrative rules
+  const contract = path.join(filmDir, 'CONTRACT.md');
+  fs.copyFileSync(fs.existsSync(contract) ? contract : path.join(repo, 'verticals', 'narrative', 'ART.md'), path.join(workDir, 'ART.md'));
   const { brief: _b, ...opts } = filmOpts;
   await grabFrames(filmDir, workDir, opts);
   // the frames come from a pipeline run; the reviewer gets only the pictures

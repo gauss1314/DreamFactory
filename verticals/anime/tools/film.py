@@ -287,6 +287,41 @@ def cmd_still(a):
         print(f'{d}/sheet.jpg')
 
 
+def cmd_frames(a):
+    """Finished frames at film times, plus 1:1 close-ups around each character, for review."""
+    film_dir, film, spans, dur = load_film(a.film)
+    os.makedirs(a.out, exist_ok=True)
+    want = sorted(float(t) for t in a.at.split(','))
+    index = []
+    shot = None
+    for n, t in enumerate(want, 1):
+        k = max(i for i, sp in enumerate(spans) if sp['start'] <= t + 1e-6)
+        sp = spans[k]
+        f = min(sp['n'] - 1, int(round((t - sp['start']) * FPS)))
+        if shot is None or shot[0] != k:
+            S = make_shot(sp)
+            S.setup()
+            shot = (k, S)
+        S = shot[1]
+        im = finished(S, f)
+        name = f'full-{n:02d}.jpg'
+        cv2.imwrite(os.path.join(a.out, name), cv2.cvtColor(im, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 85])
+        entry = dict(file=name, t=t, shot=sp['scene']['id'], closeups=[])
+        acts = [x for x in (S.actors(f) if hasattr(S, 'actors') else []) if not x.get('prop') and x.get('points')]
+        for x in acts:
+            pts = np.array(list(x['points'].values()), float)
+            cx, cy = pts.mean(0)
+            w, h = 900, 560
+            x0 = int(min(W - w, max(0, cx - w / 2)))
+            y0 = int(min(H - h, max(0, cy - h / 2)))
+            cname = f'near-{n:02d}-{x["name"]}.jpg'
+            cv2.imwrite(os.path.join(a.out, cname), cv2.cvtColor(im[y0:y0 + h, x0:x0 + w], cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 88])
+            entry['closeups'].append(dict(file=cname, name=x['name']))
+        index.append(entry)
+    with open(os.path.join(a.out, 'index.json'), 'w') as fh:
+        json.dump(index, fh, ensure_ascii=False)
+
+
 def cmd_render(a):
     film_dir, film, spans, dur = load_film(a.film)
     k, sp = find_span(spans, a.scene)
@@ -328,5 +363,9 @@ if __name__ == '__main__':
     p.add_argument('--draft', action='store_true')
     p.add_argument('--jobs', type=int, default=4)
     p.add_argument('--out', default=None)
+    p = sub.add_parser('frames')
+    p.add_argument('film')
+    p.add_argument('--at', required=True)
+    p.add_argument('--out', required=True)
     a = ap.parse_args()
-    {'picture': cmd_picture, 'sound': cmd_sound, 'still': cmd_still, 'render': cmd_render}[a.cmd](a)
+    {'frames': cmd_frames, 'picture': cmd_picture, 'sound': cmd_sound, 'still': cmd_still, 'render': cmd_render}[a.cmd](a)
