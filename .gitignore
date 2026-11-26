@@ -5,3 +5,4 @@ evals/.tmp/
 films/*/qa/
 films/*/out/
 .venv/
+__pycache__/
