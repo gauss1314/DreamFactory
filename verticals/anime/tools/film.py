@@ -35,7 +35,7 @@ os.environ.setdefault('NUMBA_NUM_THREADS', '1')
 
 import numpy as np  # noqa: E402
 import cv2  # noqa: E402
-from multiprocessing import Pool  # noqa: E402
+from multiprocessing import get_context  # noqa: E402
 from lp import W, H, FPS  # noqa: E402
 
 SR = 48000
@@ -111,7 +111,9 @@ def render_frames(film_dir, spans, idx, frames, scale, jobs):
         for f in frames:
             yield _one((f, scale))
         return
-    with Pool(jobs, _init, (film_dir, idx)) as pool:
+    # spawn, not fork: by now this process has OpenCV and numba threads running, and a child forked
+    # from a threaded parent can deadlock on a lock some thread held at the fork
+    with get_context('spawn').Pool(jobs, _init, (film_dir, idx)) as pool:
         yield from pool.imap(_one, [(f, scale) for f in frames], chunksize=2)
 
 
