@@ -35,7 +35,7 @@ class Shot:
     M = dict(ground=950, x0=660, x1=1110, scale=290,
              light=dict(dir=(.45, -.89), color='#ffb458', amt=.85),
              hatch=(660, 940), hatch_quad=((381, 1045), (862, 1002), (838, 876), (499, 898)),
-             step=(1206, 845), lamp=(1227, 634), wick=(1259, 500), lens=(1188, 550), window=(653, 416))
+             step=(1206, 845), lamp=(1227, 634), wick=(1259, 500), lens=(1188, 598), window=(653, 416))
 
     def setup(self):
         self.room = LR.Room('s2', 'night')
@@ -75,7 +75,9 @@ class Shot:
         if not acts: return img
         a = acts[0]
         x, y, s = a['x'], a['y'], a['s'] * 290
-        if y < 900 and abs(x - self.M['hatch'][0]) < 200: return img      # still down the hatch
+        q = np.array(self.M['hatch_quad'], np.float32)
+        if cv2.pointPolygonTest(q, (float(x), float(y)), True) > -25 or y > 1000:
+            return img                                                     # still on the ladder: no floor under it
         fx, fy = self.M['wick']
         dx, dy = x - fx, y - fy
         L = math.hypot(dx, dy) + 1e-6

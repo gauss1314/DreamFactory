@@ -61,8 +61,8 @@ class Shot:
     def flash(self, f):
         u = f - self.f_flash
         if u < 0: return 0.0
-        v = 1.25 * math.exp(-u / 2.6)
-        if 3 <= u < 9: v += .45 * math.sin((u - 3) / 6 * math.pi)        # the flicker that follows
+        v = 1.25 * math.exp(-u / 2.2) + .18 * math.exp(-u / 14.)
+        if 2 <= u < 6: v += .40 * math.sin((u - 2) / 4 * math.pi)        # the flicker that follows
         return v
 
     def frame(self, f):
@@ -89,7 +89,7 @@ class Shot:
 
     def bolt(self, img, u, k):
         """far lightning in the window, out of focus"""
-        if u > 8: return img
+        if u > 6: return img
         r = np.random.default_rng(67)
         x, y = self.M['window'][0] + 60, 120
         pts = [(x, y)]
@@ -98,7 +98,7 @@ class Shot:
         L = np.zeros((H, W), f32)
         cv2.polylines(L, [np.array(pts, np.int32)], False, 1.0, 5, cv2.LINE_AA)
         L = cv2.GaussianBlur(L, (0, 0), 24) * 6
-        return comp.screen(img, L[..., None] * rgb('#e8f0ff') * min(1, k) * .8)
+        return comp.screen(img, L[..., None] * rgb('#e8f0ff') * min(1, k) * .8 * max(0., 1 - u / 6.))
 
     def actors(self, f):
         return otteract.actors('s3', f, self.M)
