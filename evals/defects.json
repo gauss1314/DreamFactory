@@ -751,5 +751,20 @@
     "expectFail": [
       "landing"
     ]
+  },
+  {
+    "id": "ground-too-short",
+    "title": "跟拍镜头的地面底版画窄了，镜头移到后面右下角露出黑底（无人值守版本的真实问题，那次露在右上角）",
+    "base": "baker-hedgehog",
+    "ops": [
+      {
+        "file": "scenes",
+        "replace": "  const ground = kit.layer(2900, 1080);",
+        "with": "  const ground = kit.layer(2300, 1080);"
+      }
+    ],
+    "expectFail": [
+      "edges"
+    ]
   }
 ]

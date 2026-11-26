@@ -540,6 +540,33 @@ export const landing = {
   },
 };
 
+// When the camera moves past the edge of a painted layer, the frame edge is left unpainted. The
+// page fills the canvas with a colour nothing paints before each look; any of it left along an
+// edge was never covered.
+export const edges = {
+  id: 'edges',
+  title: '画框边缘：镜头移动时背景铺满画框，边上不露底',
+  tier: 'dom',
+  run(ctx) {
+    const track = (ctx.sampling.track ?? []).filter((f) => f.bare);
+    if (!track.length) return { status: 'skip', summary: '画面没有报告边缘覆盖', details: [] };
+    const found = new Map();
+    for (const f of track) {
+      for (const [side, share] of Object.entries(f.bare)) {
+        if (share <= 0.02) continue;
+        const sc = ctx.timeline.scenes.find((s) => f.t >= s.start && f.t < s.end) ?? ctx.timeline.scenes.at(-1);
+        const key = `${sc.id}|${side}`;
+        const hit = found.get(key) ?? { sc: sc.id, side, first: f.t, last: f.t, share: 0 };
+        hit.last = f.t;
+        hit.share = Math.max(hit.share, share);
+        found.set(key, hit);
+      }
+    }
+    const problems = [...found.values()].map((h) => `${h.sc}：${fmtT(h.first)}–${fmtT(h.last)} 画框${h.side}边有一段没画到（最多占这条边的 ${Math.round(h.share * 100)}%），背景没铺满镜头移动的范围`);
+    return result(problems, `查了 ${track.length} 帧，四边都铺满了`);
+  },
+};
+
 function quadFit(pts) {
   // least squares for y = a x^2 + b x + c
   const S = (f) => pts.reduce((m, [x, y]) => m + f(x, y), 0);

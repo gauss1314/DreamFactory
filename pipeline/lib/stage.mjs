@@ -292,7 +292,7 @@ export async function sampleFilm(stage, timeline, { contactFile } = {}) {
   if (await stage.page.evaluate(() => typeof window.DF.probe === 'function')) {
     const times = [];
     for (let i = 0; i * TRACK_STEP < timeline.duration; i++) times.push(i * TRACK_STEP);
-    track = await stage.page.evaluate((ts) => ts.map((t) => ({ t, actors: window.DF.probe(t) })), times);
+    track = await stage.page.evaluate((ts) => ts.map((t) => ({ t, ...window.DF.probe(t) })), times);
   }
   const cjkOk = await stage.page.evaluate(cjkGlyphsDraw);
   return { samples, repeat, cjkOk, sheetFrames, track, pageErrors: stage.errors };

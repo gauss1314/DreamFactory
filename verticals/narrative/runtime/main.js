@@ -65,18 +65,38 @@ function seek(t) {
   }
 }
 
-// Where everyone is at time t, without finishing the frame: the checks call this a dozen times a
-// second of film, and only need the shot's own reports.
+// Where everyone is at time t, and whether the shot covers the whole frame, without finishing it:
+// the checks call this a dozen times a second of film. The shot is drawn twice, once over white
+// and once over black. Where it painted the frame the two agree; where they differ, the background
+// shows through: that part of the frame was never painted (a translucent wash over it is not paint).
 function probe(t) {
   const last = scenes.length - 1;
   const i = scenes.findIndex((s, k) => t >= s.start && (t < s.end || k === last));
-  frameActors = [];
-  if (i < 0) return [];
+  if (i < 0) return { actors: [], bare: {} };
   const s = scenes[i];
-  g.save();
-  s.draw(g, t - s.start, s.end - s.start);
-  g.restore();
-  return JSON.parse(JSON.stringify(frameActors));
+  const strips = [[engine.W - 1, 0, 1, engine.H], [0, 0, 1, engine.H], [0, 0, engine.W, 1], [0, engine.H - 1, engine.W, 1]];
+  const drawOver = (bg) => {
+    frameActors = [];
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.filter = 'none';
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = bg;
+    g.fillRect(0, 0, engine.W, engine.H);
+    g.save();
+    s.draw(g, t - s.start, s.end - s.start);
+    g.restore();
+    return strips.map(([x, y, w, h]) => g.getImageData(x, y, w, h).data);
+  };
+  const white = drawOver('#fff');
+  const black = drawOver('#000');
+  const share = (a, b) => {
+    let n = 0;
+    for (let k = 0; k < a.length; k += 4) if (Math.abs(a[k] - b[k]) + Math.abs(a[k + 1] - b[k + 1]) + Math.abs(a[k + 2] - b[k + 2]) > 60) n++;
+    return n / (a.length / 4);
+  };
+  const [r, l, top, bottom] = white.map((w, k) => share(w, black[k]));
+  return { actors: JSON.parse(JSON.stringify(frameActors)), bare: { 右: r, 左: l, 上: top, 下: bottom } };
 }
 
 window.DF = { duration: timeline.duration, fps: timeline.fps, seek, probe, events, get actors() { return frameActors; } };

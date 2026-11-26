@@ -3,7 +3,7 @@
 // that passes the checks with nobody to ask. It never sees the reference film of the case.
 // Measured: did it deliver, how many pipeline runs it needed, what it cost, and whether it stayed
 // inside the rules. The delivered film is then checked again here, outside the model's reach.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -46,6 +46,15 @@ const jobs = Number(value('--jobs') ?? 3);
 const budget = Number(value('--budget') ?? 8);
 const timeoutMin = Number(value('--timeout') ?? 30);
 const reviewRounds = Number(value('--review') ?? 0);
+const git = (...a) => {
+  try {
+    return execFileSync('git', a, { cwd: repo, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+};
+const gitHead = git('rev-parse', '--short', 'HEAD');
+const gitDirty = Boolean(git('status', '--porcelain', '--', 'pipeline', 'verticals', 'DIRECTOR.md'));
 const reviewModel = value('--review-model');
 const workRoot = value('--summarize') ? null : path.resolve(value('--work') ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dreamfactory-agent-')));
 
@@ -289,6 +298,8 @@ ${rv.issues.map((x, i) => `${i + 1}. [${x.severity}] ${x.t != null ? `${Number(x
       tokens: { input: sum('inputTokens'), output: sum('outputTokens'), cacheRead: sum('cacheReadInputTokens'), cacheWrite: sum('cacheCreationInputTokens') },
       refusedActions: sessions.flatMap((x) => x.result?.permission_denials ?? []).map((d) => `${d.tool_name}: ${JSON.stringify(d.tool_input).slice(0, 120)}`),
     },
+    // which rules and engine the model worked with: copied into its workspace when the case started
+    rules: { commit: gitHead, uncommittedChanges: gitDirty, hash: before.rules.slice(0, 12) },
     integrity: {
       rulesUntouched: treeHash(ws, ['task', 'node_modules', '.cache']) === before.rules,
       inputsUntouched: fileHash(inputs.map((f) => path.join(task, f))) === before.inputs,
