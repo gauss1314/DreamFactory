@@ -200,4 +200,10 @@ class Shot:
         return comp.screen(img, L[..., None] * rgb('#ffcf8a') * .85)
 
     def actors(self, f):
-        return otteract.actors('s7', f, self.M) + [dict(name='窗扇', prop=True, x=float(self.M['sill'][0]), y=float(self.M['sill'][1]), s=1.0)]
+        c = self.M['casement'](f)
+        edge = [float(v) for v in c['edge']]
+        wick = [float(v) for v in self.M['wick']]
+        return otteract.actors('s7', f, self.M) + [
+            dict(name='窗扇', prop=True, x=float(self.M['sill'][0]), y=float(self.M['sill'][1]), s=1.0, points=dict(edge=edge)),
+            dict(name='灯芯', prop=True, x=wick[0], y=wick[1], s=1.0, points=dict(wick=wick)),
+        ]

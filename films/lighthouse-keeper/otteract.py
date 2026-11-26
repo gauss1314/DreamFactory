@@ -1081,6 +1081,13 @@ def actors(key, f, M):
     p = perf(key, f, M)
     if p is None: return []
     a = dict(name='水獭', x=float(p.x), y=float(p.y), s=float(p.k * CROWN / STAND_H))
-    if p.facing: a['facing'] = p.facing
+    # A walking direction only for a walk: feet on one level. When the feet go up or down around
+    # this frame (a hop, a climb, a jump down), the heading check must not read it as a walk.
+    level = True
+    for g in (f - 2, f + 2):
+        q = perf(key, g, M) if g >= 0 else None
+        if q is not None and abs(float(q.y) - float(p.y)) > 3.0:
+            level = False
+    if p.facing and level: a['facing'] = p.facing
     if p.points: a['points'] = {k_: [float(v[0]), float(v[1])] for k_, v in p.points.items()}
     return [a]

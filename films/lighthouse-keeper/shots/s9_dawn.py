@@ -346,7 +346,19 @@ class Shot:
         return self.CX + (x - self.CX) * z + d, self.CY + (y - self.CY) * z
 
     def actors(self, f):
-        out = [dict(a) for a in otteract.actors('s9', f, self.marks(f))]
+        M = self.marks(f)
+        out = [dict(a) for a in otteract.actors('s9', f, M)]
+        elbow = next((a['points']['elbow'] for a in out if a.get('points', {}).get('elbow')), None)
+        if elbow is not None:
+            # nearest point on the rail polyline to the elbow, for the contact check
+            best, ex, ey = None, elbow[0], elbow[1]
+            for (x0, y0), (x1, y1) in zip(M['rail'], M['rail'][1:]):
+                dx, dy = x1 - x0, y1 - y0
+                u = max(0.0, min(1.0, ((ex - x0) * dx + (ey - y0) * dy) / (dx * dx + dy * dy + 1e-9)))
+                q = (x0 + u * dx, y0 + u * dy)
+                if best is None or (q[0] - ex) ** 2 + (q[1] - ey) ** 2 < (best[0] - ex) ** 2 + (best[1] - ey) ** 2:
+                    best = q
+            out.append(dict(name='栏杆', prop=True, x=float(best[0]), y=float(best[1]), s=1.0, points=dict(near=[float(best[0]), float(best[1])])))
         if boat is not None:
             p = self._pose((f // 2) * 2 / 24.)
             b = boat.actor(p)

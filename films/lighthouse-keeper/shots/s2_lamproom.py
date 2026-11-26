@@ -157,4 +157,7 @@ class Shot:
             if 'points' in a:
                 a['points'] = {k: T(*v) for k, v in a['points'].items()}
             out.append(a)
+        # what the otter touches, for the contact check: the glass it wipes
+        out.append(dict(name='透镜', prop=True, x=float(T(*self.M['lens'])[0]), y=float(T(*self.M['lens'])[1]), s=z,
+                        points=dict(glass=[float(v) for v in T(*self.M['lens'])])))
         return out
