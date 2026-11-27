@@ -152,8 +152,8 @@ class Shot:
         out = []
         for a in otteract.actors('s2', f, self.M):
             a = dict(a)
-            a['x'], a['y'] = T(a['x'], a['y'])
-            a['s'] = a['s'] * z
+            # position and size stay on the set's ground plane, before the camera push; contact
+            # points are where they are drawn
             if 'points' in a:
                 a['points'] = {k: T(*v) for k, v in a['points'].items()}
             out.append(a)

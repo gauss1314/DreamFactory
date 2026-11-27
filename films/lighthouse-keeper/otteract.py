@@ -614,8 +614,10 @@ def act_s3(f, M):
     br = .45 * math.sin(2 * math.pi * f / 46.0)                     # breathing (on ones: tiny)
     P = shift(P, du=br * .5, names=('chest', 'neck', 'head', 'pawL', 'pawR'))
     # the eyes go first, the head leads, the body follows round to three-quarters toward the window
-    P['hyaw'] = keys(d, [(0, .05), (44, .05), (48, -.25), (54, -.55), (62, -.12), (66, -.16)], e=ease)
-    byaw = keys(d, [(0, .72), (48, .72), (62, 2.30), (66, 2.26)], e=ease)
+    # the turn is on ones and starts earlier: on twos a 90-degree turn in 14 frames snapped the face
+    # from three-quarters to front in one drawing
+    P['hyaw'] = keys(f, [(0, .05), (40, .05), (46, -.25), (54, -.55), (62, -.12), (66, -.16)], e=ease)
+    byaw = keys(f, [(0, .72), (40, .72), (62, 2.30), (66, 2.26)], e=ease)
     P['hroll'] = keys(d, [(0, 0.0), (32, 0.0), (38, .08), (46, .04), (58, -.04)])
     P['hpitch'] = keys(d, [(0, .02), (44, .02), (56, .08), (ff, .06), (ff + 4, -.04)])
     lx = keys(f, [(0, .25), (42, .25), (44, -.6), (46, -1.0), (56, -.4), (62, .35)], e=lambda t: t)

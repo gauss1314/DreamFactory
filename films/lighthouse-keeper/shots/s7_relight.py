@@ -231,8 +231,8 @@ class Shot:
         out = []
         for a in self._actors(f):
             a = dict(a)
-            a['x'], a['y'] = T(a['x'], a['y'])
-            a['s'] = a['s'] * z
+            # position and size stay on the set's ground plane, before the camera push (the heading
+            # check reads them as the actor's own movement); contact points are where they are drawn
             if a.get('points'): a['points'] = {k_: T(*v) for k_, v in a['points'].items()}
             out.append(a)
         return out
