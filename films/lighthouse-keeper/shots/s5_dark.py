@@ -135,7 +135,7 @@ class Shot:
         Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .9)
         sky = R.sky * (1 + .9 * fl) + rgb('#c8d4f0') * fl * .18
         sky = sky + (np.roll(R.sky, int(t * 2), axis=1) - R.sky) * .0     # clouds held: they move with the rain
-        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3) if t >= fo else 0.0, wet=1.0,
+        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3) if t >= fo else 0.0, wet=1.0, f=t,
                        sheen=rgb('#3a3c5a') * .10 + rgb('#ffb458') * .05 * lamp)
         img = LR.rain(img, t, self.win_mask * (1 - .3 * dark), n=320, ang=1.30, speed=70, length=40, col='#a8b6c4', amt=.30, seed=5)
         # the casement

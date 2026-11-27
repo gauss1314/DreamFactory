@@ -53,9 +53,9 @@ class Shot:
     # ledge: the brass service ring round the tank (x0, x1, y of its standing surface, front edge);
     # standing on it the paws reach the wick.  casement(f): hinge / free edge of the casement it shuts.
     M = dict(ground=900, x0=600, x1=1450, scale=290, run_y=850, ledge=(1260, 1610, 680), casement=casement,
-             light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.55),
+             light=dict(dir=(-.85, -.35), color='#8a9ac8', amt=.75),
              lamp_light=dict(dir=(.6, -.8), color='#ffb458', amt=.9),
-             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1431, 492), filler=(1497, 618), wick=(1431, 492), lens=(1432, 526))
+             window=(563, 415), sill=(581, 567), step=(1499, 801), lamp=(1431, 505), filler=(1497, 618), wick=(1431, 505), lens=(1432, 526))
 
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}
@@ -69,6 +69,9 @@ class Shot:
         # depth of the lamp from the camera, to put a screen point back into the room
         c = self.room.cam
         self.zl = float(c.cam(LR.FLAME)[2])
+        self.winmask = (R.hole * 1.0 + cv2.GaussianBlur(R.glass, (0, 0), 40)[..., None] * 0).astype(f32)
+        wm = np.zeros((H, W), f32); wx, wy = self.M['window']
+        cv2.circle(wm, (int(wx), int(wy)), 420, 1.0, -1); self.winmask = cv2.GaussianBlur(wm, (0, 0), 120)[..., None]
         x, y = np.meshgrid(np.arange(W, dtype=f32), np.arange(H, dtype=f32))
         cx, cy = self.M['wick']
         self.ang = np.arctan2((y - cy) * 2.2, x - cx).astype(f32)
@@ -129,7 +132,9 @@ class Shot:
         if m is not None:
             Lt = Lt + self.match_light(m[0], m[1])
         sky = R.sky * (1 - .25 * warm)
-        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3), wet=1.0,
+        early = 1 - _e(f - 40, 14) if f >= 40 else 1.0            # the cold light at the window while it fights the casement
+        sky = sky * (1 + .45 * early * self.winmask)
+        img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3), wet=1.0, f=f,
                        sheen=rgb('#3a3c5a') * .10 + rgb('#ffb458') * .06 * min(1.2, lamp))
         img = LR.rain(img, f, R.glass, n=320, ang=1.30, speed=70, length=40, col='#a8b6c4', amt=.26, seed=5)
         lit_s = rgb('#3a3c5a') * (1 + .4 * warm) + rgb('#ffb458') * lamp * .35 * (f >= self.f_catch)
@@ -137,7 +142,7 @@ class Shot:
         if f < self.f_shut:
             img = LR.rain(img, f, self.inside, n=150, ang=.32, speed=55, length=46, col='#b8c4d4', amt=.30, seed=9, region=(450, 300, 1400, 980))
         glass = (.30 * size if f < fb else 1.0 + 1.2 * burst)
-        R.lamp.draw(img, f, rot=rot, lit=glass, flame=size, glow=min(1.4, .6 + glass), bloom=burst)
+        R.lamp.draw(img, f, rot=rot, lit=glass, flame=size, glow=min(1.4, .6 + glass), bloom=burst, door=self.door(f))
         if f >= self.f_catch:
             cx, cy = self.M['wick']
             img = comp.glow(img, cx, cy - 20, 300 + 300 * warm, '#ff9e48', .10 + .12 * warm + .25 * burst, 2.2)
@@ -145,12 +150,32 @@ class Shot:
             img = self.rays(img, ub, rot, burst, warm)
             img = self.rings(img, ub)
             img = comp.screen(img, self.warmwash * (.30 * burst))
+        wx, wy = self.M['window']
+        img = comp.glow(img, wx + 40, wy + 60, 620, '#7a8ac0', .20 * early, 1.6)
         img = otteract.draw(img, 's7', f, self.M)
         if m is not None:
             (mx, my), b = m
             img = comp.glow(img, mx, my, 160, '#ffb060', .35 * b, 2.0)
             img = comp.glow(img, mx, my, 34, '#fff0c0', .7 * min(1.5, b), 1.6)
-        return img.astype(f32)
+        z, ox, oy = self.view(f)
+        return comp.cam2d(img, ox, oy, z).astype(f32)
+
+    # ---------------------------------------------------------------- camera: close on the window, then back
+    CAM_C = (640., 540.)
+
+    def view(self, f):
+        """zoom and the painting point at frame centre.  Starts in on the window side (the fight with the
+        casement), eases back to the whole room while the otter runs to the lamp."""
+        k = comp.ease((f - 40) / 40.) if f > 40 else 0.0
+        z = 1.22 + (1.0 - 1.22) * float(k)
+        cx, cy = self.CAM_C
+        return z, W / 2 + (cx - W / 2) * (1 - 1 / z), H / 2 + (cy - H / 2) * (1 - 1 / z)
+
+    def door(self, f):
+        """the lens's service door: open (the wick inside) until the flame has caught, then swung shut"""
+        a = self.f_catch + 16
+        if f < a: return 1.0
+        return max(0.0, 1 - (f - a) / 6.)
 
     def match_light(self, p, b):
         """a small warm world around the match: short falloff, faces turned toward it lit"""
@@ -200,6 +225,18 @@ class Shot:
         return comp.screen(img, L[..., None] * rgb('#ffcf8a') * .85)
 
     def actors(self, f):
+        z, ox, oy = self.view(f)
+        T = lambda x, y: [float((x - ox) * z + W / 2), float((y - oy) * z + H / 2)]
+        out = []
+        for a in self._actors(f):
+            a = dict(a)
+            a['x'], a['y'] = T(a['x'], a['y'])
+            a['s'] = a['s'] * z
+            if a.get('points'): a['points'] = {k_: T(*v) for k_, v in a['points'].items()}
+            out.append(a)
+        return out
+
+    def _actors(self, f):
         c = self.M['casement'](f)
         edge = [float(v) for v in c['edge']]
         wick = [float(v) for v in self.M['wick']]

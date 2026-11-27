@@ -622,7 +622,7 @@ def act_s3(f, M):
     # the blink is on ones: two frames closing, three shut, three opening
     fb = int(round(M.get('blink', 1.0) * 24)) if isinstance(M.get('blink', None), (int, float)) else 24
     P['blink'] = blink_at(f, [fb], 2, 3, 3)
-    P['ears'] = keys(d, [(0, 0.0), (ff, 0.0), (ff + 2, .55), (ff + 6, 1.0), (ff + 8, .9)])
+    P['ears'] = keys(d, [(0, 0.0), (ff, 0.0), (ff + 2, .6), (ff + 4, 1.0), (ff + 6, 1.0)])
     P['squint'] = keys(d, [(ff, 0.0), (ff + 2, .35), (ff + 8, .12)])
     P['mouth'] = keys(d, [(ff + 2, 0.0), (ff + 8, .16), (ff + 20, .12)])
     P['squint'] = 0.0 if f >= ff + 8 else P['squint']
@@ -642,7 +642,7 @@ def act_s3(f, M):
         t = float(r_['amt']) if isinstance(r_, dict) else float(r_)
     if t > .22:
         L = dict(dir=Lf['dir'], color=Lf['color'], amt=Lf.get('amt', 1.0) * min(1.0, .35 + t))
-        env = O.Env(L, amb='#1c2238', rim=.6, thr=.18, front=.35, glint='#f4f8ff')
+        env = O.Env(L, amb='#141a30', rim=.6, thr=.12, front=.30, glint='#f4f8ff', tint=min(1.0, .25 + .85 * t))
     else:
         # once turned to the window the lamp is behind it: the face sits in shadow with a warm rim
         fr = .55 - .5 * seg(byaw, .9, 2.2, e=lambda u: u)
@@ -990,7 +990,8 @@ def act_s9(f, M):
     x = float(M['x0'] + M['x1']) / 2 if 'x0' in M else float(rail[len(rail) // 2][0])
     ry = _rail_y(rail, x)
     feet = float(M['deck']) if 'deck' in M else float(M['ground'])
-    yaw = .42
+    wv0 = seg(tw(f), 88, 94) * (1 - seg(tw(f), 128, 136))
+    yaw = .42 + .75 * wv0                                    # turns toward the boat (and us) to wave
     V0 = O.View(x, feet, k, yaw=yaw, tilt=.10)
     P = O.pose()
     P = lean(P, .16)
@@ -1005,17 +1006,20 @@ def act_s9(f, M):
     bar = _screen_to_body(V0, np.array([x + 2.0 * k, ry - .55 * rw]), depth_r=0.0)
     P['pawL'] = (bar[0] + 9.0, bar[1] - 1.0, -5.0); P['pawR'] = (bar[0] + 9.0, bar[1] + .5, 5.0)
     P['elbL'] = (-.3, -1, -.6); P['elbR'] = (-.3, -1, .6)
-    wv = seg(d, h2 + 2, h2 + 8) * (1 - seg(d, 128, 136))
+    wv = seg(d, 88, 94) * (1 - seg(d, 128, 136))
     if wv > 0:
-        # a clear wave: the paw goes up over the head and swings twice
-        sw = math.sin((d - (h2 + 8)) / 10.0 * 2 * math.pi) if d >= h2 + 8 else 0.0
+        # a clear wave: three swings between 94 and 128
+        sw = math.sin((d - 94) / 11.0 * 2 * math.pi) if d >= 94 else 0.0
         keepL = P['pawL']
-        P = stretch(P, 5.0 * wv)
+        P = stretch(P, 4.0 * wv)
         P['pawL'] = (keepL[0], keepL[1] - 2.0 * wv, keepL[2])   # the other forearm stays on the bar
-        P['shrugR'] = 7.0 * wv
-        P['armxR'] = 1.0 + .38 * wv
-        up_ = _shoulder(P, 1) + np.array([-3.0 + 7.0 * sw, 24.0 - 2.0 * abs(sw), 8.0])
+        P['shrugR'] = 6.0 * wv
+        P['armxR'] = 1.0 + .3 * wv
+        # the paw goes up out to the side, clear of the head, and swings side to side
+        up_ = _shoulder(P, 1) + np.array([1.0, 22.0 + 2.0 * abs(sw), 14.0 + 6.0 * sw])
         P['pawR'] = tuple(np.array(P['pawR'], float) * (1 - wv) + up_ * wv)
+        P['hroll'] = -.10 * wv - .05 * sw * wv                    # the head leans away from the arm, rocks with it
+        P['scarf'] = (.6 * sw * wv, -.6 + .8 * abs(sw) * wv)
         P['elbR'] = (.2, -.3, 1)
         P['mouth'] = .35 if h2 + 4 <= d < 110 else 0.0
     P['footL'] = (2.0, 2.8, -8.5); P['footR'] = (4.0, 2.8, 8.5)

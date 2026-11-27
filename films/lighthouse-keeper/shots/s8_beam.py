@@ -10,10 +10,10 @@ from lp.paint import f32, rgb, smooth, fbm, Canvas, arcs
 from lp.comp import ease
 import sea as SEA, storm as ST, boat as BT
 
-VER = 'v4'
+VER = 'v5'
 AT = (0., 0., 8.)                    # lighthouse foot (island top)
-EYE0 = np.array([-5.5, -15.0, 32.0])
-TGT = np.array([30., 300., -34.])
+EYE0 = np.array([-10.0, -19.0, 27.6])
+TGT = np.array([40., 300., -3.])
 FOC = 1120.
 PUSH = 1.0
 BOAT0 = np.array([-14., 122.])
@@ -48,11 +48,14 @@ class Shot:
         self.sea.textures()
         self.lamp = lh.lamp_world(AT)
         dz = float(c0.cam(self.lamp)[2]); self.tdepth = dz
-        tw = ST.cached(f'lk_s8_tower_{VER}.npy', lambda: lh.paint_tower(c0, 'storm', lamp=1.0, at=AT, house=False, rail='all'))
-        self.sp_tower = ST.Sprite(tw, dz)
+        def _tw():
+            L, m = lh.paint_tower(c0, 'storm', lamp=1.0, at=AT, house=False, rail='all', masks=True)
+            return np.dstack([L, m['glass']])
+        tw = ST.cached(f'lk_s8_tower_{VER}.npy', _tw)
+        self.sp_tower = ST.Sprite(tw[..., :4], dz, extra=tw[..., 4])
         rk = ST.cached(f'lk_s8_reef_{VER}.npy', self._reef)
         self.sp_reef = ST.Sprite(rk[..., :4], 160., extra=rk[..., 4])
-        self.rain = ST.Rain(H, W, seed=17, dens=.8, speed=.9)
+        self.rain = ST.Rain(H, W, seed=17, dens=1.0, speed=.9)
         self.mist = ST.mist_band(H, W, hz + 14, 40, 9, .6)
         az_cam = math.atan2(EYE0[1] - self.lamp[1], EYE0[0] - self.lamp[0])
         self.az0 = az_cam - 2 * math.pi * self.t_sweep / lh.BEAM_PERIOD
@@ -144,9 +147,9 @@ class Shot:
             img = img + (rgb('#a9b2d4') - img) * np.clip(edge * op, 0, .35)[..., None]
         # sea
         az = lh.beam_az(t, self.az0)
-        dirs = ST.beam_dirs(az)
+        dirs = ST.beam_dirs(az, tilt=-.002)
         G = self.sea.render(cam, t, h=H // 2, w=W // 2, s1=2600.)
-        bs = SEA.beam_on_surface(G, self.lamp, dirs, half=.03, reach=500., amt=1.0)
+        bs = SEA.beam_on_surface(G, self.lamp, dirs, half=.03, reach=700., amt=1.2)
         sc, Ms, info = self.sea.paint(G, cam, t, PAL, light=(-.5, .4, .75), beam=bs, fog_col='#5a6272', fog_k=(.0028, .8), caps=(110., .85), glass=.6)
         img = img * (1 - Ms[..., None]) + sc * Ms[..., None]
         zfull = cv2.resize(G['z'], (W, H), interpolation=cv2.INTER_NEAREST)
@@ -166,18 +169,21 @@ class Shot:
         # the boat and its wake
         img = self._boat(img, cam, t, f)
         # volumetric beams through the rain
-        B = ST.beam_volume(cam, self.lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=230., amt=.72, half=.014, r0=.8)
+        B = ST.beam_volume(cam, self.lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=300., amt=.85, half=.009, r0=.75, gain=.8)
         cur = self.rain.curtains(f)
         img = comp.screen(img, (B * (.8 + .35 * cur))[..., None] * rgb('#fff2d0'))
         # the tower: lantern and gallery right under us
         R = self.sp_tower.roi(d, cam.cx, cam.cy)
         if R is not None:
-            X0, Y0, L, _ = R; hh, ww = L.shape[:2]
-            img[Y0:Y0 + hh, X0:X0 + ww] = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
+            X0, Y0, L, gm = R; hh, ww = L.shape[:2]
+            sub = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
+            # the beams are born inside the lantern: seen through the panes they leave from the lamp's height
+            bb = B[Y0:Y0 + hh, X0:X0 + ww] * gm
+            img[Y0:Y0 + hh, X0:X0 + ww] = comp.screen(sub, (bb * 1.1)[..., None] * rgb('#fff2d0'))
         img = lh.lamp_glow(img, cam, AT, amt=1.0, col='#ffc070')
         # rain, lit in the beams
         rs = self.rain.streaks(f)
-        lit = .5 + 2.4 * np.clip(B, 0, 1)
+        lit = .45 + 3.2 * np.clip(B, 0, 1)
         img = img + (rgb('#a8b6c4') * np.clip(lit, 0, 2.2)[..., None] * .8 - img) * (rs * .7)[..., None]
         # the other beam across the lens
         fa = self.flare_amt(t)

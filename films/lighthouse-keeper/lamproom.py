@@ -43,17 +43,22 @@ def _ledge(az_deg, r=.055, h=.17):
 
 
 PROPS = [
-    ('cyl', (1.55, .95, .21, 0., .64), 17),            # oil drum, red with bands
-    ('cyl', (1.02, 1.42, .13, 0., .25), 18),           # bucket
-    ('box', (1.42, 1.90, -.62, -.12, 0., .38), 19),     # crate
-    ('box', (1.50, 1.84, -.52, -.22, .38, .58), 19),    # a smaller box on it
-    ('box', (.72, 1.08, 1.55, 1.85, 0., .36), 21),      # stool (a block, painted as one)
+    # one corner of odds and ends, placed where the s2 and the s5/s7 cameras both see it (right of the lamp)
+    ('cyl', (1.90, .42, .20, 0., .62), 17),            # oil drum, red with bands
+    ('cyl', (1.48, .50, .12, 0., .24), 18),            # bucket
+    ('box', (1.66, 2.02, -.36, .06, 0., .36), 19),      # crate
+    ('box', (1.72, 1.98, -.28, -.02, .36, .54), 19),    # a smaller box on it
     ('cyl', (0., 0., LEDGE[0], LEDGE[1] - .025, LEDGE[1]), 11),       # service ring to stand on (brass, like the tray)
     ('cyl', (float(FILLER[0]), float(FILLER[1]), .028, .30, .37), 10),   # filler pipe, up from the service ring
     ('cyl', (float(FILLER[0]), float(FILLER[1]), .055, .37, .40), 10),   # its funnel
 ] + [(k, a, 20) for k, a, _ in (_ledge(62), _ledge(66, .045, .13), _ledge(98, .05, .2), _ledge(208), _ledge(213, .04, .12))]
 # the hatch lid, opened back against its hinge on the far edge
 PROPS.append(('box', (-1.02 - .27, -1.02 + .27, -.22 + .27 + .01, -.22 + .27 + .55, 0., .03), 15))      # lid lying open on the boards
+
+
+# the lens's little service door (on the glass, turning with it): faces the s5/s7 camera when rot = .55
+DOOR_HW = math.radians(17)
+DOOR_Z = (.475, .655)
 
 
 # per-camera layout; s7 shares s5's camera
@@ -64,6 +69,9 @@ CAMS = {
 }
 # the window that blows open (bay index) -- seen in s5/s7 on the left, in s2 left of the lamp
 OPEN_BAY = 3
+
+
+DOOR_OFF = math.atan2(CAMS['s5']['eye'][1], CAMS['s5']['eye'][0]) - .55
 
 
 def camera(key):
@@ -618,11 +626,19 @@ class Room:
         ph = ((az - bay_az(OPEN_BAY)) % (2 * math.pi)) / step
         hole = (self.mat == M_GLASS) & (ph > .5) & (ph < 1.0) & (P[..., 2] > Z_GLASS0 - .02) & (P[..., 2] < Z_TRANSOM + .02)
         self.hole = cv2.GaussianBlur(hole.astype(f32), (0, 0), .8)[..., None]
+        # rain on the glass: slanting marks where drops hit, and threads of water running down
         r = np.random.default_rng(12)
-        dm = np.zeros((H, W), f32)
-        for x_, y_, s_ in zip(r.uniform(0, W, 2600), r.uniform(0, H, 2600), r.uniform(.8, 2.6, 2600)):
-            cv2.circle(dm, (int(x_ * 4), int(y_ * 4)), int(s_ * 4), float(r.uniform(.4, 1)), -1, cv2.LINE_AA, 2)
-        self.drops = cv2.GaussianBlur(dm, (0, 0), .6)[..., None]
+        mk = np.zeros((H, W), f32)
+        for x_, y_, l_ in zip(r.uniform(0, W, 1800), r.uniform(0, H, 1800), r.uniform(5, 15, 1800)):
+            cv2.line(mk, (int(x_ * 4), int(y_ * 4)), (int((x_ + .45 * l_) * 4), int((y_ + l_) * 4)), float(r.uniform(.3, .8)), 1, cv2.LINE_AA, 2)
+        self.marks = cv2.GaussianBlur(mk, (0, 0), .5)
+        rv = np.zeros((H, W), f32)
+        for x_, y_, l_ in zip(r.uniform(0, W, 230), r.uniform(0, H, 230), r.uniform(40, 220, 230)):
+            yy = np.linspace(y_, y_ + l_, 14)
+            xx = x_ + np.cumsum(r.normal(0, 1.4, 14)) + (yy - y_) * .08
+            cv2.polylines(rv, [np.round(np.c_[xx, yy] * 4).astype(np.int32)], False, float(r.uniform(.4, .9)), 1, cv2.LINE_AA, 2)
+            cv2.circle(rv, (int(xx[-1] * 4), int(yy[-1] * 4)), int(r.uniform(1.6, 2.8) * 4), .9, -1, cv2.LINE_AA, 2)
+        self.rivulets = cv2.GaussianBlur(rv, (0, 0), .6)
         self.lamp = Lamp(self, P, N)
         self.lens_m = (self.mat == M_LENS)
 
@@ -653,14 +669,18 @@ class Room:
                 Lt = Lt + (b * beams * lamp)[..., None] * rgb('#ffd08a') * 1.6
         return Lt
 
-    def render(self, Lt, outside=None, outside_amt=1.0, hole_open=0.0, wet=0.0, sheen=None):
+    def render(self, Lt, outside=None, outside_amt=1.0, hole_open=0.0, wet=0.0, sheen=None, f=0):
         """wet: rain beads on the glass (storm); sheen: rgb the panes reflect from the room"""
         img = self.alb * Lt
         img = 1 - (1 - np.clip(img, 0, 1.5)) * (1 - rgb('#1c1a30') * .5)       # shadows end in violet
         o = self.sky if outside is None else outside
         sh = rgb('#3a3c5a') * .10 if sheen is None else np.asarray(sheen, f32)
         g = o * outside_amt * .86 + sh
-        if wet > 0: g = g + self.drops * (o * .5 + .05) * wet
+        if wet > 0:
+            run = np.roll(self.rivulets, (f // 2) * 5, axis=0)          # the water runs down, on twos
+            mk = np.roll(self.marks, (f // 2) * 2, axis=0)
+            w = (mk * .55 + run * .8)[..., None]
+            g = g * (1 - .25 * w * wet) + w * (o * .9 + .07) * wet
         if hole_open > 0:
             k = self.hole * hole_open
             g = g * (1 - k) + o * outside_amt * 1.06 * k
@@ -705,7 +725,47 @@ class Lamp:
         self.sc = float(room.cam.scale(FLAME))
         self.fpx = room.cam.project(FLAME)[0]
 
-    def draw(self, img, f, rot=0.0, lit=1.0, flame=1.0, lean=0.0, glow=1.0, bloom=0.0, flare=0.0):
+    def door(self, img, f, rot, amt, lit):
+        """open service door: the burner and wick inside, the little glass door swung out on its hinge"""
+        from lp.ink import Cel, over_roi
+        cam = self.room.cam
+        q = lambda P: cam.project(np.asarray(P, float))[0]
+        rb = .022
+        # burner tube and wick, seen through the opening
+        a = math.atan2(cam.eye[1], cam.eye[0]) + math.pi / 2
+        ex = np.array([math.cos(a), math.sin(a), 0]) * rb
+        z0, z1 = DOOR_Z[0] - .01, FLAME[2] - .035
+        tube = q([-ex + [0, 0, z0], ex + [0, 0, z0], ex + [0, 0, z1], -ex + [0, 0, z1]])
+        wick = q([-ex * .6 + [0, 0, z1], ex * .6 + [0, 0, z1], ex * .6 + [0, 0, z1 + .012], -ex * .6 + [0, 0, z1 + .012]])
+        pc = rot + DOOR_OFF
+        ph, pf = pc + DOOR_HW, pc - DOOR_HW
+        Rr = LENS[0]
+        Hh = np.array([Rr * math.cos(ph), Rr * math.sin(ph)]); Fp = np.array([Rr * math.cos(pf), Rr * math.sin(pf)])
+        v = Fp - Hh; ang = amt * 1.9
+        best = None
+        for sg in (1, -1):
+            c_, s_ = math.cos(sg * ang), math.sin(sg * ang)
+            F2 = Hh + np.array([v[0] * c_ - v[1] * s_, v[0] * s_ + v[1] * c_])
+            if best is None or np.hypot(*F2) > np.hypot(*best): best = F2
+        F2 = best
+        P3 = [[Hh[0], Hh[1], DOOR_Z[0]], [F2[0], F2[1], DOOR_Z[0]], [F2[0], F2[1], DOOR_Z[1]], [Hh[0], Hh[1], DOOR_Z[1]]]
+        pane = q(P3)
+        allp = np.vstack([tube, pane])
+        x0, y0 = np.floor(allp.min(0)).astype(int) - 10; x1, y1 = np.ceil(allp.max(0)).astype(int) + 10
+        c = Cel(x1 - x0, y1 - y0, x0, y0)
+        c.fill(tube, np.clip(rgb('#8a6130') * (.5 + .7 * lit), 0, 1))
+        c.fill(wick, '#2a1e22')
+        c.line(np.vstack([tube, tube[:1]]), 1.1, '#2b1d1c', taper=(.05, .05), seed=3, alpha=.6)
+        c.fill(pane, np.clip(rgb('#8f9cc4') * (.25 + .3 * lit), 0, 1), .45)
+        mid = (pane[0] + pane[1]) / 2 * .5 + (pane[2] + pane[3]) / 2 * .5
+        for k in range(3):
+            u = (k + 1) / 4.
+            c.line(np.array([pane[0] * (1 - u) + pane[3] * u, pane[1] * (1 - u) + pane[2] * u]), 1.0, '#c8d0ea', taper=(.1, .1), seed=k, alpha=.35)
+        c.line(np.vstack([pane, pane[:1]]), 2.0, np.clip(rgb('#8a6130') * (.6 + .6 * lit), 0, 1), taper=(.02, .02), seed=5)
+        over_roi(img, c.rgba(), x0, y0)
+        return img
+
+    def draw(self, img, f, rot=0.0, lit=1.0, flame=1.0, lean=0.0, glow=1.0, bloom=0.0, flare=0.0, door=0.0):
         """lit: how much light the glass holds (0..), flame: flame size (0 = out)"""
         if self.box is None: return img
         x0, y0, x1, y1 = self.box
@@ -745,8 +805,19 @@ class Lamp:
         brass = (bar | hoop) & (fac > .02)
         bcol = rgb('#8a6130') * (.45 + .55 * fac)[..., None] * amb_l * .8 + rgb('#c8963c') * (lit * .7 * fac ** 4)[..., None] + t * .15
         out = np.where(brass[..., None], bcol, out)
+        # the little service door at the foot of the glass
+        dd = (phi - rot - DOOR_OFF + math.pi) % (2 * math.pi) - math.pi
+        indoor = (np.abs(dd) < DOOR_HW) & (z > DOOR_Z[0]) & (z < DOOR_Z[1])
+        if door > 0:
+            inside = rgb('#120f1c') * (.6 + .4 * fac)[..., None] + LAMP_COL * (lit * .35 * fac)[..., None]
+            out = np.where(indoor[..., None], inside, out)
+        else:
+            edge = indoor & ((np.abs(np.abs(dd) - DOOR_HW) < .010 / LENS[0]) | (np.abs(z - DOOR_Z[1]) < .006))
+            out = np.where(edge[..., None], bcol, out)
         m = self.mask[..., None]
         t[:] = t * (1 - m) + out * m
+        if door > 0:
+            self.door(img, f, rot, door, lit)
         # the flame, seen through the glass
         if flame > 0:
             self.flame(img, f, flame, lean, glow)
@@ -910,7 +981,7 @@ if __name__ == '__main__':
     for key in sys.argv[1:] or ['s2', 's5', 's3']:
         cam = camera(key)
         mat, P, N, T, d = geometry(cam)
-        lut = np.stack([rgb(cols.get(i, '#ff00ff')) for i in range(17)])
+        lut = np.stack([rgb(cols.get(i, ALB.get(i, '#ff00ff'))) for i in range(22)])
         img = lut[mat] * (.55 + .45 * np.clip(N @ np.array([.3, -.6, .7], f32), 0, 1))[..., None]
         img = (np.clip(img, 0, 1) * 255).astype(np.uint8).copy()
         for i in range(N_BAYS):

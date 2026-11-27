@@ -222,7 +222,7 @@ class Shot:
         zl = zfull[int(np.clip(ly + 3, 0, H - 1)), int(np.clip(lx, 0, W - 1))]
         if zl <= 0 or zl > self.tdepth - 8:
             img = self.lh.lamp_glow(img, cam, self.at, amt=.9, col='#ffc070')
-        B = ST.beam_volume(cam, lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=260., amt=.7, half=.035, r0=.8)
+        B = ST.beam_volume(cam, lamp, dirs, depth=np.where(zfull > 0, zfull, 0), t=t, reach=330., amt=.75, half=.035, r0=.8)
         cur = self.rain.curtains(f)
         bcol = rgb('#fff2d0')
         img = comp.screen(img, (B * (.55 + .7 * cur))[..., None] * bcol)

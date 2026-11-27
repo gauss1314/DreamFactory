@@ -240,11 +240,11 @@ def _beam(ex, ey, ez, R, foc, cx, cy, h, w, LX, LY, LZ, D, half, r0, reach, dept
                     s1 = _vn((px - pz * lean) * .12 + t * .6, py * .12, seed)
                     s2 = _vn(px * .03 + t * .2, (py + pz * .3) * .03, seed + 2)
                     dens = .45 + .55 * s1 * (.4 + s2)
-                    acc += prof * dens * dt * dl / (1.0 + al / reach) / (Rb * .9 + 1.0)
+                    acc += prof * dens * dt * dl * math.exp(-al / reach) / (Rb * .9 + 1.0)
             out[j, i] = acc
 
 
-def beam_volume(cam, lamp, dirs, depth=None, t=0., half=.055, r0=1.2, reach=500., tmax=3000., q=4, seed=5, lean=LEAN, amt=1.0):
+def beam_volume(cam, lamp, dirs, depth=None, t=0., half=.055, r0=1.2, reach=500., tmax=3000., q=4, seed=5, lean=LEAN, amt=1.0, gain=1.2):
     """visible beam: line integral through two cones.  depth: HxW z_cam of the nearest surface (0 = open sky)."""
     h, w = cam.h // q, cam.w // q
     foc = cam.f / q
@@ -254,7 +254,7 @@ def beam_volume(cam, lamp, dirs, depth=None, t=0., half=.055, r0=1.2, reach=500.
     D = D / np.linalg.norm(D, axis=1, keepdims=True)
     _beam(*map(float, cam.eye), cam.R.astype(np.float64), float(foc), cam.cx / q, cam.cy / q, h, w, float(lamp[0]), float(lamp[1]), float(lamp[2]), D,
           half, r0, reach, dep, tmax, float(t), seed, lean, out)
-    out = 1 - np.exp(-np.maximum(out, 0) * 1.2)          # a long chord through the cone saturates softly, never clips
+    out = 1 - np.exp(-np.maximum(out, 0) * gain)          # a long chord through the cone saturates softly, never clips
     out = cv2.resize(out, (cam.w, cam.h), interpolation=cv2.INTER_CUBIC)
     return np.maximum(out, 0) * amt
 

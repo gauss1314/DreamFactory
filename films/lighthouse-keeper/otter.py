@@ -206,7 +206,7 @@ class Sweep:
 class Env:
     """light toward dir (screen dx, dy), colour, strength; ambient tint; dark = silhouette amount"""
 
-    def __init__(self, light=None, amb='#2c2a48', dark=0.0, rim=1.0, thr=.08, glint=None, front=.55, line=None, flat=0.0):
+    def __init__(self, light=None, amb='#2c2a48', dark=0.0, rim=1.0, thr=.08, glint=None, front=.55, line=None, flat=0.0, tint=0.0):
         light = light or dict(dir=(1, -.4), color='#fff2d8', amt=.6)
         dx, dy = light['dir']
         self.L2 = unit([dx, dy])
@@ -218,6 +218,7 @@ class Env:
         self.glint = rgb(glint) if isinstance(glint, str) else (self.col * .5 + .5 if glint is None else glint)
         self.line = rgb(line or PAL['line'])
         self.flat = flat
+        self.tint = tint                 # a strong coloured key (lightning): lit side takes the light's colour
         self._cache = {}
 
     def colors(self, name):
@@ -229,6 +230,12 @@ class Env:
         shd = sh * .86 + sh * self.amb * 1.9 * .14
         hi = rgb(PAL['fur_hi']) if name == 'fur' else mix(base, np.ones(3, f32), .35)
         rim = mix(hi * (.55 + .7 * self.col), self.col * 1.02, .3 + .2 * a)
+        if self.tint > 0:
+            lb = .30 + .80 * lum3(base)
+            keep = base * .45 + lb * .55                       # keep some of the local colour (the red scarf)
+            lit = mix(lit, self.col * keep * 1.12, self.tint)
+            shd = mix(shd, sh * .45 + self.amb * .5, self.tint * .8)
+            rim = mix(rim, self.col * 1.1, self.tint)
         if self.dark > 0:
             dk = self.amb
             lit = mix(lit, dk * (.55 + .5 * lum3(base)), self.dark)
@@ -319,10 +326,12 @@ def render_piece(P, V, env, seed, clipfn=None):
         cx_ = np.mean([q.bb[0] + q.bb[2] for q in P.prims]) / 2; cy_ = np.mean([q.bb[1] + q.bb[3] for q in P.prims]) / 2
         th_ = np.arctan2(Y - cy_, X - cx_)
         per = 2 * ((x1 - x0) + (y1 - y0))
-        nsp = max(6, int(per / (5.5 * k + 6)))
-        tri = np.abs(((th_ / (2 * np.pi) * nsp + .37 * np.sin(th_ * 3 + seed % 7)) % 1.0) - .5) * 2
-        spike = np.clip(1 - tri * 1.8, 0, 1) ** 1.6
-        D = D - P.spiky * (1.4 * k + 1.0) * spike * (D > -3 * k)
+        # wet fur: a few clumped locks, each a slanted point (saw, not a ring of thorns), in patches
+        nsp = max(5, int(per / (11.0 * k + 10)))
+        u_ = (th_ / (2 * np.pi) * nsp + .25 * np.sin(th_ * 2 + 1.3)) % 1.0
+        lock = np.where(u_ < .55, (u_ / .55) ** 2.2, np.clip(1 - (u_ - .55) / .12, 0, 1) ** 1.5)
+        patch = np.clip(np.sin(th_ * 3 + _sh(P.name) % 7) * 1.6 + .2, 0, 1)
+        D = D - P.spiky * (1.9 * k + 1.0) * lock * patch * (D > -3 * k)
     L = env.L
     ndl = N[0] * L[0] + N[1] * L[1] + N[2] * L[2]
     l2 = N[0] * env.L2[0] + N[1] * env.L2[1]
@@ -571,10 +580,11 @@ def build(P, V):
           Ell(H([10.8, -8.4, 0]), (5.5, 3.0, 5.4), HR(np.eye(3)), mat_head(), fr_h),
           Ell(H([18.6, -.6, 0]), (2.3, 2.4, 3.7), HR(np.eye(3)), mat_nose, fr_h)]
     for s in (-1, 1):
-        a = -.25 - .95 * ear_fl
-        Re = rot((0, 0, 1), a * 1.0) @ rot((1, 0, 0), s * (.45 + .25 * ear_fl))
-        ec = [-3.0 - 2.6 * ear_fl, 8.2 - 3.4 * ear_fl, s * (11.6 + .8 * ear_fl)]
-        hp.append(Ell(H(ec), (1.8, 4.0 - .6 * ear_fl, 4.5), HR(Re), mat_ear, fr_h))
+        # flattened: swung back and down, pressed to the skull, the opening turned away
+        a = -.25 - 1.35 * ear_fl
+        Re = rot((0, 0, 1), a * 1.0) @ rot((1, 0, 0), s * (.45 + .75 * ear_fl))
+        ec = [-3.0 - 5.0 * ear_fl, 8.2 - 4.6 * ear_fl, s * (11.6 + .2 * ear_fl)]
+        hp.append(Ell(H(ec), (1.8 - .3 * ear_fl, 4.0 - 1.0 * ear_fl, 4.5 - .4 * ear_fl), HR(Re), mat_ear, fr_h))
     pieces.append(Piece('head', hp, 'fur', k=2.6, spiky=P['wet'], kz=1.2))
     # ---- arms
     for s_, key in ((-1, 'L'), (1, 'R')):
