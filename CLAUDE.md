@@ -28,6 +28,7 @@ node evals/review.mjs <影片目录>                   # 让另一个模型只�
 - `evals/BASELINE.md`：上一次评测的结果。
 - `evals/agent-run.mjs`：无人值守评测。模型只拿到简报、数据、要求和 `DIRECTOR.md`，看不到参考影片。
 - `evals/agent-runs/`：每次无人值守运行交付的分镜、运行记录和汇总。
+- `verticals/anime/`：动画长片的 Python 引擎（`lp/` 画法、`audio/` 合成乐器，借自 The Last Page）和驱动 `tools/film.py`。`films/<片名>/` 是一支动画长片：`CONTRACT.md` 制作约定、`shots/` 每个镜头一个模块、角色和配乐模块、`reviews/` 审片记录。Python 环境在 `.venv/`（不入库，装法见 `verticals/anime/README.md`）。
 
 ## 约定
 
@@ -46,4 +47,5 @@ node evals/review.mjs <影片目录>                   # 让另一个模型只�
 - 代码注释用英文，文档和报告用中文。
 - `.cache/render/` 按画面的全部来源（分镜、场景代码、运行时、渲染和抽样代码）缓存渲染和抽样结果。只改声音或检查时，评测会复用画面，只重新混音。缓存不入库，删掉只会变慢；怀疑缓存有问题时设 `DF_RENDER_CACHE=off`。`DF_TIMING=1` 会打印每一步的用时。
 - 叙事片的画面里不要在设了 `filter` 的画布上画很多笔，每一笔都会单独模糊一次，一帧能慢到几秒。先画进底版再整体模糊。
+- 动画长片的镜头必须只由帧号决定（种子固定，不在两帧之间留状态），帧会在多个进程里并行渲染。驱动用 spawn 起渲染进程，不要改回 fork。
 - 同一时间只跑一个 `node evals/run.mjs`：它启动时会清空共用的 `evals/.tmp/`，两个同时跑会互相删掉对方的文件。
