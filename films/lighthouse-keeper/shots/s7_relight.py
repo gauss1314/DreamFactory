@@ -49,7 +49,9 @@ class Shot:
     # step: top of the lamp plinth; lamp: the oil filler cap; wick: where the match must go.
     # Report the match head as points['match'] in otteract.actors('s7', f, M): its light is drawn here.
     # run_y: floor y of the way round behind the hatch (over the lid lying open there).
-    # lamp is the wick here (nothing is poured in s7): where the match goes.
+    # lamp = wick: the open service door at the foot of the glass (the wick shows in it): where the match goes;
+    # the door swings shut 16 frames after catch.  The picture starts pushed in on the window (zoom 1.22)
+    # and eases back by 3.3 s; M is in the full-room picture, the push is applied after the otter is drawn.
     # ledge: the brass service ring round the tank (x0, x1, y of its standing surface, front edge);
     # standing on it the paws reach the wick.  casement(f): hinge / free edge of the casement it shuts.
     M = dict(ground=900, x0=600, x1=1450, scale=290, run_y=850, ledge=(1260, 1610, 680), casement=casement,
@@ -69,7 +71,6 @@ class Shot:
         # depth of the lamp from the camera, to put a screen point back into the room
         c = self.room.cam
         self.zl = float(c.cam(LR.FLAME)[2])
-        self.winmask = (R.hole * 1.0 + cv2.GaussianBlur(R.glass, (0, 0), 40)[..., None] * 0).astype(f32)
         wm = np.zeros((H, W), f32); wx, wy = self.M['window']
         cv2.circle(wm, (int(wx), int(wy)), 420, 1.0, -1); self.winmask = cv2.GaussianBlur(wm, (0, 0), 120)[..., None]
         x, y = np.meshgrid(np.arange(W, dtype=f32), np.arange(H, dtype=f32))

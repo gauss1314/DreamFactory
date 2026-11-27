@@ -9,15 +9,15 @@ from lp.paint import f32, rgb, smooth, fbm, Canvas
 from lp.comp import ease
 import sea as SEA, storm as ST
 
-VER = 'v5'
+VER = 'v6'
 EYE0 = np.array([0., 0., 4.0])
 TGT = np.array([8., 120., 13.])
 FOC = 1250.
-PUSH = 1.6                  # metres of dolly over the shot
+PUSH = .8                  # metres of dolly over the shot
 ISLAND = (52., 150., 0.)    # island foot (world); the tower stands on its top
 ISLE_TOP = 7.5
-HIT = np.array([-1.0, 12.0])  # where the big wave meets the near rock (world xy)
-WAVE_DIR = np.array([.16, -1.])
+HIT = np.array([0.4, 11.0])  # where the big wave meets the near rock (world xy)
+WAVE_DIR = np.array([-.75, -.66])
 PAL = dict(deep='#16212a', body='#1c2a33', face='#2f4452', sky_lo='#58626f', foam='#d8e2e6', foam_sh='#7d8a97', beam='#fff2d0',
            thr=(.24, .35, .47))
 
@@ -110,10 +110,101 @@ class Shot:
             out[..., 4] = np.where(a > .5, dz, out[..., 4])
         return out
 
+    def _lip(self, cvs, cam, t, f):
+        """the breaking lip of the big wave: a curl of green water thrown forward off the crest, a dark hollow
+        under it, white water fringing the top; it pitches further as the wave nears the rock"""
+        T = self.t_crash
+        if t < T - 2.2 or t > T + .12: return
+        rg = self.big_wave(t)
+        d = np.array(rg[:2]); p = np.array(rg[2:4]); amp = rg[4]; wid = rg[7]; lean = rg[8]
+        if amp < 2.5: return
+        pr = float(np.clip((t - (T - 2.0)) / 2.0, 0, 1)) ** 1.3
+        perp = np.array([-d[1], d[0]])
+        bs = np.linspace(-1.25, 1.25, 56) * wid
+        env = np.exp(-(bs / wid) ** 2)
+        B = p[None] + perp[None] * bs[:, None]
+        gain = .82 + .30 * min(1., t / 7.0)
+        A0 = self.sea.A.copy(); self.sea.A = A0 * gain
+        z = self.sea.height(B[:, 0] + d[0] * lean * amp * env, B[:, 1] + d[1] * lean * amp * env, t, [rg])[:, 0]
+        self.sea.A = A0
+        C = np.c_[B + d[None] * lean * amp * env[:, None], z]
+        keep = env > .3
+        C, env, z = C[keep], env[keep], z[keep]
+        if len(C) < 4: return
+        c0, zc = cam.project(C)
+        ok = (zc > 1.5)
+        if ok.sum() < 4: return
+        r = np.random.default_rng(500 + f // 2)
+        n = len(C)
+        Lt = amp * (.05 + .20 * pr) * env
+        up = np.array([0, 0, 1.])
+        D3 = np.c_[d[None].repeat(n, 0), np.zeros(n)]
+        mid = C + D3 * Lt[:, None] * .6 + up * (Lt * (.25 - .1 * pr))[:, None]
+        tip = C + D3 * Lt[:, None] * (.85 + .15 * pr) - up * (Lt * (.10 + .55 * pr))[:, None]
+        hol = C + D3 * Lt[:, None] * .3 - up * (Lt * (.6 + .5 * pr))[:, None]
+        pm, _ = cam.project(mid); pt, _ = cam.project(tip); ph, _ = cam.project(hol)
+        sc = cam.f / np.maximum(zc, 1.5)
+        idx = np.nonzero(ok)[0]
+        if len(idx) < 4: return
+        from lp.paint import arcs
+
+        def bands(Q, wd, cols, ops, dry, sd, shape='round'):
+            # strokes that run ALONG the crest, in chunks, so the curl is painted as one surface
+            K = 6
+            for j in range(0, len(idx) - 1, K - 1):
+                seg = idx[j:j + K]
+                if len(seg) < 3: continue
+                if len(seg) < K: seg = np.r_[seg, [seg[-1]] * (K - len(seg))]
+                cvs.strokes(Q[seg][None], float(np.mean(wd[seg])), np.asarray(cols, f32)[None], op=ops, dry=dry, seed=sd + j, shape=shape, bristle=.06)
+        # paint the curl as one surface: quads between successive rings, hollow first, then the lip
+        lay = np.zeros((H, W, 4), f32)
+        def ring(u, A_, B_, Cc=None):
+            return (1 - u) ** 2 * A_ + 2 * u * (1 - u) * B_ + u * u * Cc if Cc is not None else A_ + (B_ - A_) * u
+        noise = np.clip(1 + .07 * np.cumsum(r.normal(0, .5, (len(idx), 9)), 0) / np.sqrt(np.arange(1, len(idx) + 1))[:, None], .85, 1.15)
+        def quads(rings, cols, op):
+            for kq in range(len(rings) - 1):
+                Ra, Rb = rings[kq], rings[kq + 1]
+                for jj in range(len(idx) - 1):
+                    i0, i1 = idx[jj], idx[jj + 1]
+                    if i1 != i0 + 1: continue
+                    q = np.array([Ra[i0], Ra[i1], Rb[i1], Rb[i0]], np.float32)
+                    cc = np.clip(cols[kq] * noise[jj, kq % 9], 0, 1)
+                    cv2.fillConvexPoly(lay, np.round(q * 4).astype(np.int32), (float(cc[0] * op), float(cc[1] * op), float(cc[2] * op), float(op)), cv2.LINE_8, 2)
+        us = np.linspace(0, 1, 5)
+        quads([ring(u, c0, ph) for u in us], [rgb('#15232b')] * 4, .55 * (.4 + .6 * pr))
+        us = np.linspace(0, 1, 9)
+        cols = []
+        for u in us[:-1]:
+            col = rgb('#36605f') * (1 - u ** 2) + rgb('#9cb9ba') * u ** 2
+            cols.append(rgb('#b3c8c9') * (1 + .1 * (u - .7)) if u > .7 else col)
+        quads([ring(u, c0, pm, pt) for u in us], cols, 1.0)
+        lay = cv2.GaussianBlur(lay, (0, 0), .9)
+        img_l = cvs.img * cvs.a[..., None]
+        # straight over the canvas layer (premultiplied)
+        a_ = lay[..., 3:4]
+        prem = lay[..., :3] + img_l * (1 - a_)
+        cvs.a[:] = lay[..., 3] + cvs.a * (1 - lay[..., 3])
+        cvs.img[:] = np.where(cvs.a[..., None] > 1e-4, prem / np.maximum(cvs.a[..., None], 1e-4), cvs.img)
+        # a few brush marks along the lip so it reads painted
+        K = 5
+        for u, col, wdk in ((.55, rgb('#6f9796'), .10), (.82, rgb('#eef3f4'), .09), (.95, rgb('#f4f7f8'), .06)):
+            Q = ring(u, c0, pm, pt)
+            for jj in range(0, len(idx) - K, 3):
+                seg = idx[jj:jj + K]
+                if seg[-1] - seg[0] != K - 1: continue
+                wd = float(np.mean(np.hypot(*(pt[seg] - c0[seg]).T))) * wdk
+                cvs.strokes(Q[seg][None], max(1.5, wd), col[None], op=.7, dry=.45, seed=jj + int(u * 100), shape='round', bristle=.08)
+        # white water riding the top, torn downwind
+        m = len(idx) * 2
+        i = r.choice(idx, m)
+        x = c0[i, 0] + r.normal(0, 4, m) + sc[i] * .2; y = c0[i, 1] - r.uniform(0, 1, m) * sc[i] * .15
+        Pf = arcs(x, y, r.normal(-.12, .15, m), sc[i] * r.uniform(.15, .45, m), r.normal(0, .3, m), K=4)
+        cvs.strokes(Pf, sc[i] * .05, np.broadcast_to(rgb('#d4dde1'), (m, 3)), op=r.uniform(.4, .85, m), dry=.5, seed=f // 2 + 11, shape='round', bristle=.06)
+
     def _runup(self, img, rka, age, Pw, k):
         """white water running up the ledge from the impact, then draining back down in streaks; the rock stays wet"""
-        Ix, Iy = Pw((1110, 1110))
-        x0, y0 = int(max(0, Ix - 900 * k)), int(max(0, Iy - 700 * k))
+        Ix, Iy = Pw((960, 1000))
+        x0, y0 = 0, int(max(0, Iy - 700 * k))
         sub = img[y0:, x0:int(min(W, Ix + 80))]
         A = rka[y0:, x0:x0 + sub.shape[1]]
         if A.max() < .1: return img
@@ -130,7 +221,7 @@ class Shot:
         lead = smooth(front + 40, front - 30, u) * (u > -80)
         surf = smooth(110, 25, dtop)
         n = self._caps2[(yy.astype(int) // 3) % 256, (xx.astype(int) // 3) % 256]
-        wash = A * lead * surf * float(np.clip(1.1 - age / .9, 0, 1)) * (.55 + .6 * n)
+        wash = A * lead * surf * float(np.clip(1.1 - age / .9, 0, 1)) * (.35 + .9 * n) * smooth(-80, 40, u)
         wet = A * smooth(reach + 20, reach - 60, u) * (u > -90) * smooth(170, 40, dtop) * float(min(1, age / .3))
         # the wet rock: darker, with a cold sheen on the upper planes
         dry = float(np.clip(1 - (age - 1.2) / 4.0, .55, 1))
@@ -140,8 +231,8 @@ class Shot:
         # water draining back in thin streaks
         if age > .35:
             ds = self._streak[((yy.astype(int) - int(age * 420)) // 3) % 512, (xx.astype(int) * 2) % 512]
-            drain = cv2.GaussianBlur(wet * smooth(.62, .75, ds), (0, 0), 1.0) * float(np.clip(1.2 - (age - .35) / 2.2, 0, 1))
-            sub += (rgb('#aebbc6') - sub) * (drain * .45)[..., None]
+            drain = cv2.GaussianBlur(wet * smooth(.58, .72, ds), (0, 0), 1.0) * float(np.clip(1.3 - (age - .35) / 2.6, 0, 1))
+            sub += (rgb('#c3ced6') - sub) * (drain * .75)[..., None]
         c = rgb('#dfe7ea') * (1 - .3 * smooth(.3, .9, wash)[..., None]) + rgb('#9fb0bc') * .3 * smooth(.3, .9, wash)[..., None]
         sub += (c - sub) * smooth(.25, .55, wash)[..., None]
         return img
@@ -155,11 +246,12 @@ class Shot:
     def big_wave(self, t):
         """the set wave that builds and breaks on the rock: amplitude keys (s, m), with a lean that steepens it"""
         T = self.t_crash
-        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .5, T - .1, T + .35, T + .9, T + 1.7, 9], [.0, 1.0, 4.0, 9.0, 9.4, 4.5, 1.8, .7, .3]))
-        lean = float(np.interp(t, [0, T - 1.5, T - .3, T], [.1, .25, .55, .75]))
+        amp = float(np.interp(t, [0, T - 3.2, T - 1.6, T - .5, T - .1, T + .35, T + .9, T + 1.7, 9], [.0, 1.0, 3.6, 6.6, 7.0, 3.5, 1.5, .6, .3]))
+        lean = float(np.interp(t, [0, T - 1.5, T - .3, T], [.1, .22, .40, .45]))
         d = WAVE_DIR / np.linalg.norm(WAVE_DIR)
-        p = HIT - d * 8.5 * (T - t) - d * 3.0
-        return SEA.ridge(d, p, 8.5, amp, back=16., front=6.5 - 2.5 * min(1, max(0, (t - T + 1.5) / 1.5)), width=44., lean=lean)
+        # the crest (centre pushed forward by the lean) arrives on the rock at T and stays there as it collapses
+        p = HIT - d * (lean * amp * .7 + 1.0) - d * 8.5 * max(T - t, 0.)
+        return SEA.ridge(d, p, 8.5, amp, back=14., front=6.0 - 2.5 * min(1, max(0, (t - T + 1.5) / 1.5)), width=22., lean=lean)
 
     # ------------------------------------------------------------------ frame
     def frame(self, f):
@@ -238,6 +330,7 @@ class Shot:
             img[Y0:Y0 + hh, X0:X0 + ww] = ST.over(img[Y0:Y0 + hh, X0:X0 + ww], L)
             rka[Y0:Y0 + hh, X0:X0 + ww] = L[..., 3]
         cvs = Canvas(H, W, layer=True)
+        self._lip(cvs, cam, t, f)
         SEA.crest_spray(cvs, info['foam'] * (rka < .3), G, f, wind=(1., -.12), n=110, seed=4, ymax=None)
         age = ((f // 2) * 2) / 24. - self.t_crash
         mist = np.zeros((H, W), f32)
@@ -247,11 +340,12 @@ class Shot:
             img = self._runup(img, rka, max(age, 0.), Pw, k)
         if age >= 0:
             # three seas break up the seaward face of the ledge, each its own shape; the wind tears them to the right
-            for (px_, py_, sz, a0, up, n_, dl, sd, lf) in ((975, 1004, 600, -np.pi / 2 - .30, .62, 90, 0., 31, 2.0),
-                                                           (1090, 1080, 380, -np.pi / 2 - .02, 1.0, 46, .06, 37, 1.5),
-                                                           (830, 952, 290, -np.pi / 2 - .55, .45, 34, .22, 41, 1.6)):
+            # the sea hits the seaward face of the ledge: it climbs the face, then is thrown up and torn downwind
+            for (px_, py_, sz, a0, up, n_, dl, sd, lf, sk) in ((930, 985, 620, -np.pi / 2 - .10, .70, 90, 0., 31, 2.0, 1.4),
+                                                               (1010, 1030, 330, -np.pi / 2 + .25, .9, 40, .08, 37, 1.5, 1.0),
+                                                               (840, 962, 300, -np.pi / 2 - .45, .5, 34, .2, 41, 1.6, 1.8)):
                 X, Y = Pw((px_, py_))
-                SEA.burst(cvs, X, Y, sz * k, age - dl, seed=sd, wind=(1.3, -.05), life=lf, n=n_, mist=mist, ang0=a0, up=up, tear=1.6)
+                SEA.burst(cvs, X, Y, sz * k, age - dl, seed=sd, wind=(1.3, -.05), life=lf, n=n_, mist=mist, ang0=a0, up=up, tear=1.8, skew=sk)
             img = img + (rgb('#aab5c0') - img) * (mist * .8)[..., None]
         img = ST.over(img, cvs.layer())
         # rain over everything, brighter in the beam and in the flash

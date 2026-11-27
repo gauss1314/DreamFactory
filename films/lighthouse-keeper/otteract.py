@@ -802,42 +802,49 @@ def act_s7(f, M):
     yaw = math.pi
     md = np.array([1.0, -.55]); md /= np.hypot(*md)            # the match points up and forward
     if d < T['jump']:
-        # ---------------- on the sill: shoulder and both paws against the casement, feet braced
-        facing = 'left'
+        # ---------------- on the sill: its back and both paws against the casement, feet braced
+        facing = None
         push = keys(d, [(0, .15), (8, .5), (12, .3), (16, .32), (26, .8), (30, .7), (T['shut'], 1.0), (T['latch'] + 6, 1.0)])
         strain = 1.0 if d < T['shut'] else 1 - seg(d, T['shut'] + 2, T['latch'] + 6)
         E, _ = _casement_edge(M, f, push)
-        P = lean(P, .48 * strain + .06)
-        # braced shuffle: as the casement gives, the feet take short pushing steps (planted while in stance)
+        # back against it: leaning back on a hard diagonal, feet dug in out in front, both paws reaching
+        # back flat on the casement edge, face to us, straining
+        yaw = .95                                              # three-quarters toward us, its back to the window
+        facing = None
+        P = lean(P, -.56 * strain - .05)
+        P['shrugL'] = P['shrugR'] = 4.0 * strain
+        P['elbL'] = (-.2, .6, -1); P['elbR'] = (-.2, .6, 1)
+        y = sy
+        Vz = O.View(0.0, y, k, yaw=yaw, tilt=.08)
+        hb = 4.0
+        for _ in range(3):                                     # the point of the back level with the edge
+            back = np.asarray(P['chest'], float) + np.array([-P['rc'] * .95, hb, 0.0])
+            Sb = Vz.p(back)[:2]
+            hb = float(np.clip(hb + (Sb[1] - E[1]) / k, -6.0, 14.0))
+        back = np.asarray(P['chest'], float) + np.array([-P['rc'] * .95, hb, 0.0])
+        Sb = Vz.p(back)[:2]
+        x = float(E[0] - Sb[0])
+        V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
         E0, _ = _casement_edge(M, 0, .15)
         moved = max(0.0, (E0[0] - E[0]) / k)
-        W_ = _walk(moved / 16.0, step=8.0, lift=2.5)
-        P['footL'] = (W_['footL'][0] - 10.0 * strain, W_['footL'][1], -8.5); P['footR'] = (W_['footR'][0] - 15.0 * strain, W_['footR'][1], 8.5)
-        P['fpL'] = W_['fpL'] - .2 * strain; P['fpR'] = W_['fpR'] - .45 * strain
-        P['shrugL'] = P['shrugR'] = 3.0 * strain
-        P['elbL'] = (0, -1, -1); P['elbR'] = (0, -1, 1)
-        y = sy
-        x = E[0] + 20.0 * k                                    # facing left: arm's length from the edge
-        for _ in range(3):                                     # walk the body until the paws reach it
-            V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
-            S = V0.p(_shoulder(P, 1))[:2]
-            dd = np.hypot(*(E - S)); want = 16.5 * k
-            if abs(dd - want) < 1: break
-            x += (dd - want) * (1 if E[0] > S[0] else -1) * (abs(E[0] - S[0]) / (dd + 1e-6))
-        V0 = O.View(x, y, k, yaw=yaw, tilt=.08)
-        tR = _screen_to_body(V0, E, depth_r=6.0)
-        tL = _screen_to_body(V0, E + [0, 9.0 * k], depth_r=-4.0)
+        W_ = _walk(-moved / 16.0, step=8.0, lift=2.5)
+        P['footL'] = (W_['footL'][0] + 16.0 * strain, W_['footL'][1], -9.0); P['footR'] = (W_['footR'][0] + 22.0 * strain, W_['footR'][1] + 1.0 * strain, 9.0)
+        P['fpL'] = .45 * strain; P['fpR'] = .6 * strain
+        tR = _screen_to_body(V0, E + [-7.0 * k, -2.0 * k], depth_r=12.0)     # near paw out along the panel, flat
+        tL = _screen_to_body(V0, E + [0, 5.0 * k], depth_r=-7.0)
         if d >= T['shut']:
-            # the latch: the near paw slides down the frame and presses it home
+            # the latch: the near paw comes down the edge and presses it home
             l_ = seg(d, T['shut'], T['latch'])
-            tR = _screen_to_body(V0, E + [0, 2.5 * k * l_], depth_r=6.0)
+            tR = _screen_to_body(V0, E + [(-7.0 + 4.0 * l_) * k, (-2.0 + 3.0 * l_) * k], depth_r=12.0)
+        P['elbR'] = (-.5, -.6, .4)
         P['pawR'] = tuple(_reach(P, 'R', tR)); P['pawL'] = tuple(_reach(P, 'L', tL))
+        P['mouth'] = 0.0; P['smile'] = 0.0
+        P['hyaw'] = -.25 * strain; P['hpitch'] = .1 * strain; P['hroll'] = .12 * strain
         P['squint'] = .7 * strain; P['ears'] = .9 * strain
-        P['mouth'] = (.25 if (d // 4) % 2 else .1) * strain
-        P['hpitch'] = .05; P['hyaw'] = -.15 * strain
-        P['tail'] = tail_curve(ang=-.35 + .25 * strain, curl=.12)
+        P['mouth'] = 0.0
+        P['tail'] = tail_curve(ang=-.15 + .35 * strain, curl=.05)
         P['scarf'] = (-2.5 * strain - .3, 1.2 * math.sin(d / 2.0) * strain)
-        if d < T['latch'] + 4: pts['push'] = V0.p(P['pawR'])[:2]
+        if d < T['latch'] + 4: pts['push'] = V0.p(back)[:2]          # its back is what bears on the edge
         if d >= T['shut']: P['blink'] = blink_at(d, [T['latch'] + 2], 2, 2, 2)
         x_ledge = x
     elif d < T['hop']:

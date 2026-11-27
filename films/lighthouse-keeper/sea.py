@@ -450,7 +450,7 @@ def rock(w, h, top, seed=0, pal=('#1d2030', '#2a2e42', '#3c4157', '#5a6078', '#7
 
 
 # ============================================================================ spray
-def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade='#8c98a6', life=1.6, up=1.0, n=60, mist=None, ang0=-np.pi / 2, tear=1.0):
+def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade='#8c98a6', life=1.6, up=1.0, n=60, mist=None, ang0=-np.pi / 2, tear=1.0, skew=0.0):
     """a wave smashing on rock: white water thrown up as a fan of tongues that arc over, break into drops at the
     tips, detach from the rock and fall downwind, while a veil of spray hangs and drifts.  age in seconds.
     Draws strokes on a Canvas layer; if `mist` (HxW float) is given, adds the veil there."""
@@ -461,7 +461,7 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
     gpx = 2 * size / (.62 * T) ** 2            # the top is reached around .6 life
     c1, c2 = rgb(col), rgb(shade)
     # tongues
-    ang = ang0 + r.normal(0, .42, n) * up + .18 * wind[0]
+    ang = ang0 + (r.normal(0, .42, n) + skew * np.abs(r.normal(0, .42, n))) * up + .18 * wind[0]
     sp = r.uniform(.45, 1.0, n) ** .6
     v0 = gpx * .62 * T * sp
     vx = np.cos(ang) * v0; vy = np.sin(ang) * v0
