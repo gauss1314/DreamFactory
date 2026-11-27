@@ -537,16 +537,16 @@ def _screen_to_body(V, p, depth_r=0.0):
 
 def _pour_pose(t, toe=0.0):
     """t 0 hugging .. 1 can raised to the filler and tipped"""
-    can0, can1 = np.array([12.0, 46.0, 0]), np.array([21.5, 60.0, 0])
+    can0, can1 = np.array([12.0, 46.0, 0]), np.array([23.0, 58.0, 0])
     c = can0 * (1 - t) + can1 * t
     P = O.pose(pawL=(c[0] - 2.5, c[1] + 2.0, -4.5), pawR=(c[0] + 1.5, c[1] - 1.5, 4.8), elbL=(0, -1, -1), elbR=(0, -1, 1))
     P = shift(P, du=toe * t, names=('pelvis', 'chest', 'neck', 'head', 'pawL', 'pawR'))
     P['footL'] = (2.5, 2.8 + toe * t * .6, -8.5); P['footR'] = (2.5, 2.8 + toe * t * .6, 8.5)
     P['fpL'] = P['fpR'] = -.35 * toe * t / 4
-    P['hpitch'] = .55 * t; P['hyaw'] = -.25 * t
-    P['head'] = (P['head'][0] - 6.5 * t, P['head'][1] + .5 * t, 0.0)
+    P['hpitch'] = -.30 * t; P['hyaw'] = -.15 * t                     # head down, watching the funnel
+    P['head'] = (P['head'][0] - 6.5 * t, P['head'][1] - 1.5 * t, 0.0)
     P['neck'] = (P['neck'][0] - 3.0 * t, P['neck'][1], 0.0)
-    P['look'] = (0.0, .6 * t)
+    P['look'] = (.3, -.5 * t)
     P['tail'] = tail_curve(ang=-.5 + .1 * t, curl=.25)
     P['_can'] = c + [0, toe * t, 0]
     P['_tilt'] = .95 * max(0, (t - .5) / .5)
@@ -576,6 +576,7 @@ def _wipe_pose(d, toe):
     P['neck'] = (P['neck'][0] - 2.5 * up, P['neck'][1], 0.0)
     P['_up'], P['_rub'], P['_pat'] = up, rub, pat
     P['scarf_to'] = P['pawR'] if d >= T['reach'] else None
+    if d >= T['reach']: P['zo'] = {'scarf': 12.0}            # the pulled-out corner runs over the arm to the paw
     P['tail'] = tail_curve(ang=-.5 + .25 * math.sin((d - T['set']) / 10.0), curl=.25 + .1 * up)
     P['whisk'] = 1.0
     if d >= T['done']:

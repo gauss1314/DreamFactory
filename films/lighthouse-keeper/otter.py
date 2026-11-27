@@ -654,11 +654,12 @@ def scarf_piece(P, V, nc, fr_b, rn):
     for j, (dx, ln, w0, ph) in enumerate(((-.6, 10.5, 2.1, 0.0), (1.4, 8.0, 1.9, .7))):
         e = [kn, kn + out * 1.2 + [dx * .5 + sw[0] * .25, -ln * .45, 0], kn + out * 1.6 + [dx + sw[0] * .8, -ln + sw[1] * .3, sw[0] * .3 * math.sin(ph + 1)]]
         if j == 0 and to is not None:
-            to = np.asarray(to, float) + [1.0, 1.6, 0]
-            mid = (kn + to) / 2 + out * 2.0 + [0, -1.5, 0]
+            to = np.asarray(to, float) + [1.4, 1.8, 1.5]
+            mid = (kn + to) / 2 + out * 3.0 + [2.0, -2.5, 2.0]
             e = [kn, mid, to]
+            prims.append(Ell(to + [.6, .4, 0], (3.2, 2.6, 2.4), None, mat_scarf, fr_b))   # the corner bunched in the paw
         ends.append(e)
-        prims.append(Sweep(e, [w0 * .8, w0, w0 * 1.15], mat_scarf, fr_b, n=4))
+        prims.append(Sweep(e, [w0 * .8, w0 * (1.25 if (j == 0 and to is not None) else 1.0), w0 * 1.15], mat_scarf, fr_b, n=4))
     pc = Piece('scarf', prims, 'scarf', k=1.2, lifts=4, kz=4.0)
     pc.arcs, pc.ends, pc.R0 = arcs_, ends, R0
     return pc
