@@ -56,13 +56,13 @@ class Shot:
         return 1.0 + .032 * (.35 * t + .65 * comp.ease(t))
 
     def rot(self, f):
-        return .55 + f * (2 * math.pi / (24 * 60))          # one turn a minute
+        return LR.lens_rot('s2', f)                          # the optic seen from outside: a turn every 8 s
 
     def frame(self, f):
         R = self.room
         fl = flicker(f)
         rot = self.rot(f)
-        Lt = R.light(lamp=fl, rot=rot, amb=1.0, moon=.10, beams=.10)
+        Lt = R.light(lamp=fl, rot=rot, amb=1.0, moon=.10, beams=.35)
         img = R.render(Lt)
         img = self.shadow(img, f, fl)
         R.lamp.draw(img, f, rot=rot, lit=.95 * fl, flame=1.0, glow=fl)

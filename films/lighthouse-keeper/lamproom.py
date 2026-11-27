@@ -440,7 +440,31 @@ def paint(key, ver="p13"):
 
 # ------------------------------------------------------------------ light
 LAMP_COL = rgb('#ffb458')
-N_PANEL = 8
+# One lighthouse, one optic: two bull's-eye panels throw the two beams seen from outside, and the lens
+# turns once every lighthouse.BEAM_PERIOD seconds. Its angle follows film time, so it carries across cuts.
+N_PANEL = 2
+LENS_ROT0 = .55          # the angle at which the service door faces the s5/s7 camera
+
+
+def _film_starts():
+    import json
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'film.json')) as fh:
+        film = json.load(fh)
+    out, t = {}, 0.0
+    for sc in film['scenes']:
+        out[sc['id']] = t
+        t += sc['duration']
+    return out
+
+
+_STARTS = _film_starts()
+
+
+def lens_rot(sid, f):
+    """the lens angle at shot-frame f of shot sid: one turn per beam period, continuous over the film"""
+    import lighthouse
+    t = _STARTS[sid] + f / 24.0
+    return LENS_ROT0 + 2 * math.pi * t / lighthouse.BEAM_PERIOD
 
 
 def _sm(a, b, x):

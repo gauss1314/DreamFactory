@@ -132,7 +132,8 @@ class Shot:
         dark = 1.0 if t >= fx else 0.0
         amb_col = mix(rgb('#22223c'), rgb('#141a2a'), dark)
         win = .35 + (.55 if t >= fo else 0) + .25 * dark
-        Lt = R.light(lamp=lamp * .78, rot=.55, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .9)
+        rot = LR.lens_rot('s5', t)                           # the clockwork turns on, lit or not; held in the still beat
+        Lt = R.light(lamp=lamp * .78, rot=rot, amb_col=amb_col, amb=1.0 - .15 * dark, win=win, win_col='#5a6a8a', flash=fl * .9)
         sky = R.sky * (1 + .9 * fl) + rgb('#c8d4f0') * fl * .18
         sky = sky + (np.roll(R.sky, int(t * 2), axis=1) - R.sky) * .0     # clouds held: they move with the rain
         img = R.render(Lt, sky, hole_open=min(1., theta(f) / .3) if t >= fo else 0.0, wet=1.0, f=t,
@@ -147,11 +148,11 @@ class Shot:
             img = LR.rain(img, t, self.inside * k, n=170, ang=.32, speed=55, length=46, col='#b8c4d4', amt=.32 * (1 + fl), seed=9,
                           region=(450, 300, 1400, 980), w=1)
         if size > 0 and t < fx:
-            R.lamp.draw(img, t, rot=.55, lit=.9 * lamp, flame=size, lean=lean, glow=lamp)
+            R.lamp.draw(img, t, rot=rot, lit=.9 * lamp, flame=size, lean=lean, glow=lamp)
             cx, cy = self.M['wick']
             img = comp.glow(img, cx, cy - 20, 480, '#ff9e48', .14 * lamp, 2.2)
         else:
-            R.lamp.draw(img, t, rot=.55, lit=0.0, flame=0)
+            R.lamp.draw(img, t, rot=rot, lit=0.0, flame=0)
             cx, cy = self.M['wick']
             img = LR.smoke(img, cx, cy + 6, t - fx, 1.0, seed=3)
             # the last ember on the wick

@@ -34,6 +34,9 @@ class FlashMark(dict):
         return dict(amt=float(min(1.0, flash_amt(f))), dir=self['dir'], color=self['color'], hard=True)
 
 
+PHASES = 12      # lens angles painted over half a turn
+
+
 class Shot:
     n = 96
     finish = dict(hal_amt=.24, vig=.15)
@@ -47,16 +50,20 @@ class Shot:
     def setup(self):
         ev = self.scene.get('events', {}) if hasattr(self, 'scene') else {}
         self.f_flash = int(round(ev.get('flash', 2.8) * 24))
-        p = cache_path(f'lamproom_s3_bokeh_{VER}_{LR.layout_tag("s3")}.npz')
+        # The lens turns behind the otter (the same optic as outside: two panels, a turn per beam
+        # period), so the room's light pattern repeats every half turn. Paint that half turn at
+        # PHASES angles, out of focus, and blend between them by the lens angle of each frame.
+        p = cache_path(f'lamproom_s3_bokeh_turn{PHASES}_{VER}_{LR.layout_tag("s3")}.npz')
         if os.path.exists(p):
-            z = np.load(p); self.base = z['base'].astype(f32); self.fl = z['fl'].astype(f32)
+            z = np.load(p); self.bases = z['bases']; self.fl = z['fl'].astype(f32)
         else:
             R = LR.Room('s3', 'night')
-            base = R.render(R.light(lamp=1.0, rot=.4, moon=.12, beams=.35))
+            self.bases = np.stack([self.defocus(R.render(R.light(lamp=1.0, rot=LR.LENS_ROT0 + math.pi * k / PHASES, moon=.12, beams=.35)))
+                                   for k in range(PHASES)]).astype(np.float16)
             dark = R.render(R.light(lamp=0.0, amb=0.0))
             fl = R.render(R.light(lamp=0.0, amb=0.0, flash=1.0), R.sky * 1.3 + rgb('#c8d4f0') * .22) - dark
-            self.base = self.defocus(base); self.fl = self.defocus(np.maximum(fl, 0))
-            np.savez(p, base=self.base.astype(np.float16), fl=self.fl.astype(np.float16))
+            self.fl = self.defocus(np.maximum(fl, 0))
+            np.savez(p, bases=self.bases, fl=self.fl.astype(np.float16))
         r = np.random.default_rng(33)
         # glints out of focus: the lens and brass just off frame right, a few on the ledge
         self.discs = [(r.uniform(1560, 2150), r.uniform(380, 860), r.uniform(36, 95), r.uniform(.25, .6)) for _ in range(7)]
@@ -83,7 +90,12 @@ class Shot:
     def frame(self, f):
         z = 1.0 + .02 * f / 95.
         fl = 1 + .03 * math.sin(f / 3 * 1.1) * math.sin(f / 3 * .37 + 1)
-        img = comp.cam2d(self.base, W / 2 + 6, H / 2 + 4, z * 1.01) * self.grade
+        # the room lit by the turning lens at this frame's angle (the pattern repeats every half turn)
+        u = ((LR.lens_rot('s3', f) - LR.LENS_ROT0) % math.pi) / math.pi * PHASES
+        k0 = int(u) % PHASES
+        a = u - int(u)
+        base = self.bases[k0].astype(f32) * (1 - a) + self.bases[(k0 + 1) % PHASES].astype(f32) * a
+        img = comp.cam2d(base, W / 2 + 6, H / 2 + 4, z * 1.01) * self.grade
         img = comp.screen(img, self.warm * (.55 * fl))
         k = self.flash(f)
         if k > 0:

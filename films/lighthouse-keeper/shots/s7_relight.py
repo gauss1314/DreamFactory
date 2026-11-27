@@ -109,10 +109,14 @@ class Shot:
         return max(.1, s)
 
     def rot(self, f):
-        if f < self.f_bloom: return .55
+        # The keeper stopped the clockwork to light the lamp: the lens stands with its service door to
+        # the camera until the light blooms, then spins up to the speed seen from outside (a turn per
+        # lighthouse.BEAM_PERIOD seconds).
+        if f < self.f_bloom: return LR.LENS_ROT0
+        import lighthouse
         u = (f - self.f_bloom) / 24.
-        w = 2 * math.pi / 60.                                   # final speed: a turn a minute, as in s2
-        return .55 + w * (u - 1.2 * (1 - math.exp(-u / 1.2)))  # spins up from rest
+        w = 2 * math.pi / lighthouse.BEAM_PERIOD
+        return LR.LENS_ROT0 + w * (u - 1.2 * (1 - math.exp(-u / 1.2)))
 
     # ---------------------------------------------------------------- frame
     def frame(self, f):
