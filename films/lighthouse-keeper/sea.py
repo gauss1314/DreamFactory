@@ -460,30 +460,33 @@ def burst(cv_img, cx, cy, size, age, seed=0, wind=(1., 0.), col='#d8e2e6', shade
     grow = 1 - math.exp(-age / .22)
     gpx = 2 * size / (.62 * T) ** 2            # the top is reached around .6 life
     c1, c2 = rgb(col), rgb(shade)
-    # tongues
+    # white water: irregular clumps thrown on ballistic paths, stretched a little along their flight, skewed
+    # downwind; the clumps break up and thin as they fall
     ang = ang0 + (r.normal(0, .42, n) + skew * np.abs(r.normal(0, .42, n))) * up + .18 * wind[0]
-    sp = r.uniform(.45, 1.0, n) ** .6
+    sp = r.uniform(.35, 1.0, n) ** .6
     v0 = gpx * .62 * T * sp
     vx = np.cos(ang) * v0; vy = np.sin(ang) * v0
-    tt = (age + .12) * r.uniform(.9, 1.1, n)
-    K = 7
-    P = np.zeros((n, K, 2), f32)
-    s0 = np.clip((tt - .30) / (T * .9), 0, .92)          # the base lets go of the rock after a beat
-    for k in range(K):
-        q = s0 + (1 - s0) * k / (K - 1)
-        ts = tt * q
-        P[:, k, 0] = cx + vx * ts + wind[0] * size * .18 * tear * ts ** 2
-        P[:, k, 1] = cy + vy * ts + .5 * gpx * ts ** 2
-    P[:, :, 0] += (r.normal(0, size * .07, n))[:, None]
-    fade = np.clip(1 - (tt - T * .5) / (T * .9), 0, 1)
-    wd = size * r.uniform(.035, .09, n) * (1 - .5 * s0) * (.5 + .5 * sp)
-    keep = fade > .02
+    tt = (age + .08) * r.uniform(.85, 1.1, n)
+    m_ = 4
+    lag = r.uniform(0, .35, (n, m_))                      # several lumps strung out along each throw
+    tq_ = np.clip(tt[:, None] - lag, 0, None)
+    xs = cx + vx[:, None] * tq_ + wind[0] * size * .18 * tear * tq_ ** 2 + r.normal(0, size * .09, (n, m_)) * (.4 + tq_)
+    ys = cy + vy[:, None] * tq_ + .5 * gpx * tq_ ** 2 + r.normal(0, size * .04, (n, m_))
+    fade = np.clip(1 - (tq_ - T * .45) / (T * .9), 0, 1)
+    rad = size * r.uniform(.012, .055, (n, m_)) ** 1.0 * (1 - .45 * np.clip(tq_ / T, 0, 1)) * (.5 + .5 * sp[:, None]) * (1 + .8 * np.exp(-tq_ / .12))
+    vyy = vy[:, None] + gpx * tq_
+    th = np.arctan2(vyy, vx[:, None] + wind[0] * size * .36 * tear * tq_)
+    L = np.clip(np.hypot(vx[:, None], vyy) * .04, rad * .6, rad * 2.2)
+    keep = (fade > .03).ravel()
     if keep.any():
-        t_ = np.clip(r.uniform(0, .5, n) + np.clip(-np.sin(ang), 0, 1) * 0 + (np.abs(ang + np.pi / 2) > .5) * .35, 0, 1)[:, None]
-        C = c1 * (1 - t_) + c2 * t_
-        cv_img.strokes(P[keep], wd[keep], C[keep].astype(f32), op=np.clip(fade[keep] * .82, 0, 1), dry=np.clip(.15 + .5 * s0[keep], 0, .9), seed=seed, shape='taper', bristle=.06)
+        P = arcs(xs.ravel()[keep], ys.ravel()[keep], th.ravel()[keep], L.ravel()[keep] * 1.6, r.normal(0, .6, keep.sum()), K=5)
+        hgt = np.clip((cy - ys.ravel()[keep]) / (size + 1), 0, 1)[:, None]
+        sh = np.clip(.65 - hgt + r.normal(0, .15, (keep.sum(), 1)), 0, 1)
+        C = c1 * (1 - sh * .6) + c2 * sh * .6
+        cv_img.strokes(P, rad.ravel()[keep], C.astype(f32), op=np.clip(fade.ravel()[keep] * r.uniform(.8, 1.0, keep.sum()), 0, 1), dry=np.clip(.35 + .5 * (1 - fade.ravel()[keep]), 0, .9),
+                       seed=seed, shape='leaf', bristle=.08)
     # drops at the tips
-    m = n * 4
+    m = n * 7
     i = r.integers(0, n, m)
     tq = tt[i] * r.uniform(.8, 1.15, m)
     dx = r.normal(0, size * .06, m) * (1 + 2 * tq); dy = r.normal(0, size * .05, m) * (1 + 2 * tq)

@@ -156,50 +156,84 @@ class Shot:
                 if len(seg) < 3: continue
                 if len(seg) < K: seg = np.r_[seg, [seg[-1]] * (K - len(seg))]
                 cvs.strokes(Q[seg][None], float(np.mean(wd[seg])), np.asarray(cols, f32)[None], op=ops, dry=dry, seed=sd + j, shape=shape, bristle=.06)
-        # paint the curl as one surface: quads between successive rings, hollow first, then the lip
-        lay = np.zeros((H, W, 4), f32)
-        def ring(u, A_, B_, Cc=None):
-            return (1 - u) ** 2 * A_ + 2 * u * (1 - u) * B_ + u * u * Cc if Cc is not None else A_ + (B_ - A_) * u
-        noise = np.clip(1 + .07 * np.cumsum(r.normal(0, .5, (len(idx), 9)), 0) / np.sqrt(np.arange(1, len(idx) + 1))[:, None], .85, 1.15)
-        def quads(rings, cols, op):
-            for kq in range(len(rings) - 1):
-                Ra, Rb = rings[kq], rings[kq + 1]
-                for jj in range(len(idx) - 1):
-                    i0, i1 = idx[jj], idx[jj + 1]
-                    if i1 != i0 + 1: continue
-                    q = np.array([Ra[i0], Ra[i1], Rb[i1], Rb[i0]], np.float32)
-                    cc = np.clip(cols[kq] * noise[jj, kq % 9], 0, 1)
-                    cv2.fillConvexPoly(lay, np.round(q * 4).astype(np.int32), (float(cc[0] * op), float(cc[1] * op), float(cc[2] * op), float(op)), cv2.LINE_8, 2)
-        us = np.linspace(0, 1, 5)
-        quads([ring(u, c0, ph) for u in us], [rgb('#15232b')] * 4, .55 * (.4 + .6 * pr))
-        us = np.linspace(0, 1, 9)
-        cols = []
-        for u in us[:-1]:
-            col = rgb('#36605f') * (1 - u ** 2) + rgb('#9cb9ba') * u ** 2
-            cols.append(rgb('#b3c8c9') * (1 + .1 * (u - .7)) if u > .7 else col)
-        quads([ring(u, c0, pm, pt) for u in us], cols, 1.0)
-        lay = cv2.GaussianBlur(lay, (0, 0), .9)
-        img_l = cvs.img * cvs.a[..., None]
-        # straight over the canvas layer (premultiplied)
-        a_ = lay[..., 3:4]
-        prem = lay[..., :3] + img_l * (1 - a_)
-        cvs.a[:] = lay[..., 3] + cvs.a * (1 - lay[..., 3])
-        cvs.img[:] = np.where(cvs.a[..., None] > 1e-4, prem / np.maximum(cvs.a[..., None], 1e-4), cvs.img)
-        # a few brush marks along the lip so it reads painted
-        K = 5
-        for u, col, wdk in ((.55, rgb('#6f9796'), .10), (.82, rgb('#eef3f4'), .09), (.95, rgb('#f4f7f8'), .06)):
-            Q = ring(u, c0, pm, pt)
-            for jj in range(0, len(idx) - K, 3):
-                seg = idx[jj:jj + K]
-                if seg[-1] - seg[0] != K - 1: continue
-                wd = float(np.mean(np.hypot(*(pt[seg] - c0[seg]).T))) * wdk
-                cvs.strokes(Q[seg][None], max(1.5, wd), col[None], op=.7, dry=.45, seed=jj + int(u * 100), shape='round', bristle=.08)
-        # white water riding the top, torn downwind
-        m = len(idx) * 2
-        i = r.choice(idx, m)
-        x = c0[i, 0] + r.normal(0, 4, m) + sc[i] * .2; y = c0[i, 1] - r.uniform(0, 1, m) * sc[i] * .15
-        Pf = arcs(x, y, r.normal(-.12, .15, m), sc[i] * r.uniform(.15, .45, m), r.normal(0, .3, m), K=4)
-        cvs.strokes(Pf, sc[i] * .05, np.broadcast_to(rgb('#d4dde1'), (m, 3)), op=r.uniform(.4, .85, m), dry=.5, seed=f // 2 + 11, shape='round', bristle=.06)
+        # --- the curl as a body of water: rasterise its rings into an ROI (alpha, u from root to edge, stroke direction),
+        # colour it back-lit deep green at the root, translucent lighter green up the face, then repaint it in gouache
+        allp = np.vstack([c0[idx], pm[idx], pt[idx], ph[idx]])
+        x0 = int(max(0, allp[:, 0].min() - 40)); x1 = int(min(W, allp[:, 0].max() + 40))
+        y0 = int(max(0, allp[:, 1].min() - 40)); y1 = int(min(H, allp[:, 1].max() + 40))
+        if x1 - x0 < 10 or y1 - y0 < 10: return
+        hh, ww = y1 - y0, x1 - x0
+        A = np.zeros((hh, ww), f32); U = np.zeros((hh, ww), f32); AX = np.zeros((hh, ww), f32); AY = np.zeros((hh, ww), f32)
+        HO = np.zeros((hh, ww), f32)
+        o = np.array([x0, y0], f32)
+        def ring(u, A_, B_, C_=None):
+            return (1 - u) ** 2 * A_ + 2 * u * (1 - u) * B_ + u * u * C_ if C_ is not None else A_ + (B_ - A_) * u
+        us = np.linspace(0, 1, 7)
+        Rs = [ring(u, c0, pm, pt) - o for u in us]
+        Hs = [ring(u, c0, ph) - o for u in np.linspace(0, 1, 4)]
+        for kq in range(len(us) - 1):
+            for jj in range(len(idx) - 1):
+                i0, i1 = idx[jj], idx[jj + 1]
+                if i1 != i0 + 1: continue
+                q = np.round(np.array([Rs[kq][i0], Rs[kq][i1], Rs[kq + 1][i1], Rs[kq + 1][i0]]) * 4).astype(np.int32)
+                dv = (Rs[kq + 1][i0] + Rs[kq + 1][i1] - Rs[kq][i0] - Rs[kq][i1]); dv = dv / (np.hypot(*dv) + 1e-6)
+                cv2.fillConvexPoly(A, q, 1.0, cv2.LINE_8, 2)
+                cv2.fillConvexPoly(U, q, float((us[kq] + us[kq + 1]) / 2), cv2.LINE_8, 2)
+                cv2.fillConvexPoly(AX, q, float(dv[0]), cv2.LINE_8, 2); cv2.fillConvexPoly(AY, q, float(dv[1]), cv2.LINE_8, 2)
+        for kq in range(len(Hs) - 1):
+            for jj in range(len(idx) - 1):
+                i0, i1 = idx[jj], idx[jj + 1]
+                if i1 != i0 + 1: continue
+                q = np.round(np.array([Hs[kq][i0], Hs[kq][i1], Hs[kq + 1][i1], Hs[kq + 1][i0]]) * 4).astype(np.int32)
+                cv2.fillConvexPoly(HO, q, 1.0, cv2.LINE_8, 2)
+        if A.max() < .5: return
+        bw = float(np.median(np.hypot(*(pt[idx] - c0[idx]).T))) + 4
+        sm = lambda X, s_: cv2.GaussianBlur(X, (0, 0), s_)
+        Ab = sm(A, max(1., bw * .08)) + 1e-4
+        Us = sm(U * A, max(1., bw * .12)) / Ab
+        ang = np.arctan2(sm(AY * A, bw * .15), sm(AX * A, bw * .15)).astype(f32)
+        if not hasattr(self, '_lipn'):
+            self._lipn = fbm(512, 512, (60, 22, 8), (1, .6, .35), 91).astype(f32)
+        nz_ = self._lipn[np.arange(y0, y1)[:, None] % 512, (np.arange(x0, x1)[None] + int(t * 60)) % 512]
+        tt_ = np.clip(Us + .10 * nz_, 0, 1)
+        from lp.paint import ramp, repaint
+        guide = ramp(tt_, [(0, '#1b3236'), (.3, '#264848'), (.55, '#3b6563'), (.75, '#55827d'), (.9, '#7aa09b'), (1, '#a9c2bf')])
+        hol = sm(HO, max(1.5, bw * .12)) * (1 - sm(A, 1.0))
+        bws = float(np.clip(bw * .07, 2.5, 10))
+        guide = cv2.GaussianBlur(guide, (0, 0), bws * .6)
+        painted = repaint(guide, (bws * 2.4, bws * 1.2), seed=f // 2 + 17, angle=ang, mask=(A > .5).astype(f32), thr=(0, .006), density=1.0,
+                          aspect=5.0, jit=(.003, .008, .012), op=.8, dry=.12, curve=.5, bristle=.05, shape='leaf')
+        a_l = np.clip(sm(A, .9), 0, 1)
+        sub_c = cvs.img[y0:y1, x0:x1]; sub_a = cvs.a[y0:y1, x0:x1]
+        def put(col, a_):
+            na = a_ + sub_a * (1 - a_)
+            sub_c[:] = np.where(na[..., None] > 1e-4, (col * a_[..., None] + sub_c * (sub_a * (1 - a_))[..., None]) / np.maximum(na, 1e-4)[..., None], sub_c)
+            sub_a[:] = na
+        put(np.broadcast_to(rgb('#0f1b23'), (hh, ww, 3)), np.clip(hol * (.6 + .3 * pr), 0, 1))
+        put(painted, a_l)
+        # white water: clumps of different sizes, broken, curling over along the lip, torn off to the right
+        from lp.paint import arcs
+        nc = int(len(idx) * 1.2)
+        ci = r.choice(idx, nc)
+        keepc = r.random(nc) > .3
+        ci = ci[keepc]; nc = len(ci)
+        if nc:
+            uu = r.uniform(.72, 1.0, nc)
+            cen = (1 - uu[:, None]) ** 2 * c0[ci] + 2 * (uu * (1 - uu))[:, None] * pm[ci] + (uu ** 2)[:, None] * pt[ci]
+            csz = sc[ci] * amp * r.uniform(.006, .03, nc) ** 1.0 * (.6 + .8 * pr)
+            m_ = 5
+            xs = (cen[:, 0, None] + r.normal(0, 1, (nc, m_)) * csz[:, None] * 1.1).ravel()
+            ys = (cen[:, 1, None] + r.normal(0, .6, (nc, m_)) * csz[:, None]).ravel()
+            rad = (csz[:, None] * r.uniform(.35, 1.0, (nc, m_))).ravel()
+            Pd = arcs(xs, ys, r.uniform(-.4, .4, xs.size), rad * r.uniform(1.0, 2.2, xs.size), r.normal(0, .4, xs.size), K=4)
+            cc = np.where(r.random((xs.size, 1)) < .3, rgb('#a9bcc0'), rgb('#e6eef0'))
+            cvs.strokes(Pd, rad, cc.astype(f32), op=r.uniform(.6, .95, xs.size), dry=r.uniform(.1, .5, xs.size), seed=f // 2 + 23, shape='round', bristle=.06)
+            # spume torn downwind
+            nt = nc * 2
+            j = r.integers(0, nc, nt)
+            L_ = csz[j] * r.uniform(2.5, 7, nt)
+            Pt = arcs(cen[j, 0] + L_ * .5, cen[j, 1] - L_ * .12, r.normal(-.18, .12, nt), L_, r.normal(.2, .2, nt), K=5)
+            cvs.strokes(Pt, csz[j] * .35, np.broadcast_to(rgb('#d6dfe3'), (nt, 3)), op=r.uniform(.3, .7, nt), dry=r.uniform(.4, .8, nt), seed=f // 2 + 29, shape='taper', bristle=.08)
 
     def _runup(self, img, rka, age, Pw, k):
         """white water running up the ledge from the impact, then draining back down in streaks; the rock stays wet"""
@@ -216,13 +250,13 @@ class Shot:
             self._caps2 = np.clip(fbm(256, 256, (24, 9, 3.5), (1, .6, .35), 78) * .5 + .5, 0, 1).astype(f32)
         if not hasattr(self, '_streak'):
             self._streak = np.clip(fbm(512, 512, (60, 6, 2.5), (1, .6, .4), 77, aspect=.08) * .5 + .5, 0, 1).astype(f32)
+        n = cv2.GaussianBlur(self._caps2[(yy.astype(int) // 3) % 256, (xx.astype(int) // 3) % 256], (0, 0), 2.0)
         front = 520 * (1 - math.exp(-age / .16))
         reach = 520.
-        lead = smooth(front + 40, front - 30, u) * (u > -80)
+        lead = smooth(front + 40, front - 30, u + 70 * (n - .5)) * (u > -80)
         surf = smooth(110, 25, dtop)
-        n = self._caps2[(yy.astype(int) // 3) % 256, (xx.astype(int) // 3) % 256]
         wash = A * lead * surf * float(np.clip(1.1 - age / .9, 0, 1)) * (.35 + .9 * n) * smooth(-80, 40, u)
-        wet = A * smooth(reach + 20, reach - 60, u) * (u > -90) * smooth(170, 40, dtop) * float(min(1, age / .3))
+        wet = A * smooth(reach + 20, reach - 60, u + 90 * (n - .5)) * (u > -90) * smooth(170, 40, dtop) * float(min(1, age / .3))
         # the wet rock: darker, with a cold sheen on the upper planes
         dry = float(np.clip(1 - (age - 1.2) / 4.0, .55, 1))
         sub *= (1 - .22 * wet * dry)[..., None]
